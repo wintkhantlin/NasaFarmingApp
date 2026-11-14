@@ -28,7 +28,7 @@ export interface RegionalPreviewCatalog {
 export interface RegionalPreviewPattern {
   id: string;
   cropIds: string[];
-  crops: Array<{ id: string; english: string; local: string }>;
+  crops: Array<{ id: string; english: string }>;
   rationale: string;
   limitation: string;
   evidenceStatus: PreviewEvidenceStatus;
@@ -108,9 +108,9 @@ export function resolveRegionalPreview(
     if (seen.has(sequenceKey)) continue;
 
     const crops = template.cropIds.map((cropId) => {
-      if (cropId === "fallow") return { id: cropId, english: "Fallow", local: "မစိုက်ဘဲထား" };
+      if (cropId === "fallow") return { id: cropId, english: "Fallow" };
       const crop = getCropById(cropId);
-      return crop ? { id: crop.id, english: crop.names.common, local: crop.names.local[0] ?? crop.names.common } : null;
+      return crop ? { id: crop.id, english: crop.names.common } : null;
     });
     if (crops.some((crop) => crop === null)) continue;
 

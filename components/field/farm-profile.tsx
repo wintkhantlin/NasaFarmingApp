@@ -9,6 +9,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -549,9 +550,6 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
             <TextField label={copy.profile.pumpHoursLabel} value={pumpHours} onChange={(e) => { touch(); setPumpHours(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
           </>
         ) : null}
-        <TextField label={copy.profile.soilDepletionLabel} value={depletionMm} onChange={(e) => { touch(); setDepletionMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-        <TextField label={copy.profile.paddyBundLabel} value={bundMm} onChange={(e) => { touch(); setBundMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-        <TextField label={copy.profile.paddySeepageLabel} value={seepage} onChange={(e) => { touch(); setSeepage(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
         <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
           <legend className="mb-1 inline-flex items-center gap-2 text-label text-ink"><Icon name="equipment" />{copy.profile.equipmentLabel}</legend>
           <div className="flex flex-wrap gap-x-4">
@@ -564,26 +562,33 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
           <Segmented legend={copy.profile.labourLabel} value={(labour || "") as "low" | "medium" | "high"} onChange={(v) => { touch(); setLabour(v); }} options={(["low", "medium", "high"] as const).map((v) => ({ value: v, label: copy.profile.levels[v] }))} />
           <Segmented legend={copy.profile.marketLabel} value={(market || "") as "poor" | "fair" | "good"} onChange={(v) => { touch(); setMarket(v); }} options={(["poor", "fair", "good"] as const).map((v) => ({ value: v, label: copy.profile.levels[v] }))} />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField select label={copy.profile.preferredLabel} value={preferred} onChange={(e) => { touch(); setPreferred(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value); }} size="small" slotProps={{ select: { multiple: true } }}>
-            {cropChoices.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.names.common}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField select label={copy.profile.excludedLabel} value={excluded} onChange={(e) => { touch(); setExcluded(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value); }} size="small" slotProps={{ select: { multiple: true } }}>
-            {cropChoices.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.names.common}
-              </MenuItem>
-            ))}
-          </TextField>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label={copy.profile.windowFrom} value={winFrom} onChange={(e) => { touch(); setWinFrom(e.target.value); }} size="small" placeholder="05-15" />
-          <TextField label={copy.profile.windowTo} value={winTo} onChange={(e) => { touch(); setWinTo(e.target.value); }} size="small" placeholder="07-31" />
-        </div>
+        <Disclosure title="More water and crop details (optional)">
+          <div className="flex flex-col gap-4 pt-1">
+            <TextField label={copy.profile.soilDepletionLabel} value={depletionMm} onChange={(e) => { touch(); setDepletionMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
+            <TextField label={copy.profile.paddyBundLabel} value={bundMm} onChange={(e) => { touch(); setBundMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
+            <TextField label={copy.profile.paddySeepageLabel} value={seepage} onChange={(e) => { touch(); setSeepage(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField select label={copy.profile.preferredLabel} value={preferred} onChange={(e) => { touch(); setPreferred(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value); }} size="small" slotProps={{ select: { multiple: true } }}>
+                {cropChoices.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.names.common}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField select label={copy.profile.excludedLabel} value={excluded} onChange={(e) => { touch(); setExcluded(typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value); }} size="small" slotProps={{ select: { multiple: true } }}>
+                {cropChoices.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.names.common}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label={copy.profile.windowFrom} value={winFrom} onChange={(e) => { touch(); setWinFrom(e.target.value); }} size="small" placeholder="05-15" />
+              <TextField label={copy.profile.windowTo} value={winTo} onChange={(e) => { touch(); setWinTo(e.target.value); }} size="small" placeholder="07-31" />
+            </div>
+          </div>
+        </Disclosure>
       </Panel>
 
       <Panel as="details" id="limits" className="p-4 sm:p-6">
@@ -812,7 +817,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
               <div key={e.cropId} className="flex flex-col gap-3 rounded-md border border-line bg-surface p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="m-0 text-label text-ink">
-                    {crop?.names.common ?? e.cropId} {refEcon?.burmeseName ? `(${refEcon.burmeseName})` : ""}
+                    {crop?.names.common ?? e.cropId}
                   </p>
                   {refEcon?.traditionalUnitNote ? (
                     <span className="text-source text-ink-muted">{refEcon.traditionalUnitNote}</span>

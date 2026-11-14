@@ -14,9 +14,7 @@ import { theme } from "@/lib/theme";
 const LAYER_ORDER = "@layer theme, base, mui, components, utilities;";
 
 export function Providers({ children }: { children: ReactNode }) {
-  const locale = useLocaleStore((s) => s.locale);
   useEffect(() => { useLocaleStore.getState().hydrate(); }, []);
-  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
   const [{ cache, flush }] = useState(() => {
     const cache = createCache({ key: "mui", prepend: true });
     cache.compat = true;

@@ -59,14 +59,11 @@ export function MoistureClockRibbon({
       >
         <div className="flex items-center gap-2 text-label font-semibold text-ink">
           <Icon name="conditions" size={18} className="text-drought" />
-          <span>Moisture Clock (မြေဆီလွှာအစိုဓာတ် ပြက္ခဒိန်)</span>
+          <span>Moisture Clock</span>
         </div>
         <div className="rounded-md border border-drought/30 bg-drought-soft p-3 text-body-sm text-ink">
           <p className="m-0 font-medium text-ink">
             Check topsoil moisture and drainage before sowing
-          </p>
-          <p className="m-0 mt-1 text-source text-ink-muted">
-            စိုက်ပျိုးခြင်းမပြုမီ မြေပြင်အစိုဓာတ်နှင့် ရေနုတ်မြောင်းများကို လက်တွေ့စစ်ဆေးပါ။
           </p>
           <p className="m-0 mt-2 text-source text-ink-muted">
             {result.advisory}
@@ -95,7 +92,7 @@ export function MoistureClockRibbon({
         <div className="flex items-center gap-2">
           <Icon name="conditions" size={18} className="text-field" />
           <span className="text-label font-semibold text-ink">
-            Post-Rice Sowing Window Estimate (ခန့်မှန်းစိုက်ပျိုးချိန်)
+            Post-Rice Sowing Window Estimate
           </span>
         </div>
         <span className="rounded-pill bg-field-soft px-2.5 py-0.5 text-source font-medium text-field">
@@ -144,15 +141,15 @@ export function MoistureClockRibbon({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-source text-ink-muted">
           <span className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded-xs bg-water/40 border border-line" />
-            May still be too wet (ရေဝပ်ဆဲ)
+            May still be too wet
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded-xs bg-healthy" />
-            Field may be ready (စိုက်ပျိုးရန်သင့်တော်)
+            Field may be ready
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded-xs bg-heat/30 border border-line" />
-            May be drying (မြေခြောက်သွေ့ဆဲ)
+            May be drying
           </span>
         </div>
       </div>

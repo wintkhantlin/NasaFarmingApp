@@ -28,12 +28,10 @@ describe("Real-World Crop Economics Module", () => {
   it("retrieves benchmark by ID via getRealWorldCropEconomics", () => {
     const rice = getRealWorldCropEconomics("rice");
     expect(rice).toBeDefined();
-    expect(rice?.burmeseName).toBe("မိုးစပါး / နွေစပါး");
     expect(rice?.priceMmkPerKg).toEqual([950, 1300]);
     expect(rice?.yieldKgHa).toEqual([3200, 4800]);
 
     const blackGram = getRealWorldCropEconomics("black-gram");
-    expect(blackGram?.burmeseName).toBe("မတ်ပဲ");
     expect(blackGram?.priceMmkPerKg).toEqual([3200, 3850]);
 
     const unknown = getRealWorldCropEconomics("unknown-crop" as unknown as (typeof CROPS)[number]["id"]);

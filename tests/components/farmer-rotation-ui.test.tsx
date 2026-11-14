@@ -138,7 +138,6 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
       );
 
       expect(screen.getByText(/Check topsoil moisture and drainage before sowing/i)).toBeInTheDocument();
-      expect(screen.getByText(/မြေပြင်အစိုဓာတ်နှင့် ရေနုတ်မြောင်းများကို လက်တွေ့စစ်ဆေးပါ/i)).toBeInTheDocument();
       expect(screen.queryByText(/~Day 8 to Day 16/i)).toBeNull();
     });
 

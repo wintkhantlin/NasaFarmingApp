@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CheckGlyph, ClockGlyph } from "@/components/ui/icons";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Panel } from "@/components/ui/panel";
 import { SourceLine } from "@/components/ui/source-line";
 import { cn } from "@/lib/cn";
@@ -139,33 +140,31 @@ export default function AboutDataPage() {
 
       <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
 
-      <section aria-labelledby="gloss" className="flex flex-col gap-3">
-        <h2 id="gloss" className="text-headline text-ink">
-          {copy.glossary.title}
-        </h2>
-        <dl className="m-0 grid gap-4 md:grid-cols-2">
-          {copy.glossary.items.map((g) => (
-            <Panel as="div" key={g.term} className="flex flex-col gap-1 p-4">
-              <dt className="text-label text-ink">{g.term}</dt>
-              <dd className="m-0 text-body-sm text-ink-muted">{g.body}</dd>
-            </Panel>
-          ))}
-        </dl>
-      </section>
+      <Disclosure title={copy.glossary.title}>
+        <div className="pt-1">
+          <dl className="m-0 grid gap-4 md:grid-cols-2">
+            {copy.glossary.items.map((g) => (
+              <Panel as="div" key={g.term} className="flex flex-col gap-1 p-4">
+                <dt className="text-label text-ink">{g.term}</dt>
+                <dd className="m-0 text-body-sm text-ink-muted">{g.body}</dd>
+              </Panel>
+            ))}
+          </dl>
+        </div>
+      </Disclosure>
 
-      <section aria-labelledby="ground" className="flex flex-col gap-3">
-        <h2 id="ground" className="text-headline text-ink">
-          {copy.glossary.satelliteVsGround.title}
-        </h2>
-        <dl className="m-0 grid gap-4 md:grid-cols-2">
-          {copy.glossary.satelliteVsGround.items.map((g) => (
-            <Panel as="div" key={g.term} className="flex flex-col gap-1 p-4">
-              <dt className="text-label text-ink">{g.term}</dt>
-              <dd className="m-0 text-body-sm text-ink-muted">{g.body}</dd>
-            </Panel>
-          ))}
-        </dl>
-      </section>
+      <Disclosure title={copy.glossary.satelliteVsGround.title}>
+        <div className="pt-1">
+          <dl className="m-0 grid gap-4 md:grid-cols-2">
+            {copy.glossary.satelliteVsGround.items.map((g) => (
+              <Panel as="div" key={g.term} className="flex flex-col gap-1 p-4">
+                <dt className="text-label text-ink">{g.term}</dt>
+                <dd className="m-0 text-body-sm text-ink-muted">{g.body}</dd>
+              </Panel>
+            ))}
+          </dl>
+        </div>
+      </Disclosure>
 
       <p className="m-0 max-w-measure text-body-sm text-ink-muted">
         Region boundaries for Ayeyarwady, Magway and Shan State: geoBoundaries gbOpen (2019), CC BY 4.0, simplified. They decide which crop rules apply and are not a legal boundary. Crop values are listed with their sources on the{" "}

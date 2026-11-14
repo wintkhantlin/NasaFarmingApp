@@ -34,49 +34,37 @@ type Step = 1 | 2 | 3 | 4 | 5;
 const PRIORITY_OPTIONS: Array<{
   id: FarmerTopPriority;
   titleEn: string;
-  titleMy: string;
   descEn: string;
-  descMy: string;
   icon: string;
 }> = [
   {
     id: "profit",
     titleEn: "Earn more",
-    titleMy: "ဝင်ငွေပိုရရှိရန်",
     descEn: "Maximize seasonal gross margin with high-value crops",
-    descMy: "စျေးကွက်ဝင်သီးနှံများဖြင့် ဝင်ငွေအများဆုံးရရှိစေရန်",
     icon: "trends",
   },
   {
     id: "low_water",
     titleEn: "Use less water",
-    titleMy: "ရေလိုအပ်ချက်နည်းရန်",
     descEn: "Target drought-tolerant crops requiring minimal irrigation",
-    descMy: "ရေသွင်းနည်းသော မိုးခေါင်ဒဏ်ခံသီးနှံများ စိုက်ပျိုးရန်",
     icon: "water",
   },
   {
     id: "low_cash",
     titleEn: "Spend less upfront",
-    titleMy: "စိုက်ထုတ်ငွေနည်းရန်",
     descEn: "Keep seed, fertilizer, and tractor costs low",
-    descMy: "မျိုးစေ့၊ မြေသြဇာနှင့် လုပ်အားခကုန်ကျစရိတ် ချွေတာရန်",
     icon: "cost",
   },
   {
     id: "reliable_harvest",
     titleEn: "Lower risk / reliable",
-    titleMy: "ဆုံးရှုံးနိုင်ခြေနည်းရန်",
     descEn: "Proven staple varieties with predictable local yields",
-    descMy: "ရာသီဥတုဖောက်ပြန်မှုဒဏ်ခံနိုင်ပြီး အထွက်နှုန်းတည်ငြိမ်စေရန်",
     icon: "done",
   },
   {
     id: "soil_improvement",
     titleEn: "Keep soil healthy",
-    titleMy: "မြေဆီလွှာကောင်းမွန်ရန်",
     descEn: "Rotate nitrogen-fixing legumes and maintain soil cover",
-    descMy: "နိုက်ထရိုဂျင်ဖြည့်ပေးသော ပဲမျိုးစုံဖြင့် မြေဆီလွှာထိန်းသိမ်းရန်",
     icon: "rotation",
   },
 ];
@@ -120,7 +108,6 @@ export function FarmerGuidedFlow({
   const candidates: Array<{
     id: string;
     title: string;
-    titleMy: string;
     rotation: Rotation;
     feasibility: CandidateFeasibility;
     estimatedMarginMmkHa: [number, number];
@@ -137,7 +124,7 @@ export function FarmerGuidedFlow({
     const ricePulseRot: Rotation = {
       id: "plan-pulse",
       fieldId: field.id,
-      label: "Rice -> Black Gram (မိုးစပါး - မတ်ပဲ)",
+      label: "Rice -> Black Gram",
       cycleYears: 1,
       source: "strategy",
       slots: [
@@ -164,11 +151,11 @@ export function FarmerGuidedFlow({
       ],
     };
 
-    // Option 2: Monsoon Rice -> Post-monsoon Sesame (မိုးစပါး - နှမ်း)
+    // Option 2: Monsoon Rice -> Post-monsoon Sesame
     const riceSesameRot: Rotation = {
       id: "plan-sesame",
       fieldId: field.id,
-      label: "Rice -> Sesame (မိုးစပါး - နှမ်း)",
+      label: "Rice -> Sesame",
       cycleYears: 1,
       source: "strategy",
       slots: [
@@ -199,7 +186,7 @@ export function FarmerGuidedFlow({
     const doubleRiceRot: Rotation = {
       id: "plan-double-rice",
       fieldId: field.id,
-      label: "Rice -> Summer Rice (မိုးစပါး - နွေစပါး)",
+      label: "Rice -> Summer Rice",
       cycleYears: 1,
       source: "strategy",
       slots: [
@@ -256,8 +243,7 @@ export function FarmerGuidedFlow({
     return [
       {
         id: "plan-pulse",
-        title: "Rice → Black Gram (မိုးစပါး - မတ်ပဲ)",
-        titleMy: "မိုးစပါး - မတ်ပဲ သီးလှည့်စိုက်ပျိုးနည်း",
+        title: "Rice → Black Gram",
         rotation: ricePulseRot,
         feasibility: pulseFeas,
         estimatedMarginMmkHa: pulseMargin.grossMarginMmkHa,
@@ -270,8 +256,7 @@ export function FarmerGuidedFlow({
       },
       {
         id: "plan-sesame",
-        title: "Rice → Sesame (မိုးစပါး - နှမ်း)",
-        titleMy: "မိုးစပါး - နှမ်း သီးလှည့်စိုက်ပျိုးနည်း",
+        title: "Rice → Sesame",
         rotation: riceSesameRot,
         feasibility: sesameFeas,
         estimatedMarginMmkHa: sesameMargin.grossMarginMmkHa,
@@ -284,8 +269,7 @@ export function FarmerGuidedFlow({
       },
       {
         id: "plan-double-rice",
-        title: "Rice → Summer Rice (မိုးစပါး - နွေစပါး)",
-        titleMy: "မိုးစပါး - နွေစပါး သီးထပ်စိုက်ပျိုးနည်း",
+        title: "Rice → Summer Rice",
         rotation: doubleRiceRot,
         feasibility: doubleRiceFeas,
         estimatedMarginMmkHa: summerRiceMargin.grossMarginMmkHa,
@@ -326,11 +310,11 @@ export function FarmerGuidedFlow({
               {step}
             </span>
             <span className="text-headline text-ink font-semibold">
-              {step === 1 && "Step 1: Your Field (လယ်မြေအချက်အလက်)"}
-              {step === 2 && "Step 2: Tell Us About Your Farm (စိုက်ပျိုးရေးအခြေအနေ)"}
-              {step === 3 && "Step 3: What's Most Important? (ဦးစားပေးရွေးချယ်မှု)"}
-              {step === 4 && "Step 4: Compare Rotations (သီးလှည့်အစီအစဉ်များ နှိုင်းယှဉ်ချက်)"}
-              {step === 5 && "Step 5: My Plan & Field Checklist (စိုက်ပျိုးမည့်အစီအစဉ်)"}
+              {step === 1 && "Step 1: Your Field"}
+              {step === 2 && "Step 2: Tell Us About Your Farm"}
+              {step === 3 && "Step 3: What's Most Important?"}
+              {step === 4 && "Step 4: Compare Rotations"}
+              {step === 5 && "Step 5: My Plan & Field Checklist"}
             </span>
           </div>
 
@@ -364,7 +348,7 @@ export function FarmerGuidedFlow({
         <Panel as="section" className="flex flex-col gap-5 p-4 sm:p-6">
           <div className="flex flex-col gap-1">
             <h2 className="m-0 text-headline text-ink font-semibold">
-              Confirm your field details (လယ်မြေစစ်ဆေးခြင်း)
+              Confirm your field details
             </h2>
             <p className="m-0 text-body-sm text-ink-muted">
               We tailor crop dates and water availability to your field location and soil.
@@ -379,11 +363,11 @@ export function FarmerGuidedFlow({
             <div>
               <span className="text-source text-ink-muted">Region</span>
               <p className="m-0 text-label font-semibold text-ink capitalize">
-                {field.region ?? "Ayeyarwady Delta (ဧရာဝတီတိုင်း)"}
+                {field.region ?? "Ayeyarwady Delta"}
               </p>
             </div>
             <div>
-              <span className="text-source text-ink-muted">Field Size (ယူနစ်)</span>
+              <span className="text-source text-ink-muted">Field Size</span>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-label font-semibold text-ink">
                   {areaDisplay ?? "Unspecified"}
@@ -420,7 +404,7 @@ export function FarmerGuidedFlow({
         <Panel as="section" className="flex flex-col gap-6 p-4 sm:p-6">
           <div className="flex flex-col gap-1">
             <h2 className="m-0 text-headline text-ink font-semibold">
-              Tell us about your farm (စိုက်ပျိုးရေးအခြေအနေ)
+              Tell us about your farm
             </h2>
             <p className="m-0 text-body-sm text-ink-muted">
               Pre-filled from your field profile. Change anything or choose &apos;Unknown&apos;.
@@ -430,14 +414,14 @@ export function FarmerGuidedFlow({
           {/* Water Access */}
           <div className="flex flex-col gap-2">
             <p className="text-label font-semibold text-ink">
-              1. Dry season water access (နွေရာသီရေရရှိနိုင်မှု)
+              1. Dry season water access
             </p>
             <div className="grid gap-2 sm:grid-cols-4">
               {[
-                { id: "rainfed", label: "Rainfed only", sub: "မိုးကောင်းသောက် (ရေမသွင်းနိုင်)" },
-                { id: "occasional_irrigation", label: "Occasional irrigation", sub: "ရေ ၁-၂ ကြိမ်သွင်းနိုင်" },
-                { id: "reliable_irrigation", label: "Reliable irrigation", sub: "မြောင်းရေ/စက်ရေအပြည့်" },
-                { id: "unknown", label: "Unknown / Not sure", sub: "မသေချာပါ" },
+                { id: "rainfed", label: "Rainfed only" },
+                { id: "occasional_irrigation", label: "Occasional irrigation" },
+                { id: "reliable_irrigation", label: "Reliable irrigation" },
+                { id: "unknown", label: "Unknown / Not sure" },
               ].map((opt) => (
                 <Pressable
                   key={opt.id}
@@ -450,7 +434,6 @@ export function FarmerGuidedFlow({
                   )}
                 >
                   <span className="text-body-sm font-semibold">{opt.label}</span>
-                  <span className="text-source text-ink-muted mt-0.5">{opt.sub}</span>
                 </Pressable>
               ))}
             </div>
@@ -459,14 +442,14 @@ export function FarmerGuidedFlow({
           {/* Equipment & Labor */}
           <div className="flex flex-col gap-2">
             <label className="text-label font-semibold text-ink">
-              2. Available machinery / labor (စက်ယန္တရားနှင့် လုပ်သား)
+              2. Available machinery / labor
             </label>
             <div className="grid gap-2 sm:grid-cols-4">
               {[
-                { id: "tractor_tiller", label: "Power tiller / tractor", sub: "ထွန်စက်/လက်တွန်းထွန်စက်" },
-                { id: "manual", label: "Manual labor only", sub: "လူအားသက်သက်" },
-                { id: "seeder", label: "Direct seeder / drill", sub: "အစေ့ချကိရိယာ" },
-                { id: "unknown", label: "Unknown / Other", sub: "အခြား / မသေချာ" },
+                { id: "tractor_tiller", label: "Power tiller / tractor" },
+                { id: "manual", label: "Manual labor only" },
+                { id: "seeder", label: "Direct seeder / drill" },
+                { id: "unknown", label: "Unknown / Other" },
               ].map((opt) => (
                 <Pressable
                   key={opt.id}
@@ -479,7 +462,6 @@ export function FarmerGuidedFlow({
                   )}
                 >
                   <span className="text-body-sm font-semibold">{opt.label}</span>
-                  <span className="text-source text-ink-muted mt-0.5">{opt.sub}</span>
                 </Pressable>
               ))}
             </div>
@@ -488,11 +470,11 @@ export function FarmerGuidedFlow({
           {/* Budget Limit (Optional) */}
           <div className="flex flex-col gap-2">
             <label className="text-label font-semibold text-ink">
-              3. Cash budget limit per acre (စိုက်ထုတ်ငွေကန့်သတ်ချက် - ထည့်သွင်းရန် မလိုပါ)
+              3. Cash budget limit per acre
             </label>
             <ButtonRow layout="wrap" min="12rem">
               {[
-                { val: null, label: "No strict limit (ကန့်သတ်ချက်မရှိ)" },
+                { val: null, label: "No strict limit" },
                 { val: 600000, label: "Under 600,000 MMK/acre" },
                 { val: 1000000, label: "Under 1,000,000 MMK/acre" },
               ].map((opt, i) => (
@@ -530,7 +512,7 @@ export function FarmerGuidedFlow({
         <Panel as="section" className="flex flex-col gap-6 p-4 sm:p-6">
           <div className="flex flex-col gap-1">
             <h2 className="m-0 text-headline text-ink font-semibold">
-              What&apos;s most important to you? (သင့်အတွက် အရေးကြီးဆုံးအချက်များ)
+              What&apos;s most important to you?
             </h2>
             <p className="m-0 text-body-sm text-ink-muted">
               Choose your top 1 or 2 priorities. We reorder the best rotations to match.
@@ -563,7 +545,6 @@ export function FarmerGuidedFlow({
                       </span>
                     ) : null}
                   </div>
-                  <p className="m-0 text-body-sm text-ink font-medium">{opt.titleMy}</p>
                   <p className="m-0 text-source text-ink-muted">{opt.descEn}</p>
                 </Pressable>
               );
@@ -592,7 +573,7 @@ export function FarmerGuidedFlow({
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-1">
             <h2 className="m-0 text-headline text-ink font-semibold">
-              Compare 3 Candidate Rotations (သီးလှည့်အစီအစဉ်များ နှိုင်းယှဉ်ချက်)
+              Compare 3 Candidate Rotations
             </h2>
             <p className="m-0 text-body-sm text-ink-muted">
               Evaluated using verified crop physiology, local market economics, and satellite climate context.
@@ -649,7 +630,6 @@ export function FarmerGuidedFlow({
 
                     <div>
                       <h3 className="m-0 text-headline font-bold text-ink">{cand.title}</h3>
-                      <p className="m-0 mt-0.5 text-source text-ink-muted font-medium">{cand.titleMy}</p>
                     </div>
 
                     {/* Financial Range */}
@@ -758,7 +738,7 @@ export function FarmerGuidedFlow({
             <div className="flex items-center gap-2">
               <Icon name="done" size={18} className="text-field" />
               <span className="text-label font-semibold text-ink">
-                Pre-Planting Field Checklist (စိုက်ပျိုးမီ လက်တွေ့စစ်ဆေးရမည့်အချက်များ)
+                Pre-Planting Field Checklist
               </span>
             </div>
             <ul className="m-0 flex flex-col gap-1.5 pl-5 text-body-sm text-ink">
@@ -800,7 +780,7 @@ export function FarmerGuidedFlow({
                 }}
                 className="min-h-tap"
               >
-                {savingPlan ? "Saving plan…" : "Save this plan (သိမ်းဆည်းမည်)"}
+                {savingPlan ? "Saving plan…" : "Save this plan"}
               </Button>
             </div>
             {saveMessage ? <p role="status" className="text-body-sm">{saveMessage}</p> : null}

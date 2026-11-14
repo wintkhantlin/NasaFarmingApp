@@ -16,18 +16,12 @@ vi.mock("@/lib/store/fields-store", () => ({
 describe("SettingsView", () => {
   beforeEach(() => {
     localStorage.clear();
-    useLocaleStore.setState({ locale: "en", areaUnit: "ha", hydrated: true });
+    useLocaleStore.setState({ areaUnit: "ha", hydrated: true });
   });
 
-  it("has keyboard-operable language and unit controls, with browser-only privacy copy", () => {
+  it("has keyboard-operable unit controls, with browser-only privacy copy", () => {
     render(<SettingsView />);
 
-    const myanmar = screen.getByRole("button", { name: "မြန်မာ" });
-    myanmar.focus();
-    fireEvent.keyDown(myanmar, { key: "Enter" });
-    fireEvent.click(myanmar);
-
-    expect(myanmar).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Acres" }));
     expect(screen.getByRole("button", { name: "Acres" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/No account and no server backup are used/)).toBeInTheDocument();

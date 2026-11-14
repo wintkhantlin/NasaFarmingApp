@@ -45,7 +45,7 @@ test("new farmer can preview, edit water, resume and export a local backup", asy
   await page.getByLabel("Village or township").fill("Bogale");
   await page.getByRole("button", { name: /Ayeyarwady Rice/ }).click();
   await page.getByRole("button", { name: "Use this typed place" }).click();
-  await page.getByRole("button", { name: "Rice ဆန်", exact: true }).click();
+  await page.getByRole("button", { name: "Rice", exact: true }).click();
   await expect(page.getByText("Regional preview", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Water: Not set" }).click();
   await page.getByLabel("Rain only", { exact: true }).check();

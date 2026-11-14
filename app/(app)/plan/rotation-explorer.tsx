@@ -442,7 +442,6 @@ function CropStep({
               </span>
               <span>
                 <span className="block text-headline text-ink">{crop.names.common}</span>
-                <span lang="my" className="mt-1 block text-body-sm text-ink-muted">{crop.names.local[0] ?? "ဒေသအမည် မရှိသေးပါ"}</span>
               </span>
             </Pressable>
           </li>
@@ -506,7 +505,7 @@ function PreviewStep({
                       {pattern.crops.map((crop, cropIndex) => (
                         <span key={`${pattern.id}-${crop.id}`} className="inline-flex items-center gap-2">
                           {cropIndex > 0 ? <Icon name="next" size={16} className="text-ink-muted" /> : null}
-                          <span>{crop.english} <span lang="my" className="font-normal text-ink-muted">({crop.local})</span></span>
+                          <span>{crop.english}</span>
                         </span>
                       ))}
                     </h3>

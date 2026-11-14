@@ -104,7 +104,7 @@
 }
 
 @theme inline {
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, var(--font-myanmar), sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
@@ -145,11 +145,6 @@ body {
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
-  }
-
-  /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3) */
-  :lang(my) {
-    line-height: 1.7;
   }
 
   :focus-visible {

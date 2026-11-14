@@ -28,7 +28,7 @@ describe("Plan first-run regional preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use this typed place" }));
 
     expect(await screen.findByRole("heading", { name: "What is your main monsoon crop?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Rice/ })).toHaveTextContent("ဆန်");
+    expect(screen.getByRole("button", { name: /Rice/ })).toHaveTextContent("Rice");
     fireEvent.click(screen.getByRole("button", { name: /Rice/ }));
 
     expect(await screen.findByText("Regional preview")).toBeInTheDocument();

@@ -784,12 +784,11 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                           {copy.rotation.selectCropPrompt}
                         </MenuItem>
                         {CROPS.map((c) => {
-                          const local = c.names.local?.[0] ? ` (${c.names.local[0]})` : "";
                           const ref = c.scope === "reference-only" ? " (reference only)" : "";
                           return (
                             <MenuItem key={c.id} value={c.id}>
                               <span className="flex items-baseline gap-1.5">
-                                <span>{c.names.common}{local}{ref}</span>
+                                <span>{c.names.common}{ref}</span>
                                 <span className="text-source text-ink-muted">({c.family})</span>
                               </span>
                             </MenuItem>
@@ -892,9 +891,9 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                             size="small"
                             fullWidth
                           >
-                            <MenuItem value="tillage">Conventional Tillage (ထွန်ယက်စိုက်ပျိုး)</MenuItem>
-                            <MenuItem value="zero_till">Zero-till / Min Till (အထွန်မပါ အစေ့ချ)</MenuItem>
-                            <MenuItem value="relay_broadcast">Relay Broadcast (ရည်ပျံကြဲ)</MenuItem>
+                            <MenuItem value="tillage">Conventional Tillage</MenuItem>
+                            <MenuItem value="zero_till">Zero-till / Min Till</MenuItem>
+                            <MenuItem value="relay_broadcast">Relay Broadcast</MenuItem>
                             <MenuItem value="unknown">Unknown</MenuItem>
                           </TextField>
 
@@ -906,10 +905,10 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                             size="small"
                             fullWidth
                           >
-                            <MenuItem value="retain_incorporate">Incorporate in Soil (ရိုးပြတ်ထွန်မြှုပ်)</MenuItem>
-                            <MenuItem value="retain_mulch">Surface Mulch (အပေါ်ယံဖုံးအုပ်)</MenuItem>
-                            <MenuItem value="remove_fodder">Remove for Fodder (တိရစ္ဆာန်အစာ ရိတ်သိမ်း)</MenuItem>
-                            <MenuItem value="burn">Burn Residue (မီးရှို့ဖျက်ဆီး)</MenuItem>
+                            <MenuItem value="retain_incorporate">Incorporate in Soil</MenuItem>
+                            <MenuItem value="retain_mulch">Surface Mulch</MenuItem>
+                            <MenuItem value="remove_fodder">Remove for Fodder</MenuItem>
+                            <MenuItem value="burn">Burn Residue</MenuItem>
                             <MenuItem value="unknown">Unknown</MenuItem>
                           </TextField>
 
@@ -925,9 +924,9 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                             size="small"
                             fullWidth
                           >
-                            <MenuItem value="adequate">Adequate / Good (ရေစစ်ကောင်း)</MenuItem>
-                            <MenuItem value="waterlogged">Waterlogged / Slow (ရေဝပ်လွယ်)</MenuItem>
-                            <MenuItem value="dry">Rapid Dry (မြေခြောက်မြန်)</MenuItem>
+                            <MenuItem value="adequate">Adequate / Good</MenuItem>
+                            <MenuItem value="waterlogged">Waterlogged / Slow</MenuItem>
+                            <MenuItem value="dry">Rapid Dry</MenuItem>
                             <MenuItem value="unknown">Unknown</MenuItem>
                           </TextField>
                         </div>

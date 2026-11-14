@@ -2,8 +2,8 @@
  * Unit conversions and formatting helpers for Myanmar and international agricultural contexts.
  *
  * In Myanmar:
- * - Land is commonly measured in acres (ဧက): 1 hectare = 2.47105 acres.
- * - Paddy (unhusked rice) is measured in baskets (တင်း): 1 basket ≈ 20.865 kg (46 lbs).
+ * - Land is commonly measured in acres: 1 hectare = 2.47105 acres.
+ * - Paddy (unhusked rice) is measured in baskets: 1 basket ≈ 20.865 kg (46 lbs).
  * - Pulses/beans are often measured in baskets (approx 31.8 kg / 70 lbs for black gram/chickpea).
  */
 

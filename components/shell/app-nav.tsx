@@ -76,10 +76,8 @@ export function HeaderNav() {
 export function SettingsButton() {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const locale = useLocaleStore((s) => s.locale);
   const areaUnit = useLocaleStore((s) => s.areaUnit);
   const hydrate = useLocaleStore((s) => s.hydrate);
-  const toggleLocale = useLocaleStore((s) => s.toggleLocale);
   const toggleAreaUnit = useLocaleStore((s) => s.toggleAreaUnit);
 
   useEffect(() => {
@@ -125,12 +123,6 @@ export function SettingsButton() {
                 title="Area unit"
                 value={areaUnit === "ha" ? "Hectares" : "Acres"}
                 onClick={toggleAreaUnit}
-              />
-              <SettingRow
-                icon="language"
-                title="Language"
-                value={locale === "en" ? "English" : "မြန်မာ"}
-                onClick={toggleLocale}
               />
             </ul>
             <div className="mx-4 mt-2 border-t border-line pt-1">

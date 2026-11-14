@@ -4,21 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import { Button, ButtonRow } from "@/components/ui/button";
 import { downloadJson } from "@/lib/download";
 import { useFieldsStore } from "@/lib/store/fields-store";
-import { useLocaleStore, type AreaUnit, type Locale } from "@/lib/store/locale-store";
+import { useLocaleStore, type AreaUnit } from "@/lib/store/locale-store";
 
-const bilingual = {
-  language: "Language / ဘာသာစကား",
-  units: "Area unit / ဧရိယာယူနစ်",
-  backup: "Backup and restore / သိမ်းဆည်းပြီး ပြန်ထည့်ရန်",
-  privacy: "Privacy / ကိုယ်ရေးလုံခြုံမှု",
+const headings = {
+  units: "Area unit",
+  backup: "Backup and restore",
+  privacy: "Privacy",
 };
 
 /** Device-only preferences and the existing repository backup workflow. */
 export function SettingsView() {
-  const locale = useLocaleStore((s) => s.locale);
   const areaUnit = useLocaleStore((s) => s.areaUnit);
   const hydrateLocale = useLocaleStore((s) => s.hydrate);
-  const setLocale = useLocaleStore((s) => s.setLocale);
   const setAreaUnit = useLocaleStore((s) => s.setAreaUnit);
   const exportBackup = useFieldsStore((s) => s.exportBackup);
   const importBackup = useFieldsStore((s) => s.importBackup);
@@ -64,19 +61,13 @@ export function SettingsView() {
         <p className="max-w-measure text-body text-ink-muted">Choose how Field Shift is shown and keep a private copy of work saved in this browser.</p>
       </header>
 
-      <section aria-labelledby="language-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
-        <h2 id="language-settings" className="text-headline text-ink">{bilingual.language}</h2>
-        <OptionGroup<Locale> label="Display language" value={locale} options={[['en', 'English'], ['my', 'မြန်မာ']]} onChange={setLocale} />
-        <p className="m-0 text-source text-ink-muted">Myanmar farmer-facing words need agricultural language review. English remains available if text is hard to read.</p>
-      </section>
-
       <section aria-labelledby="unit-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
-        <h2 id="unit-settings" className="text-headline text-ink">{bilingual.units}</h2>
+        <h2 id="unit-settings" className="text-headline text-ink">{headings.units}</h2>
         <OptionGroup<AreaUnit> label="Show field area in" value={areaUnit} options={[['ha', 'Hectares'], ['acre', 'Acres']]} onChange={setAreaUnit} />
       </section>
 
       <section aria-labelledby="backup-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
-        <h2 id="backup-settings" className="text-headline text-ink">{bilingual.backup}</h2>
+        <h2 id="backup-settings" className="text-headline text-ink">{headings.backup}</h2>
         <p className="m-0 max-w-measure text-body-sm text-ink-muted">Version 3 backups include fields, saved rotations and your Plan draft. Restore adds records and replaces matching IDs and the included Plan draft. Keep the file private.</p>
         <ButtonRow>
           <Button variant="secondary" onClick={() => void exportData()} disabled={busy !== null} icon="download">
@@ -91,7 +82,7 @@ export function SettingsView() {
       </section>
 
       <section aria-labelledby="privacy-settings" className="flex flex-col gap-3 rounded-md bg-surface-sunken p-4 sm:p-5">
-        <h2 id="privacy-settings" className="text-headline text-ink">{bilingual.privacy}</h2>
+        <h2 id="privacy-settings" className="text-headline text-ink">{headings.privacy}</h2>
         <ul className="m-0 flex max-w-measure list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
           <li>Field names, crop history and preferences stay in this browser. Clearing browser data or using a shared device can expose or remove them.</li>
           <li>Location or field outlines may be sent to map and data providers only when a feature needs them. This settings page sends nothing.</li>
