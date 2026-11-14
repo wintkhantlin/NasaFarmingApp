@@ -20,12 +20,12 @@ import { slot, rotation, syntheticField, syntheticWeather } from "../helpers/syn
 import type { ImergDay } from "../../lib/nasa/imerg";
 
 describe("regions", () => {
-  test("a point resolves to its region, and one outside the three is unsupported", () => {
+  test("a point resolves to its regional catalog or Myanmar national coverage", () => {
     expect(regionOfPoint([94.95, 20.15])).toBe("magway");
     expect(regionOfPoint([94.73, 16.78])).toBe("ayeyarwady"); // Pathein
     expect(regionOfPoint([97.04, 20.78])).toBe("shan"); // Taunggyi
     expect(regionOfPoint([36.8, -1.3])).toBe("unsupported"); // Nairobi
-    expect(regionOfPoint([96.16, 16.8])).toBe("unsupported"); // Yangon region is not one of the three
+    expect(regionOfPoint([96.16, 16.8])).toBe("myanmar"); // Yangon has national coverage without a regional catalog
   });
 
   test("a polygon that crosses a boundary is flagged", () => {

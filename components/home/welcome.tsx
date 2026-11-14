@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/shell/brand-mark";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,11 @@ const LANGS: Array<{ value: Locale; label: string }> = [
 export function Welcome() {
   const router = useRouter();
   const locale = useLocaleStore((s) => s.locale);
+  const hydrateLocale = useLocaleStore((s) => s.hydrate);
   const setLocale = useLocaleStore((s) => s.setLocale);
   const accept = useSettingsStore((s) => s.acceptDataNotice);
   const [offline, setOffline] = useState(false);
+  useEffect(() => hydrateLocale(), [hydrateLocale]);
   useEffect(() => {
     const sync = () => setOffline(!navigator.onLine);
     sync();
@@ -37,7 +40,7 @@ export function Welcome() {
       <div className="flex flex-col items-center gap-2 text-center">
         <BrandMark />
         <h1 className="text-title text-ink">{copy.app.name}</h1>
-        <p className="m-0 text-body text-ink-muted">See how crop rotations did in past seasons at your field</p>
+        <p className="m-0 text-body text-ink-muted">Explore crop rotation options using past weather, soil information and your experience.</p>
       </div>
 
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
@@ -55,14 +58,14 @@ export function Welcome() {
       <section aria-labelledby="notice" className="flex flex-col gap-3">
         <h2 id="notice" className="sr-only">Your data</h2>
         <div>
-          <h3 className="m-0 text-headline text-ink">What stays on this phone</h3>
+          <h3 className="m-0 text-headline text-ink">What stays on this phone / ဖုန်းထဲတွင်သာ သိမ်းထားသည်</h3>
           <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
             <li>Your fields, crops and soil tests</li>
             <li>Your priorities and limits</li>
           </ul>
         </div>
         <div>
-          <h3 className="m-0 text-headline text-ink">What is sent</h3>
+          <h3 className="m-0 text-headline text-ink">What may leave the phone / ဖုန်းမှ ထွက်သွားနိုင်သည်</h3>
           <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
             <li>Field location, to NASA, ISRIC and Microsoft data services</li>
           </ul>
@@ -73,7 +76,7 @@ export function Welcome() {
             If Myanmar text looks wrong, your phone may use an older Myanmar font. Switch to Unicode for correct text.
           </p>
         ) : null}
-        <a href="/learn" className="inline-flex min-h-tap items-center text-label text-field">Read more</a>
+        <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">Learn about data / ဒေတာအကြောင်း လေ့လာရန်</Link>
       </section>
 
       <div className="mt-auto">

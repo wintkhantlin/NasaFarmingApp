@@ -20,7 +20,7 @@ const info = (s: RemoteState<unknown> | undefined): RemoteInfo => ({
  */
 export function buildEngineData(field: Field, conditions: ConditionsData | null, remote: RemoteData | null): EngineData {
   const weather = conditions?.weather ?? null;
-  const region = field.region ?? checkRegion(field.geometry, field.centroid).region;
+  const region = field.region && field.region !== "unsupported" ? field.region : checkRegion(field.geometry, field.centroid).region;
   const imerg = conditions?.imerg;
   return {
     field,

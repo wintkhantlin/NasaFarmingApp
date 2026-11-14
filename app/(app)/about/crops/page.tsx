@@ -13,10 +13,10 @@ export default function CropLibraryPage() {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="text-title text-ink sm:text-display">Crop library</h1>
+        <h1 className="text-title text-ink sm:text-display">Crop guide / သီးနှံလမ်းညွှန်</h1>
         <p className="max-w-measure text-body text-ink-muted">
-          Version {CROP_LIBRARY_VERSION}. These are species-level starting values, not rules checked for a variety. Each value shows how it was sourced.
-          A value marked as a starting value should be replaced by a local agronomist&apos;s number.
+          Version {CROP_LIBRARY_VERSION}. This guide names crops the model can describe. It is species-level reference information, not a promise that a crop suits your field or variety.
+          Check season, seed, buyer and variety locally before deciding.
         </p>
         <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-body-sm text-ink-muted">
           {REGION_IDS.map((r) => (
@@ -36,20 +36,20 @@ export default function CropLibraryPage() {
           return (
             <Panel as="article" key={c.id} className="flex flex-col gap-3 p-4 sm:p-5">
               <div className="flex flex-col gap-0.5">
-                <h2 className="text-headline text-ink">{c.names.common}</h2>
+                <h2 className="text-headline text-ink">{c.names.common}{c.names.local.length ? <span className="block text-body text-ink-muted">{c.names.local.join(" · ")}</span> : null}</h2>
                 <p className="m-0 text-body-sm text-ink-muted">
                   <em>{c.names.scientific}</em> · {c.family} · cycle {c.cycleDays.min} to {c.cycleDays.max} days (usual {c.cycleDays.typ})
                 </p>
               </div>
               <dl className="m-0 flex flex-col gap-2 text-body-sm">
                 {([
-                  ["Air temperature", `preferred ${p.tempC.optMin.value} to ${p.tempC.optMax.value} °C, tolerated ${p.tempC.absMin.value} to ${p.tempC.absMax.value} °C`, p.tempC.optMin.scope],
+                  ["What to consider", `Temperature reference ${p.tempC.optMin.value} to ${p.tempC.optMax.value} °C; confirm local variety and season.`, p.tempC.optMin.scope],
                   ["Soil pH", `preferred ${p.ph.optMin.value} to ${p.ph.optMax.value}, tolerated ${p.ph.absMin.value} to ${p.ph.absMax.value}`, p.ph.optMin.scope],
                   ["Annual rain (ecology only)", `${p.ecologyAnnualRainMm.value[0]} to ${p.ecologyAnnualRainMm.value[1]} mm`, p.ecologyAnnualRainMm.scope],
                   ["Crop coefficients (Kc) by stage", p.stages.map((s) => `${s.label} ${s.kc.value}`).join(" · "), p.stages[0].kc.scope],
                   ...(p.nFixKgHa ? [["Nitrogen fixed", `${p.nFixKgHa.value[0]} to ${p.nFixKgHa.value[1]} kg N/ha per crop`, p.nFixKgHa.scope] as const] : []),
                   ["Fodder or forage", p.forage ? p.forage.note : "No entry", p.forage?.scope ?? "analyst-assumption"],
-                  ...Object.entries(p.regionalCalendars).map(([r, cal]) => [`Usual sowing, ${REGIONS[r as keyof typeof REGIONS].name}`, `${cal!.sowWindow[0]} to ${cal!.sowWindow[1]}, ${cal!.durationDays[0]} to ${cal!.durationDays[1]} days`, cal!.scope] as const),
+                  ...Object.entries(p.regionalCalendars).map(([r, cal]) => [`Usual sowing reference, ${REGIONS[r as keyof typeof REGIONS].name}`, `${cal!.sowWindow[0]} to ${cal!.sowWindow[1]}, ${cal!.durationDays[0]} to ${cal!.durationDays[1]} days; confirm locally`, cal!.scope] as const),
                 ] as Array<readonly [string, string, RuleScope]>).map(([k, v, scope]) => (
                   <div key={k} className="flex flex-col gap-0.5 border-t border-line pt-2 first:border-0 first:pt-0">
                     <dt className="text-ink-muted">{k}</dt>

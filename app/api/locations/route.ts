@@ -3,8 +3,8 @@ import delta from "@/rotation-engine/examples/ayeyarwady_demo.json";
 import { searchPlaces } from "@/lib/geo/geocode";
 
 const demoLocations = [
-  { id: "dryzone", kind: "demo", label: "Magway example farm", lat: dryZone.location.lat, lon: dryZone.location.lon },
-  { id: "delta", kind: "demo", label: "Ayeyarwady example farm", lat: delta.location.lat, lon: delta.location.lon },
+  { id: "dryzone", kind: "demo", name: "Magway example farm", context: "Magway Region", label: "Magway example farm", lat: dryZone.location.lat, lon: dryZone.location.lon },
+  { id: "delta", kind: "demo", name: "Ayeyarwady example farm", context: "Ayeyarwady Region", label: "Ayeyarwady example farm", lat: delta.location.lat, lon: delta.location.lon },
 ];
 
 export async function GET(request: Request) {
@@ -26,6 +26,8 @@ export async function GET(request: Request) {
         locations: places.map((place) => ({
           id: place.id,
           kind: "farm",
+          name: place.name,
+          context: place.context,
           label: place.context ? `${place.name}, ${place.context}` : place.name,
           lat: place.center[1],
           lon: place.center[0],
@@ -38,11 +40,14 @@ export async function GET(request: Request) {
     if (!response.ok) throw new Error("Location search is unavailable.");
     const body = await response.json();
     if (!Array.isArray(body.locations)) throw new Error("Location search returned an invalid result.");
-    const locations = body.locations.slice(0, 8).map((place: { id?: unknown; label?: unknown; lat?: unknown; lon?: unknown }) => {
+    const locations = body.locations.slice(0, 8).map((place: { id?: unknown; name?: unknown; context?: unknown; label?: unknown; lat?: unknown; lon?: unknown }) => {
       if (typeof place.label !== "string" || !place.label.trim() || !Number.isFinite(place.lat) || !Number.isFinite(place.lon) || Math.abs(place.lat as number) > 90 || Math.abs(place.lon as number) > 180) {
         throw new Error("Location search returned an invalid place.");
       }
-      return { id: String(place.id || place.label), kind: "farm", label: place.label, lat: place.lat, lon: place.lon };
+      const label = place.label.trim();
+      const name = typeof place.name === "string" && place.name.trim() ? place.name.trim() : label.split(",")[0]?.trim() || label;
+      const context = typeof place.context === "string" ? place.context.trim() : label.slice(name.length).replace(/^,\s*/, "");
+      return { id: String(place.id || place.label), kind: "farm", name, context, label, lat: place.lat, lon: place.lon };
     });
     return Response.json({ mode: "connected", locations });
   } catch (error) {

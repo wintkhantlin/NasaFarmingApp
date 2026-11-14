@@ -29,7 +29,8 @@ describe("PROMPT 4: Sequence Rules, Nitrogen & Disease Caution (A-01, A-02, U-02
       expect(assessment.status).toBe("relay");
       expect(assessment.isRelay).toBe(true);
       expect(assessment.overlapDays).toBe(7);
-      expect(assessment.message).toContain("valid Ye-pyan window");
+      expect(assessment.evaluationStatus).toBe("not-evaluated");
+      expect(assessment.message).toContain("models are unverified");
     });
 
     it("rejects negative gap (collision) when pairing is not eligible or method is not relay", () => {

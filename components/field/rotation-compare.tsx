@@ -14,7 +14,6 @@ import { WhatIf, WhatIfBanner } from "@/components/field/what-if";
 import { applyScenario, NO_SCENARIO, isNeutral, type Scenario } from "@/lib/engine/scenario";
 import { whatIfResult } from "@/lib/engine/what-if";
 import { knownCount, seasonStrip, stressedCount } from "@/lib/engine/strip";
-import { openQuickQuestions } from "@/lib/engine/questions";
 import { checkLimits, type LimitCheck } from "@/lib/engine/limits";
 import { buttonClass } from "@/components/ui/button";
 import { InfoGlyph } from "@/components/ui/icons";
@@ -31,6 +30,7 @@ import { getCropById } from "@/lib/data/crops";
 import { monthlyNormals } from "@/lib/engine/climate";
 import { compareRotations, type EvaluatedOption } from "@/lib/engine/compare";
 import { BASELINE } from "@/lib/engine/data";
+import { adaptComparison, type DisplayOption } from "@/lib/plan/engine-display";
 import { CRITERIA } from "@/lib/engine/mcda";
 import { formatSpan, slotName } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
@@ -97,7 +97,7 @@ function keyFigures(o: EvaluatedOption, strip: ReturnType<typeof seasonStrip>): 
     out.push({ label: copy.compare.numbersLegumes, value: `${o.structure.legumeSlots} of ${o.structure.cropSlots}` });
   }
   const m = o.economics.cycleMarginMmkHa;
-  if (m) out.push({ label: copy.compare.numbersMargin, value: `${mmk(m[0])}–${mmk(m[1])} MMK/ha` });
+  if (m) out.push({ label: "Benchmark gross-margin range, not guaranteed profit", value: `${mmk(m[0])}–${mmk(m[1])} MMK/ha` });
   if (o.forage.forageSlots > 0) out.push({ label: copy.compare.numbersFodder, value: String(o.forage.forageSlots) });
   return out;
 }
@@ -167,6 +167,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const loadRotations = useFieldsStore((s) => s.loadRotations);
   const [depth, setDepth] = useState<"answer" | "reasons" | "evidence">("answer");
   const [scenario, setScenario] = useState<Scenario>(NO_SCENARIO);
+  const [keepingMine, setKeepingMine] = useState(false);
   /** Sliders stay responsive while the options catch up on the same past seasons. */
   const testScenario = useDeferredValue(scenario);
   const testPending = testScenario !== scenario;
@@ -197,14 +198,20 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
 
   const effectiveEngineData = useMemo(() => (engineData ? applyScenario(engineData, testScenario) : null), [engineData, testScenario]);
 
+  const canCompare = Boolean(field?.locationConfirmed && hasOwnRotation && savedRotation?.source === "farmer");
   const baseComparison = useMemo(
-    () => (engineData ? compareRotations(engineData, compareRotation) : null),
-    [engineData, compareRotation],
+    () => (engineData && canCompare ? compareRotations(engineData, compareRotation) : null),
+    [engineData, compareRotation, canCompare],
   );
   const comparison = useMemo(
-    () => (effectiveEngineData ? compareRotations(effectiveEngineData, compareRotation) : null),
-    [effectiveEngineData, compareRotation],
+    () => (effectiveEngineData && canCompare ? compareRotations(effectiveEngineData, compareRotation) : null),
+    [effectiveEngineData, compareRotation, canCompare],
   );
+  const revision = `${field?.updatedAt ?? ""}:${JSON.stringify(savedRotation ?? null)}`;
+  const display = adaptComparison({
+    mode: "field", phase: analysis.phase, field, rotation: savedRotation, data: effectiveEngineData,
+    comparison, inputRevision: revision, resultRevision: testPending ? "pending" : comparison ? revision : null,
+  });
   const whatIf = useMemo(
     () => (baseComparison && comparison && !isNeutral(testScenario) ? whatIfResult(baseComparison, comparison, { includeCurrent: hasOwnRotation }) : null),
     [baseComparison, comparison, testScenario, hasOwnRotation],
@@ -244,7 +251,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     return list;
   }, [field]);
 
-  const questions = useMemo(() => (field ? openQuickQuestions(field) : []), [field]);
   const rainyMonths = useMemo(
     () =>
       engineData?.records.length
@@ -278,30 +284,38 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     );
   }
 
-  if (!comparison) {
+  if (!comparison || display.state === "stale" || display.state === "data-unavailable") {
     return (
-      <Panel as="section" role="alert" className="flex flex-col items-start gap-3 p-5">
-        <h1 className="m-0 text-title text-ink">The comparison did not load</h1>
-        <p className="m-0 max-w-measure text-body text-ink-muted">The field data could not be prepared. Try again, or check the Conditions page.</p>
-        <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>
-          Try again
-        </button>
+      <Panel as="section" role="status" className="flex flex-col items-start gap-3 p-5">
+        <h1 className="m-0 text-title text-ink">{display.headline}</h1>
+        <p className="m-0 max-w-measure text-body text-ink-muted">{display.detail}</p>
+        {display.gaps.length > 0 ? <ul className="m-0 list-disc space-y-2 pl-5 text-body-sm text-ink-muted">{display.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul> : null}
+        {comparison && display.state === "data-unavailable" ? <>
+          <Link href={`/fields/${field.id}/location`} className={buttonClass("secondary")}>Check field location</Link>
+          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Review crops and dates</Link>
+          <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Review water and field details</Link>
+          <Link href="/plan" className={buttonClass("secondary")}>Return to regional examples</Link>
+        </> : null}
+        {display.state === "field-incomplete" ? (
+          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Add my crop sequence</Link>
+        ) : display.state === "stale" ? null : (
+          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>Retry sources</button>
+        )}
       </Panel>
     );
   }
 
   const now = hasOwnRotation ? comparison.current : null;
-  const alternatives = comparison.alternatives;
-  const bestId = comparison.mcda.status === "ranked" ? comparison.mcda.ranking[0]?.rotationId : undefined;
+  const alternatives = display.options.filter((o) => o.kind === "alternative").map((o) => o.engine);
+  const bestId: string | undefined = undefined;
   const rankOrder = new Map(comparison.mcda.ranking.map((r, i) => [r.rotationId, i]));
   const orderedAlternatives = [...alternatives].sort(
     (a, b) => (rankOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rankOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
   );
-  const displayOptions: EvaluatedOption[] = hasOwnRotation ? [...orderedAlternatives, comparison.current] : orderedAlternatives;
+  const displayOptions: EvaluatedOption[] = [comparison.current, ...orderedAlternatives];
   const leadOption = orderedAlternatives.find((o) => o.fit !== "does-not-fit") ?? orderedAlternatives[0];
   const bestOption = bestId ? displayOptions.find((o) => o.id === bestId) : undefined;
   const range = hasOwnRotation && !bestOption && orderedAlternatives.length >= 2 ? widestRange(orderedAlternatives, comparison.current) : null;
-  const leadDifferences = leadOption && now ? differences(leadOption, now) : [];
   const place = placeName(comparison.region);
   const weatherLoading = analysis.phase === "loading";
   const weatherMissing = !weatherLoading && engineData?.power.status !== "ok";
@@ -314,7 +328,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const stripOf = (o: EvaluatedOption) => seasonStrip(o, yearsOf(o));
   const rankedById = new Map(comparison.mcda.ranking.map((r, i) => [r.rotationId, { ...r, place: i + 1 }]));
 
-  const pastSeasons = Math.max(comparison.baseline.completeYears, BASELINE.endYear - BASELINE.startYear + 1);
+  const pastSeasons = comparison.baseline.completeYears;
   const summary =
     comparison.region === "unsupported"
       ? copy.compare.summaryUnsupported
@@ -322,33 +336,8 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         ? copy.compare.summaryWith(place, alternatives.length, pastSeasons)
         : copy.compare.summaryWithout(place, pastSeasons);
 
-  const answerHeadline = comparison.region === "unsupported"
-    ? copy.compare.unsupported
-    : hasOwnRotation && !hasAlternatives
-    ? copy.compare.noAlternativesTitle
-    : bestOption && bestOption.id === comparison.current.id && hasOwnRotation
-      ? copy.compare.answerYours
-      : bestOption
-        ? copy.compare.answerBest(bestOption.label)
-        : !hasOwnRotation
-          ? copy.compare.answerNoRotation(alternatives.length, place)
-          : range
-            ? copy.compare.answerRange(range.label)
-            : copy.compare.answerWhere;
-
-  const answerReason = comparison.region === "unsupported"
-    ? copy.compare.unsupportedBody
-    : hasOwnRotation && !hasAlternatives
-      ? copy.compare.noAlternativesBody(place)
-      : bestOption && !hasOwnRotation
-      ? copy.compare.answerNoRotationBest
-      : !hasOwnRotation
-        ? copy.compare.answerNoRotationReason
-        : range && !bestOption
-          ? copy.compare.answerRangeBody(range.min, range.max, range.yours)
-          : leadOption && leadDifferences.length > 0
-            ? `${bestOption && bestOption.id === comparison.current.id ? copy.compare.answerLead(leadOption.label) : ""} ${leadDifferences.slice(0, 2).join(" ")}`.trim()
-            : copy.compare.answerNoNumbers;
+  const answerHeadline = display.headline;
+  const answerReason = display.detail;
 
   const answerOption = bestOption ?? (range ? undefined : leadOption);
 
@@ -394,7 +383,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           o.erosion.exposure === "needs-slope-data" ? "Needs slope data" : o.erosion.exposure === "not-flagged" ? "Not flagged" : o.erosion.exposure === "possible" ? "Possible" : "Higher",
         ),
         row(copy.compare.measurePest, (o) =>
-          o.pest.length === 0 ? "No same-family pair" : `${o.pest.filter((p) => p.result === "same-family").length} of ${o.pest.length} pairs in the same family`,
+          o.slots.some(s => s.evaluationStatus === "not-evaluated") ? "Not-evaluated: overlapping crops" : o.pest.length === 0 ? "No same-family pair" : `${o.pest.filter((p) => p.result === "same-family").length} of ${o.pest.length} pairs in the same family`,
         ),
       ],
     },
@@ -408,7 +397,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     {
       group: copy.compare.groupMoney,
       items: [
-        row(copy.compare.measureMargin, (o) =>
+        row("Benchmark gross-margin range (not guaranteed profit)", (o) =>
           o.economics.cycleMarginMmkHa ? `${mmk(o.economics.cycleMarginMmkHa[0])} to ${mmk(o.economics.cycleMarginMmkHa[1])} MMK/ha` : unknown,
         ),
         row(copy.compare.measureFodder, (o) => String(o.forage.forageSlots)),
@@ -438,7 +427,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         headline={answerHeadline}
         reason={answerReason}
         risks={
-          answerOption
+          display.state === "comparable" && answerOption
             ? [
                 { hazard: FIT_HAZARD[answerOption.fit], label: copy.compare.fitLabel[answerOption.fit] },
                 ...answerOption.badges.map((b) => ({ hazard: "healthy" as const, label: b })),
@@ -447,6 +436,15 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         }
       />
 
+      <Panel as="section" tone="plain" aria-label="Comparison evidence state" className="flex flex-col gap-3 p-4 sm:p-5">
+        <p className="m-0 text-label text-ink">Evidence state: {display.state.replaceAll("-", " ")}</p>
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">{display.replay?.completeYears ?? 0} of 10 complete years in the 2016–2025 historical replay. Historical evidence is not a next-season forecast.</p>
+        <p className="m-0 text-body-sm text-ink-muted">Sources: NASA POWER {display.sourceStatuses?.power}; IMERG {display.sourceStatuses?.imerg}; SMAP {display.sourceStatuses?.smap}; HLS {display.sourceStatuses?.hls}; SRTM {display.sourceStatuses?.srtm}.</p>
+        {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">Other sources are still being retrieved. The available evidence can be inspected now.</p> : null}
+        {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">Showing saved source data while refresh is unavailable.</p> : null}
+        {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Retry sources</button> : null}
+      </Panel>
+
       {hasOwnRotation && comparison.mcda.assumedPriorities ? (
         <p className="m-0 flex flex-wrap items-center gap-x-2 text-body-sm text-ink-muted">
           <span className="rounded-pill border border-line bg-surface px-2.5 py-1 text-source text-ink">{copy.compare.assumedPriorities}</span>
@@ -454,16 +452,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             {copy.compare.assumedChange}
           </Link>
         </p>
-      ) : null}
-
-      {questions.length > 0 && comparison.region !== "unsupported" ? (
-        <Link
-          href={questions[0].href}
-          className="flex min-h-tap items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3 text-label text-ink no-underline hover:border-line-strong"
-        >
-          <span>{copy.compare.sharpen(questions.length)}</span>
-          <Icon name="next" />
-        </Link>
       ) : null}
 
       {!hasOwnRotation && hasAlternatives ? (
@@ -572,15 +560,17 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                 depth={depth}
                 best={o.id === bestId}
                 isYours={o.id === comparison.current.id && hasOwnRotation}
-                place={rankedById.get(o.id)?.place}
+                place={display.state === "comparable" ? rankedById.get(o.id)?.place : undefined}
                 field={field}
+                display={display.options.find((item) => item.id === o.id)}
+                showComparativeMetrics={display.state === "comparable"}
               />
             ))}
           </div>
         </section>
       ) : null}
 
-      {hasAlternatives ? (
+      {hasAlternatives && display.state === "comparable" ? (
         <details className="rounded-lg border border-line bg-surface-raised">
           <summary className="min-h-tap cursor-pointer p-4 text-headline text-ink">{copy.compare.measures}</summary>
           <div className="overflow-x-auto border-t border-line">
@@ -652,18 +642,18 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
               </Link>
             </div>
           ) : null}
-          {comparison.mcda.status === "ranked" ? (
+          {comparison.mcda.status === "ranked" && display.state === "comparable" ? (
             <>
               <ol className="m-0 flex list-none flex-col gap-2 p-0">
-                {comparison.mcda.ranking.map((r, i) => {
+                {comparison.mcda.ranking.map((r, i) => ({ ...r, originalPlace: i + 1 })).filter((r) => displayOptions.some((o) => o.id === r.rotationId)).map((r) => {
                   const o = displayOptions.find((x) => x.id === r.rotationId);
                   return (
                     <li key={r.rotationId} className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface p-3">
                       <span className="tabular grid min-h-7 min-w-10 place-items-center rounded-pill border border-line-strong px-2 font-mono text-source">
-                        {copy.compare.rankPlace(i + 1)}
+                        {copy.compare.rankPlace(r.originalPlace)}
                       </span>
                       <span className="min-w-0 flex-1 text-label text-ink">{o?.label}</span>
-                      {i === 0 ? <StatusTag tag="best-match" /> : null}
+                      {r.originalPlace === 1 && display.tiedFirst ? <span className="text-source text-ink-muted">Close score; no clear first choice</span> : null}
                       {o && o.badges.length > 0 ? <span className="w-full text-body-sm text-ink-muted">{o.badges.join(" · ")}</span> : null}
                     </li>
                   );
@@ -699,7 +689,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
               <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
                 {comparison.mcda.partial.map((x) => (
                   <li key={x.rotationId}>
-                    {displayOptions.find((o) => o.id === x.rotationId)?.label}: {x.warning}
+                    {comparison.alternatives.find((o) => o.id === x.rotationId)?.label ?? (comparison.current.id === x.rotationId ? "Your current rotation" : x.rotationId)}: {x.warning}
                   </li>
                 ))}
               </ul>
@@ -744,7 +734,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </Panel>
       ) : null}
 
-      {displayOptions.length > 0 ? (
+      {display.state === "comparable" && displayOptions.length > 0 ? (
         <WhatIf scenario={scenario} onChange={setScenario} result={whatIf} pending={testPending} recorded={field.irrigation} />
       ) : null}
 
@@ -779,6 +769,13 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       <JudgmentNote compact />
 
       <ActionBar>
+        <div className="flex w-full flex-wrap gap-2">
+          <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary")}>Keep mine</button>
+          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Adjust</Link>
+          <button type="button" onClick={() => { setDepth("reasons"); document.getElementById("options-title")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={buttonClass("secondary")}>Why this?</button>
+          <Link href={`/fields/${field.id}/report`} className={buttonClass("secondary")}>Discuss with adviser</Link>
+        </div>
+        {keepingMine ? <p role="status" className="m-0 text-body-sm text-ink">Your recorded rotation remains your choice. You can adjust it later.</p> : null}
         <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "flex-1", "lg")}>
           {copy.compare.reportButton}
           <Icon name="next" />
@@ -798,6 +795,8 @@ function OptionRow({
   isYours,
   place,
   field,
+  display,
+  showComparativeMetrics,
 }: {
   option: EvaluatedOption;
   now: EvaluatedOption | null;
@@ -808,6 +807,8 @@ function OptionRow({
   isYours: boolean;
   place?: number;
   field: Field;
+  display?: DisplayOption;
+  showComparativeMetrics: boolean;
 }) {
   const diffs = now && !isYours ? differences(o, now) : [];
   const figures = keyFigures(o, strip);
@@ -848,7 +849,26 @@ function OptionRow({
         {o.fit === "does-not-fit" && o.noFitReason ? <p className="m-0 max-w-measure text-body-sm text-ink">{o.noFitReason}</p> : null}
       </div>
 
-      {now && !isYours && diffs.length > 0 ? (
+      {display ? (
+        <dl className="m-0 flex flex-col gap-2 border-t border-line pt-3 text-body-sm">
+          <div><dt className="font-medium text-ink">Trade-off</dt><dd className="m-0 text-ink-muted">{display.tradeOff}</dd></div>
+          <div><dt className="font-medium text-ink">Assumption</dt><dd className="m-0 text-ink-muted">{display.assumption}</dd></div>
+          <div><dt className="font-medium text-ink">Unknown</dt><dd className="m-0 text-ink-muted">{display.unknown}</dd></div>
+          <div><dt className="font-medium text-ink">Check locally</dt><dd className="m-0 text-ink-muted">{display.localCheck}</dd></div>
+          <div><dt className="font-medium text-ink">Source and status</dt><dd className="m-0 text-ink-muted">{display.sources.length ? `${display.sources[0].lineage} (${display.sources[0].status})` : "No source indicator attached to this option."}</dd></div>
+        </dl>
+      ) : null}
+
+      {display?.sources.length ? (
+        <details className="text-body-sm text-ink-muted">
+          <summary className="min-h-tap cursor-pointer text-label text-field">All source details ({display.sources.length})</summary>
+          <ul className="m-0 flex list-disc flex-col gap-2 pl-5">
+            {display.sources.map((s, i) => <li key={`${s.product}-${i}`}>{s.claim}: {s.lineage}. Status: {s.status}{s.missingReason ? `; missing: ${s.missingReason}` : ""}{s.sourceUrl ? <> · <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-field underline">Source</a></> : null}</li>)}
+          </ul>
+        </details>
+      ) : null}
+
+      {showComparativeMetrics && now && !isYours && diffs.length > 0 ? (
         <ul className="m-0 flex max-w-measure list-disc flex-col gap-1 pl-5 text-body text-ink">
           {diffs.slice(0, depth === "answer" ? 2 : diffs.length).map((d) => (
             <li key={d}>{d}</li>
@@ -856,14 +876,14 @@ function OptionRow({
         </ul>
       ) : null}
 
-      <dl className="m-0 grid grid-cols-2 gap-2">
+      {showComparativeMetrics ? <dl className="m-0 grid grid-cols-2 gap-2">
         {figures.map((f) => (
           <div key={f.label} className="flex min-w-0 flex-col gap-0.5 rounded-md bg-surface p-3">
             <dt className="text-body-sm text-ink-muted">{f.label}</dt>
             <dd className="tabular m-0 text-label text-ink">{f.value}</dd>
           </div>
         ))}
-      </dl>
+      </dl> : null}
 
       {depth !== "answer" ? (
         <>

@@ -36,7 +36,7 @@ describe("Real-World Crop Economics Module", () => {
     expect(blackGram?.burmeseName).toBe("မတ်ပဲ");
     expect(blackGram?.priceMmkPerKg).toEqual([3200, 3850]);
 
-    const unknown = getRealWorldCropEconomics("unknown-crop" as any);
+    const unknown = getRealWorldCropEconomics("unknown-crop" as unknown as (typeof CROPS)[number]["id"]);
     expect(unknown).toBeUndefined();
   });
 

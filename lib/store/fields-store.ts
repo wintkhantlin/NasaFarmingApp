@@ -4,6 +4,8 @@ import { create } from "zustand";
 import { createRepository, ValidationError, type NewField, type Repository } from "./repository";
 import { indexedDbStorage } from "./storage";
 import type { Backup, Field, Rotation } from "../types";
+import { readPlanDraft, writePlanDraft } from "./plan-draft";
+import { backupSchema } from "../schemas/field";
 
 let repo: Repository | undefined;
 /** The IndexedDB repository. Created on first use, so it never runs on the server. */
@@ -105,11 +107,13 @@ export const useFieldsStore = create<FieldsState>()((set, get) => ({
   },
 
   async exportBackup() {
-    return getRepository().exportAll();
+    return { ...await getRepository().exportAll(), version: 3, planDraft: readPlanDraft() };
   },
 
   async importBackup(json: unknown) {
-    const result = await getRepository().importAll(json);
+    const parsed = backupSchema.parse(json);
+    const result = await getRepository().importAll(parsed);
+    if (parsed.planDraft && !writePlanDraft(parsed.planDraft)) throw new Error("Fields restored, but Plan storage is blocked. Keep the backup and retry after allowing browser storage.");
     await get().load();
     return result;
   },

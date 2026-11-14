@@ -98,6 +98,7 @@ export function FieldsList() {
   const update = useFieldsStore((s) => s.update);
   const [query, setQuery] = useState("");
   const [undo, setUndo] = useState<Field | null>(null);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -115,10 +116,11 @@ export function FieldsList() {
 
   if (status === "error") {
     return (
-      <EmptyState title={copy.home.loadError} body="Check that this browser allows site storage, then try again.">
+      <EmptyState title={copy.home.loadError} body="Saved work could not be read. Check browser storage, then try again. Basic regional preview is still available from Plan.">
         <Button variant="primary" onClick={() => void load()}>
           {copy.home.retry}
         </Button>
+        <Link href="/plan" className={buttonClass("secondary")}>Explore regional preview</Link>
       </EmptyState>
     );
   }
@@ -148,6 +150,7 @@ export function FieldsList() {
         onChange={(e) => setQuery(e.target.value)}
         className="min-h-tap w-full rounded-md border border-line bg-surface-sunken px-3 text-body text-ink"
       />
+      <p className="m-0 text-body-sm text-ink-muted">Resume a saved field below, or explore a regional example without creating a farm record.</p>
       {live.length === 0 ? (
         <p className="m-0 text-body text-ink-muted">{needle ? `No fields named \u201c${query.trim()}\u201d.` : "All your fields are archived."}</p>
       ) : null}
@@ -184,9 +187,14 @@ export function FieldsList() {
             type="button"
             variant="secondary"
             onClick={async () => {
-              const backup = await exportBackup();
-              const dateStr = new Date().toISOString().slice(0, 10);
-              downloadJson(`farm-fields-backup-${dateStr}.json`, backup);
+              try {
+                const backup = await exportBackup();
+                const dateStr = new Date().toISOString().slice(0, 10);
+                downloadJson(`farm-fields-backup-${dateStr}.json`, backup);
+                setBackupMessage("Backup download started. Keep the file somewhere private.");
+              } catch {
+                setBackupMessage("Could not create a backup. Check browser storage and try again.");
+              }
             }}
             className="min-h-tap text-label"
           >
@@ -206,14 +214,16 @@ export function FieldsList() {
                   const text = await file.text();
                   const json = JSON.parse(text);
                   const res = await importBackup(json);
-                  alert(`Restored ${res.fields} fields and ${res.rotations} rotations.`);
+                  setBackupMessage(`Restored ${res.fields} fields and ${res.rotations} rotations.`);
                 } catch (err) {
-                  alert(err instanceof Error ? err.message : "Could not import backup.");
+                  setBackupMessage(err instanceof Error ? err.message : "Could not import backup.");
                 }
               }}
             />
           </label>
+          <Link href="/settings" className={buttonClass("secondary", "min-h-tap text-label")}>Privacy and settings</Link>
         </div>
+        {backupMessage ? <p role="status" className="basis-full m-0 text-source">{backupMessage}</p> : null}
       </div>
     </div>
   );

@@ -45,6 +45,9 @@ import {
   Mountain,
   RotateCcw,
   Atom,
+  Bean,
+  Flower2,
+  Nut,
   TestTubeDiagonal,
   type LucideProps,
 } from "lucide-react";
@@ -102,6 +105,9 @@ const ICONS = {
   clay: Mountain,
   reset: RotateCcw,
   nitrogen: Atom,
+  bean: Bean,
+  flower: Flower2,
+  nut: Nut,
   ph: TestTubeDiagonal,
 } as const;
 

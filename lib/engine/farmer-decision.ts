@@ -1,7 +1,4 @@
-import { getCropById } from "../data/crops";
-import type { CropEconomics, FarmerPriorities, PriorityId, Rotation, RotationSlot } from "../types";
-import { CRITERIA, type CriterionId, rankRotations, type McdaInput, type McdaResult } from "./mcda";
-import { calculateScenarioGrossMargin, type CostPartition } from "./economics";
+import type { CropEconomics, FarmerPriorities, PriorityId, Rotation } from "../types";
 import { isPaddyCrop } from "./water";
 
 export type FarmerWaterAccess = "rainfed" | "occasional_irrigation" | "reliable_irrigation" | "unknown";
@@ -309,11 +306,12 @@ export function evaluateDeterministicSensitivity(input: {
  * Records whether rank or water risk changed, never forcing an artificial rank flip.
  */
 export interface BaselineVsNasaComparison {
-  baselineRank: number;
-  nasaRank: number;
-  rankChanged: boolean;
-  baselineWaterRisk: string;
-  nasaWaterRisk: string;
+  available: boolean;
+  baselineRank?: number;
+  nasaRank?: number;
+  rankChanged?: boolean;
+  baselineWaterRisk?: string;
+  nasaWaterRisk?: string;
   explanation: string;
   evidenceDifferences: Array<{
     feature: string;
@@ -328,14 +326,22 @@ export function compareBaselineVsNasa(input: {
   nasaRainfallMm: number;
   baselineEtoMm: number;
   nasaEtoMm: number;
-  baselineRank: number;
-  nasaRank: number;
+  baselineRank?: number | null;
+  nasaRank?: number | null;
 }): BaselineVsNasaComparison {
+  if (!input.baselineRank || input.baselineRank <= 0 || !input.nasaRank || input.nasaRank <= 0) {
+    return {
+      available: false,
+      explanation: "Comparison unavailable: no accepted baseline rotation was found for this field.",
+      evidenceDifferences: [],
+    };
+  }
+
   const rankChanged = input.baselineRank !== input.nasaRank;
   const rainDiff = input.nasaRainfallMm - input.baselineRainfallMm;
   const rainDiffPct = input.baselineRainfallMm > 0 ? (rainDiff / input.baselineRainfallMm) * 100 : 0;
 
-  let baselineRisk = "Moderate historical shortfall";
+  const baselineRisk = "Moderate historical shortfall";
   let nasaRisk = "Moderate observed shortfall";
   if (rainDiffPct < -20) {
     nasaRisk = "Elevated drought stress: observed rainfall is >20% below 30-year climatology";
@@ -351,6 +357,7 @@ export function compareBaselineVsNasa(input: {
   }
 
   return {
+    available: true,
     baselineRank: input.baselineRank,
     nasaRank: input.nasaRank,
     rankChanged,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -46,6 +46,11 @@ export function ReportView({ fieldId }: { fieldId: string }) {
   const rotations = useFieldRotations(fieldId);
   const load = useFieldsStore((s) => s.load);
   const loadRotations = useFieldsStore((s) => s.loadRotations);
+  const reportDate = useSyncExternalStore(
+    () => () => undefined,
+    () => new Date().toLocaleDateString(undefined, { dateStyle: "long" }),
+    () => "",
+  );
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -98,6 +103,24 @@ export function ReportView({ fieldId }: { fieldId: string }) {
     );
   }
 
+  if (analysis.phase === "failed") {
+    return (
+      <EmptyState title="Report data is unavailable" body="Your saved field and rotation remain on this device. Check your connection, then retry; no crop choice has been changed.">
+        <Button variant="primary" onClick={analysis.retry}>Retry data check</Button>
+        <Link href={`/fields/${fieldId}`} className={buttonClass("secondary")}>Back to field</Link>
+      </EmptyState>
+    );
+  }
+
+  if (!field.locationConfirmed || rotations[0]?.source !== "farmer") {
+    return (
+      <EmptyState title="Confirm your field and crop sequence" body="A field-informed report needs your confirmed location and recorded current crops. Regional examples do not establish your actual rotation.">
+        <Link href={`/fields/${field.id}`} className={buttonClass("primary")}>Review field details</Link>
+        <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Review current crops</Link>
+      </EmptyState>
+    );
+  }
+
   if (!comparison) {
     return (
       <EmptyState title="Nothing to report yet" body="The report compares your rotation with other options, so it needs your rotation first.">
@@ -139,12 +162,23 @@ export function ReportView({ fieldId }: { fieldId: string }) {
         <header className="flex flex-col gap-2 border-b border-line pb-5">
           <p className="m-0 flex flex-wrap items-baseline justify-between gap-x-4 text-body-sm text-ink-muted">
             <span>{copy.app.name}</span>
-            <time className="tabular font-mono text-source">
-              {new Date().toLocaleDateString(undefined, { dateStyle: "long" })}
-            </time>
+            <time className="tabular font-mono text-source">{reportDate}</time>
           </p>
           <h2 className="text-balance text-display text-ink">{field.name}</h2>
+          <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+            Field-informed adviser summary. It combines the field details you confirmed with regional models and historical data; it does not predict a future season.
+          </p>
         </header>
+
+        <section aria-labelledby="r-at-a-glance" className="flex break-inside-avoid flex-col gap-2 rounded-md bg-surface-sunken p-4">
+          <h3 id="r-at-a-glance" className="text-headline text-ink">At a glance</h3>
+          <p className="m-0 text-body-sm text-ink-muted">
+            {field.locationConfirmed ? "Field location confirmed by you." : "Location is not yet confirmed; check it before treating this as field-informed."} Historical comparison uses {comparison.baseline.completeYears} complete years ({comparison.baseline.startYear}–{comparison.baseline.endYear}).
+          </p>
+          <p className="m-0 text-body-sm text-ink-muted">
+            Current sequence: {sequenceText(comparison.current.rotation, " → ")}. Alternatives below are options to discuss, not a ranked instruction to plant.
+          </p>
+        </section>
 
         <section aria-labelledby="r-field" className="flex flex-col gap-3">
           <h3 id="r-field" className="text-headline text-ink">
@@ -201,6 +235,13 @@ export function ReportView({ fieldId }: { fieldId: string }) {
             ))}
           </ol>
         </section>
+
+        {analysis.retrieving || analysis.showingCache ? (
+          <section role="status" aria-live="polite" className="flex break-inside-avoid flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-sunken p-3 text-body-sm text-ink-muted">
+            <span>{analysis.showingCache ? "Showing saved data while a refresh could not finish." : "Checking optional satellite sources in the background. The summary remains usable."}</span>
+            <Button variant="secondary" onClick={analysis.retry}>Retry check</Button>
+          </section>
+        ) : null}
 
         <Disclosure title={copy.report.evidenceSummary} className="border-0 bg-transparent print:break-inside-auto [&>summary]:px-0 [&>summary]:text-headline [&>div]:px-0">
           <div className="overflow-x-auto">
@@ -377,15 +418,16 @@ export function ReportView({ fieldId }: { fieldId: string }) {
               Confidence is expressed in coverage and observation depth, never an invented percentage:
             </p>
             <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5">
-              <li>Weather: Based on {comparison.baseline.completeYears} complete years of daily NASA POWER weather observations ({comparison.baseline.startYear}&ndash;{comparison.baseline.endYear}) around your field coordinate.</li>
-              <li>Rainfall: Replayed from {comparison.rain.primary === "R" ? "GPM IMERG 0.1° satellite precipitation calibrated with ground stations" : "NASA POWER daily weather model"}.</li>
-              <li>Soil profile: ISRIC SoilGrids v2 250 m global digital soil mapping.</li>
+              <li>Weather: {comparison.baseline.completeYears} complete years of regional NASA POWER gridded estimates ({comparison.baseline.startYear}&ndash;{comparison.baseline.endYear}); source status: {engineData?.power.status ?? "unavailable"}.</li>
+              <li>Rainfall: {comparison.rain.primary === "R" ? "GPM IMERG 0.1° satellite precipitation with gauge calibration" : comparison.rain.primary === "P" ? "NASA POWER gridded rainfall" : "Unavailable; no rainfall source was used"}.</li>
+              <li>Soil profile: {soil?.soilGridsAvailable ? "ISRIC SoilGrids v2 250 m global model estimate (not NASA)." : "No SoilGrids profile available; any entered measurements are listed separately."}</li>
             </ul>
           </div>
         </section>
 
         <footer className="flex flex-col gap-1 border-t border-line pt-4 text-source text-ink-muted">
           <p className="m-0">{copy.judgment.short} {copy.judgment.long}</p>
+          <p className="m-0">Model limitations: regional weather and soil maps are not field measurements; the report cannot verify seed supply, buyer, labour, pests, drainage or a crop variety.</p>
           <p className="tabular m-0 font-mono">
             Data: NASA POWER daily (UTC days, {comparison.baseline.startYear} to {comparison.baseline.endYear}); rainfall from {comparison.rain.primary === "R" ? "GPM IMERG" : comparison.rain.primary === "P" ? "NASA POWER" : "no source"}; ISRIC SoilGrids v2 250 m (not NASA). Processed {comparison.processedAt.slice(0, 10)}.
           </p>
@@ -393,20 +435,8 @@ export function ReportView({ fieldId }: { fieldId: string }) {
       </article>
 
       <ActionBar>
-        <Button
-          variant="secondary"
-          size="lg"
-          icon="share"
-          onClick={() => {
-            const text = `${field.name}: past ${comparison.baseline.completeYears} seasons. Talk it through with your extension officer or an experienced farmer.`;
-            if (navigator.share) void navigator.share({ title: copy.app.name, text }).catch(() => undefined);
-            else window.print();
-          }}
-        >
-          Share
-        </Button>
         <Button variant="primary" size="lg" icon="print" onClick={() => window.print()}>
-          {copy.report.printButton}
+          Print or save as PDF
         </Button>
       </ActionBar>
     </>

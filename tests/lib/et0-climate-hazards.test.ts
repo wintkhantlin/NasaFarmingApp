@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   penmanMonteithDetails,
-  penmanMonteithEt0,
-  hargreavesEt0,
   evaluateDailyEt0,
   normalizeSolarRadiation,
 } from "../../lib/engine/et0";

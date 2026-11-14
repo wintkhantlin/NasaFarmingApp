@@ -5,10 +5,14 @@ import createCache from "@emotion/cache";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { useServerInsertedHTML } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { useLocaleStore } from "@/lib/store/locale-store";
 import { theme } from "@/lib/theme";
 
 export function Providers({ children }: { children: ReactNode }) {
+  const locale = useLocaleStore((s) => s.locale);
+  useEffect(() => { useLocaleStore.getState().hydrate(); }, []);
+  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
   const [{ cache, flush }] = useState(() => {
     const cache = createCache({ key: "mui", prepend: true });
     cache.compat = true;

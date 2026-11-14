@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parsePlanDraft } from "../store/plan-draft";
 import type {
   CropEconomics,
   FarmConstraints,
@@ -111,7 +112,7 @@ export const fieldSchema: z.ZodType<Field> = z.object({
   irrigation: z.enum(["none", "supplemental", "full"]),
   soilOverride: soilOverrideSchema.optional(),
   soilObservations: z.array(soilObservationSchema).max(100).optional(),
-  region: z.enum(["ayeyarwady", "magway", "shan", "unsupported"]).optional(),
+  region: z.enum(["ayeyarwady", "magway", "shan", "myanmar", "unsupported"]).optional(),
   locationConfirmed: z.boolean().optional(),
   confirmedAt: isoDateTime.optional(),
   archivedAt: isoDateTime.optional(),
@@ -169,7 +170,13 @@ export const rotationSchema: z.ZodType<Rotation> = z.object({
 export const backupSchema = z.object({
   app: z.literal("nasa-farming-app"),
   /** 1 is the original format. 2 adds region, confirmation, constraints, priorities, soil observations and economics. */
-  version: z.union([z.literal(1), z.literal(2)]),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  planDraft: z.unknown().transform((value, ctx) => {
+    if (value === undefined || value === null) return null;
+    const draft = parsePlanDraft(value);
+    if (!draft) ctx.addIssue({ code: "custom", message: "Invalid Plan draft in backup." });
+    return draft;
+  }).optional(),
   exportedAt: isoDateTime,
   fields: z.array(fieldSchema),
   rotations: z.array(rotationSchema),

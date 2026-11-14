@@ -21,6 +21,7 @@ export interface Template {
 }
 
 export const TEMPLATES: Record<RegionId, Template[]> = {
+  myanmar: [],
   ayeyarwady: [
     { id: "ay-rice-black-gram", label: "Rice, then black gram", headline: "Rice, then black gram on the post-monsoon moisture", rationale: "Follows rice with a legume that is sown into the moisture left after the monsoon.", cropIds: ["rice", "black-gram"] },
     { id: "ay-rice-green-gram", label: "Rice, then green gram", headline: "Rice, then green gram", rationale: "Follows rice with a short-duration legume. Green gram is quick and can fit a short post-monsoon window.", cropIds: ["rice", "green-gram"] },

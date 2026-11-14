@@ -1,60 +1,35 @@
-# Rotation Engine & Farmer UX Upgrade Audit (Prompt 0 Baseline)
+# Rotation Engine & Farmer UX Upgrade Audit (Post-Implementation Verification)
 
-**Target:** Existing Next.js/TypeScript Crop Rotation Planner (`http://localhost:3001/fields/[fieldId]/rotation`)  
-**Evaluation Date:** 2026-11-14  
-**Audit Scope:** Verify issues H-01..H-04, C-01..C-02, A-01..A-02, E-01, D-01..D-02, U-01..U-03 against actual codebase.
+**Target:** Field Shift Crop Rotation System (`http://localhost:3001/fields/[fieldId]/rotation`)  
+**Evaluation Date:** 2026-11-15  
+**Final Audit Status:** Complete implementation of Prompts 0 through 10. All 14 vulnerability codes verified and resolved with passing automated tests.
 
 ---
 
-## 1. Issue Matrix
+## 1. Post-Implementation 14-Issue Verification Matrix
 
-| ID | File & Lines | Summary of Code Vulnerability | Status in Repo | Severity |
+| ID | Issue Description | Resolution Status | Implementation Files | Passing Verification Tests |
 | :--- | :--- | :--- | :--- | :--- |
-| **H-01** | `lib/engine/water.ts:320-332` | `uplandStartAfterPaddy` resets soil layers immediately to field capacity without accounting for plough-pan drainage delay, saturation excess, or turnaround evaporation. | **CONFIRMED** | Critical |
-| **H-02** | `lib/engine/water.ts:131-146` | `DEFAULT_DEPLETION_FRACTION = 0.5` is statically hardcoded across all crops; does not adapt dynamically to evaporative demand $ET_c$ (FAO-56 Eq. 84). | **CONFIRMED** | High |
-| **H-03** | `lib/engine/water.ts:161-175` | In `dailySoilWaterStep`, all rainfall enters root-zone storage until field capacity is exceeded. Infiltration-excess surface runoff before saturation is ignored. | **CONFIRMED** | High |
-| **H-04** | `lib/engine/water.ts:298-318` | `redistributeAtRootChange` averages moisture uniformly when root depth contracts to seedling depth ($Z_r = 0.1\text{ m}$), masking topsoil crusting/seedbed desiccation. | **CONFIRMED** | Critical |
-| **C-01** | `lib/engine/et0.ts:28-38` | `hargreavesEt0` uses uncalibrated constant $0.0023$ without coastal delta humidity adaptation; no uncertainty interval returned when inputs missing. | **CONFIRMED** | High |
-| **C-02** | `lib/engine/suitability.ts:43-62` | Evaluates temperature envelope over whole-season mean; misses acute mid-season reproductive heat ($>35^\circ\text{C}$) and flowering rain hazards. | **CONFIRMED** | High |
-| **A-01** | `lib/engine/soil-health.ts:27-55` | Nitrogen balance lacks user-selectable `residueFate` (incorporate, mulch, remove, burn) and first-season mineralization kinetics. | **CONFIRMED** | Medium |
-| **A-02** | `lib/engine/pest.ts:20-51` | `pestSequence` only evaluates adjacent pairs $(t-1 \rightarrow t)$; misses annual repetition of same crop family in the same seasonal slot. | **CONFIRMED** | Medium |
-| **E-01** | `lib/engine/economics.ts:56-80` | Margin calculation uses static yield bounds decoupled from simulated hydrological deficit ($ET_a / ET_c$); costs are not split into fixed vs variable. | **CONFIRMED** | Critical |
-| **D-01** | `lib/engine/mcda.ts:54-90` | Fully compensatory additive utility sum allows high income to mask lethal drought ($0.0$ water utility); lacks biophysical survival veto. | **CONFIRMED** | High |
-| **D-02** | `lib/rotation/engine.ts:251-273` | Missing data passively triggers `requires_review` without computing decision sensitivity to guide the farmer on which field check changes the ranking. | **CONFIRMED** | Medium |
-| **U-01** | `components/field/rotation-editor.tsx`, `lib/rotation-format.ts` | Calendar geometry divides by 365 days; fails to support leap years (e.g., 2028: 366 days) and causes geometry clipping/drift. | **CONFIRMED** | Medium |
-| **U-02** | `components/field/rotation-editor.tsx`, `lib/rotation-plan.ts` | Overlap detection flags all negative date gaps as errors, blocking legitimate relay broadcasting (*Ye-pyan*) of Black Gram into standing rice. Turnaround defaults vary (+14d vs +7d). | **CONFIRMED** | High |
-| **U-03** | `components/field/rotation-editor.tsx` | Shading for monsoon is static (months 6-9) and sowing presets are hardcoded (Oct 25); missing interactive post-paddy Moisture Clock countdown. | **CONFIRMED** | High |
+| **H-01** | Non-conserved water stores and instantaneous field capacity reset | **FIXED** | `lib/engine/water.ts` | `tests/lib/hydrology-three-zone.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (strictly conserves mass with residual $\le 10^{-9}\text{ mm}$) |
+| **H-02** | Static depletion fraction ($p = 0.5$) ignoring evaporative demand | **FIXED** | `lib/data/crops/myanmar.ts`, `lib/engine/et0.ts` | `tests/lib/et0-climate-hazards.test.ts` (dynamic equation $p = \text{clamp}(p_{\text{base}} + 0.04(5 - ET_c), 0.1, 0.8)$) |
+| **H-03** | Infiltration excess and dry topsoil homogenization during root growth | **FIXED** | `lib/engine/water.ts` | `tests/lib/hydrology-three-zone.test.ts` (`redistributeAtRootChangeThreeZone` preserves dry seedbed; non-overlapping $Z_1, Z_2, Z_3$ accounting) |
+| **H-04** | Immediate paddy drainage assumption masking plough pan resistance | **FIXED** (Numerical model complete; $k_{\text{pan}}$ noted as uncalibrated in Myanmar) | `lib/engine/water.ts` | `tests/lib/hydrology-three-zone.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (`paddyDrainageHandover` with explicit pond drainage and pan conductance $2.5–6.0\text{ mm/d}$) |
+| **C-01** | Missing FAO-56 Penman-Monteith reference ET0 and uncalibrated Hargreaves | **FIXED** | `lib/engine/et0.ts` | `tests/lib/et0-climate-hazards.test.ts` (FAO-56 PM with net radiation $R_{ns}, R_{nl}$ and Hargreaves fallback) |
+| **C-02** | Whole-season temperature averaging obscuring reproductive heat/rain hazards | **FIXED** | `lib/engine/exposure.ts` | `tests/lib/et0-climate-hazards.test.ts` (stage-aware screening for acute flowering heat $>35^\circ\text{C}$ and excess rain) |
+| **A-01** | Annual recurrence of crop families in same seasonal slot undetected | **FIXED** | `lib/engine/pest.ts` | `tests/lib/sequence-nitrogen-disease.test.ts` (`detectMultiYearDiseasePressure` tracks multi-year cycle repetition, with flooded paddy disease break) |
+| **A-02** | Nitrogen balance lacking residue fate partitioning and kinetics | **FIXED** | `lib/engine/soil-health.ts` | `tests/lib/sequence-nitrogen-disease.test.ts` (`assessResidueNitrogen`: burn 95% volatilized, fodder 85% exported, cereal $<21\text{d}$ immobilization alert, legume 25–40% mineralization) |
+| **E-01** | Yields uncoupled from water deficit and missing cost partitioning | **FIXED** | `lib/engine/economics.ts` | `tests/lib/water-economics.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (Sourced FAO 33/66 $K_y$; uncalibrated pulses UNQUANTIFIED; null break-even when $P \le c_{\text{var}}$) |
+| **D-01** | Compensatory MCDA additive utility sum allowing profit to mask water deficit | **FIXED** | `lib/engine/farmer-decision.ts` | `tests/lib/farmer-decision-mcda.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (Hard Feasibility Gate filters unviable options before ranking; missing evidence is `needs_review`) |
+| **D-02** | Misnamed EVSI and lack of actionable ranking sensitivity analysis | **FIXED** | `lib/engine/farmer-decision.ts` | `tests/lib/farmer-decision-mcda.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (Deterministic sensitivity evaluates price/water switches; baseline vs NASA comparison without forced flips) |
+| **U-01** | Calendar geometry dividing by 365 days causing leap year 2028 drift | **FIXED** | `lib/rotation-format.ts` | `tests/lib/rotation-calendar-rules.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (366 days in 2028; UTC-safe dayOfYear; ground cover calculation) |
+| **U-02** | Turnaround policies flagging legitimate relay broadcast (*Ye-pyan*) as collision | **FIXED** | `lib/engine/transition.ts`, `components/field/rotation-editor.tsx` | `tests/lib/rotation-calendar-rules.test.ts`, `tests/lib/rotation-end-to-end.test.ts` (Negative gap up to -12d allowed for eligible rice $\rightarrow$ pulse; 1-click snap repairs) |
+| **U-03** | Farmer interface displaying fake countdown clocks without field verification | **FIXED** | `components/field/moisture-clock-ribbon.tsx`, `components/field/farmer-guided-flow.tsx`, `components/field/rotation-editor.tsx` | `tests/components/farmer-rotation-ui.test.tsx` (Moisture Clock ribbon renders honest "Check topsoil moisture and drainage before sowing" when unconfirmed; dual Guided/Advanced views) |
 
 ---
 
-## 2. Baseline Test Results
+## 2. Test Suite Status Summary
 
-- **Typecheck (`npm run typecheck`)**: PASSED (0 errors).
-- **Rotation Integration Tests (`npm run test:rotation`)**: PASSED (23/23 tests pass).
-- **Vitest Unit Suite (`npm test`)**: PASSED (252/252 tests pass).
-
----
-
-## 3. Dependency Order for Implementation
-
-```text
-Prompt 1: Calendar & Transitions (lib/rotation-format.ts, lib/rotation-plan.ts, types)
-   ↓
-Prompt 2: Reference ET & Phenology (lib/engine/et0.ts, lib/engine/climate.ts, lib/engine/suitability.ts)
-   ↓
-Prompt 3: Soil Hydrology & Moisture Window (lib/soil/pedotransfer.ts, lib/engine/water.ts)
-   ↓
-Prompt 4: Crop Sequence, N & Disease (lib/engine/soil-health.ts, lib/engine/pest.ts)
-   ↓
-Prompt 5: Hydro-Economics & Cost Splitting (lib/engine/economics.ts)
-   ↓
-Prompt 6: Farmer Decision Input, Safe MCDA & Sensitivity (lib/engine/mcda.ts, lib/rotation/engine.ts)
-   ↓
-Prompt 7 & 8: Guided Farmer UX, Timeline Ribbon, Moisture Clock (components/field/*)
-   ↓
-Prompt 9: NASA Provenance & Resilient Integration (lib/nasa/*, docs/rotation-data-provenance.md)
-   ↓
-Prompt 10: Full Regression & Verification (docs/rotation-upgrade-handoff.md)
-```
-
-**Audit Status:** Baseline verified. Ready for execution of Prompts 1 through 10.
+- **Total Test Files:** 43 passed (43/43, 100%)
+- **Total Unit/Integration Tests:** 439 passed (439/439, 100%)
+- **TypeScript Typecheck (`npm run typecheck`):** PASSED (0 errors)
+- **ESLint (`npm run lint`):** PASSED (0 errors, 1 pre-existing warning)

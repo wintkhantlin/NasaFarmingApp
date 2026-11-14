@@ -125,13 +125,13 @@ A stepper shows steps 1 to 4 with their state (done, needs input, data loading).
 
 ### Simplified farmer path (14 Nov 2026)
 
-The path is now **Place → Crops → Answer**. Farm details are no longer a required step.
+The path is **Place → Farm → Crops → Answer**. Farm details are optional after choosing a location.
 
-- **Place:** the save sheet asks only a name (pre-filled "Field N") and water (rain only, some, irrigated), then goes to Crops.
+- **Place:** the save sheet asks only a name (pre-filled "Field N"), then opens Farm for water and soil details.
 - **Crops:** tap the crops you grow. Usual dates are filled in; "Change dates" holds the editor. "See my answer" goes straight to Compare.
 - **Answer:** priorities, prices and soil water that the farmer has not given are filled with typical values and marked **Assumed** (for example "Balanced priorities (assumed) · Change"). Nothing blocks the answer.
-- **Sharpen it:** one card under the answer, "N quick questions could sharpen this", opens one question at a time (what matters most, soil water, standing water, selling nearby, labour). Each answer writes to the same field the full farm form uses. The full form stays as "All farm details" on the field overview.
-- **Navigation:** bottom bar is Fields and Learn. Field tabs are Overview, Crops, Conditions, Compare. Trends sits inside Conditions and Share is a button on Report.
+- **Farm details:** water, soil, priorities, and other observations are edited on the Farm tab. Answers used by comparison come from those field details.
+- **Navigation:** bottom bar is Fields and Learn. Field tabs are Overview, Farm, Crops, Conditions, Compare. Trends sits inside Conditions and Share is a button on Report.
 - **Text:** the judgment line moves to the bottom of Compare. Ranking detail, what-if and gaps sit behind `Disclosure` rows, which open when printed.
 
 ### Persistent framing

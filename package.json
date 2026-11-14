@@ -5,9 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:webpack": "next build --webpack",
+    "test:e2e": "playwright test",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:quiet": "vitest run --reporter=dot",
+    "test:changed": "vitest run --changed",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "test:rotation": "node test/rotation-integration.test.mjs"

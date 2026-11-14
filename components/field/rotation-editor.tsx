@@ -5,7 +5,7 @@ import { Icon } from "@/components/ui/icon";
 import Link from "next/link";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -14,8 +14,7 @@ import TextField from "@mui/material/TextField";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlusGlyph, ChevronRightGlyph } from "@/components/ui/icons";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { RiskChip } from "@/components/ui/risk-chip";
+import { Panel } from "@/components/ui/panel";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
@@ -37,7 +36,6 @@ import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
 import type { DateConfidence, EstablishmentMode, ResidueFate, Rotation, RotationSlot } from "@/lib/types";
 import { evaluateTransition, isRelayPairEligible } from "@/lib/engine/transition";
 import { FarmerGuidedFlow } from "./farmer-guided-flow";
-import { MoistureClockRibbon } from "./moisture-clock-ribbon";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // Monsoon rainy season in Myanmar (June, July, August, September)
@@ -278,13 +276,6 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
   useEffect(() => {
     if (status === "idle") void load();
   }, [status, load]);
-
-  useEffect(() => {
-    if (rotations[0]?.slots?.length) {
-      setCycleYears(rotations[0].cycleYears);
-      setSlots(rotations[0].slots);
-    }
-  }, [rotations]);
 
   useEffect(() => {
     if (!fieldId) return;
@@ -968,7 +959,11 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                             select
                             label="Observed Drainage"
                             value={slot.farmerObservedDrainage ?? "adequate"}
-                            onChange={(e) => handleUpdateSlot(slot.id, { farmerObservedDrainage: e.target.value as any })}
+                            onChange={(e) =>
+                              handleUpdateSlot(slot.id, {
+                                farmerObservedDrainage: e.target.value as "waterlogged" | "adequate" | "dry" | "unknown",
+                              })
+                            }
                             size="small"
                             fullWidth
                           >

@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   daysInCalendarYear,
   dayOfYear,
-  daysBetween,
-  addDaysToIso,
   segmentYear,
   calculateGroundCoverPercent,
 } from "../../lib/rotation-format";
@@ -161,7 +159,7 @@ describe("PROMPT 1: Reusable Transition Policies & Relay Broadcasting (U-02)", (
     expect(evalSesame.status).toBe("collision");
   });
 
-  it("rejects excessive negative gaps exceeding biological tolerance (> 12 days)", () => {
+  it("flags overlaps beyond the legacy calendar screen for local review", () => {
     const prev = { cropId: "rice", harvestDate: "2026-10-20" };
     const nextExcessive = {
       cropId: "black-gram",
@@ -171,7 +169,7 @@ describe("PROMPT 1: Reusable Transition Policies & Relay Broadcasting (U-02)", (
 
     const evalExcessive = evaluateTransition(prev, nextExcessive);
     expect(evalExcessive.status).toBe("collision");
-    expect(evalExcessive.message).toContain("exceeds maximum biological window");
+    expect(evalExcessive.message).toContain("No biological safety limit is established here");
   });
 
   it("reports valid turnaround for zero-gap and positive turnaround gaps", () => {

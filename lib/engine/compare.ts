@@ -22,7 +22,6 @@ import {
 import { windowRain, spread, type Spread } from "./rain";
 import { replayWindows, slotOverlaps } from "./season";
 import { ASSUMED_IRRIGATION_MM } from "./scenario";
-import { answerOf } from "./questions";
 import { erosionScreen, nitrogenAssessment, soilMechanisms, type ErosionScreen, type Mechanism, type NitrogenAssessment } from "./soil-health";
 import { rotationStructure, type RotationStructure } from "./structure";
 import { assessSuitability, type Suitability } from "./suitability";
@@ -48,6 +47,7 @@ export interface SlotEvaluation {
   exposure: ExposureSummary | null;
   water: WaterSummary | null;
   rain: { eligible: number; windows: number; total: Spread; longestDry: Spread; heavyDays: Spread; source: RainSeries["primary"] };
+  evaluationStatus?: "evaluated" | "not-evaluated";
   rootZone: RootZoneResult | null;
   /** Ponded balance for rice (Section 4.3); null for upland crops. */
   paddy: PaddyResult | null;
@@ -195,6 +195,9 @@ interface Ctx {
 function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string): EvaluatedOption {
   const { data, years, rain, et0, normals } = ctx;
   const slots = slotsOf(rotation);
+  // No simultaneous crop water extraction model is verified. Gate BEFORE any hydrology,
+  // stage suitability or disease calculation, including legacy relay records.
+  const overlapUnverified = slotOverlaps(slots).length > 0 || slots.some(s => s.establishmentMode === "relay_broadcast");
   const fieldIrrigated = data.field.irrigation === "full";
 
   // One soil column for the whole rotation: as deep as the deepest-rooting crop in it, so that crops with
@@ -214,6 +217,7 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
       const crop = slot.cropId ? getCropById(slot.cropId) : undefined;
       const unknowns: string[] = [];
       const irrigated = slot.irrigated || fieldIrrigated;
+      if (overlapUnverified) return { ...emptySlot(slot, crop ?? null, crop?.names.common ?? "Crop", ["not-evaluated: overlapping or relay crops; water/ET, disease and planting-window model unverified."], irrigated, rain), evaluationStatus: "not-evaluated" as const };
       if (!crop) {
         return emptySlot(slot, null, "Crop", unknowns.concat("No crop chosen for this slot."), irrigated, rain);
       }
@@ -269,7 +273,7 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   const erosion = erosionScreen(structure, normals, data.slope);
   const mechanisms = soilMechanisms(rotation, structure);
   const lowCover = assessGaps(structure.gaps, data.hls);
-  const pest = pestSequence(rotation);
+  const pest = overlapUnverified ? [] : pestSequence(rotation);
   const forage = forageMarket(rotation, data.field.constraints);
   const economics = economicsFor(rotation, data.field.economics, data.field.areaHa, { fallbackToRealWorld: true });
   const overlaps = slotOverlaps(slots).map((o) => ({ from: slots[o.from].id, to: slots[o.to].id, days: o.days }));
@@ -365,7 +369,6 @@ function irrigationDepth(ctx: Ctx, slot: RotationSlot): { mm: number | null; not
 }
 
 const ASSUMED_PADDY = { bundMm: 100, seepageMmDay: 5 };
-const SOIL_WATER_DEPLETION: Record<string, number> = { wet: 0.1, damp: 0.4, dry: 0.7 };
 
 function rootZoneFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnType<typeof replayWindows>, rain: RainSeries, columnDepthM: number, pondAtHarvestMm: number | null): RootZoneResult {
   const soil = ctx.data.soil;
@@ -385,15 +388,9 @@ function rootZoneFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnTy
       handover = true;
     }
   }
-  let soilWaterNote: string | null = null;
+  const soilWaterNote: string | null = null;
   if (initialDepletionMm === null) {
-    const answer = answerOf(ctx.data.field, "soil-water-at-sowing")?.value ?? "";
-    const known = answer in SOIL_WATER_DEPLETION;
-    const frac = known ? SOIL_WATER_DEPLETION[answer] : 0.5;
-    // Without a water capacity the balance cannot run at all, so the missing capacity is what gets reported.
-    const cap = awc !== null ? twoZoneCapacities({ awcMmPerM: awc, rootDepthM, maxDepthM: Math.max(maxRootDepthM ?? rootDepthM, rootDepthM) }) : null;
-    initialDepletionMm = cap ? cap.rootMm * frac : 0;
-    soilWaterNote = known ? `Soil water at planting taken from your answer (${answer}).` : "Soil water at planting assumed half-full. Answer one question to replace it.";
+    return { status: "unknown", missing: ["Measured or supported initial root-zone moisture; qualitative topsoil feel cannot initialize storage."] };
   }
   const w = windows[windows.length - 1];
   if (!w) return { status: "unknown", missing: ["weather years"] };

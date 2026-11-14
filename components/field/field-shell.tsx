@@ -10,6 +10,7 @@ import { useFieldsStore } from "@/lib/store/fields-store";
 
 const TABS: Array<{ label: string; path: string; icon: IconName }> = [
   { label: "Overview", path: "", icon: "fields" },
+  { label: "Farm", path: "/profile", icon: "profile" },
   { label: "Crops", path: "/rotation", icon: "rotation" },
   { label: "Conditions", path: "/conditions", icon: "conditions" },
   { label: "Compare", path: "/compare", icon: "compare" },
@@ -17,9 +18,10 @@ const TABS: Array<{ label: string; path: string; icon: IconName }> = [
 
 function activeTab(pathname: string, base: string): string {
   const rest = pathname.slice(base.length);
+  if (rest.startsWith("/profile")) return "/profile";
   if (rest.startsWith("/rotation")) return "/rotation";
-  if (rest.startsWith("/conditions")) return "/conditions";
-  if (rest.startsWith("/compare") || rest.startsWith("/report") || rest.startsWith("/questions")) return "/compare";
+  if (rest.startsWith("/conditions") || rest.startsWith("/trends")) return "/conditions";
+  if (rest.startsWith("/compare") || rest.startsWith("/report") || rest.startsWith("/share") || rest.startsWith("/questions")) return "/compare";
   return "";
 }
 
@@ -30,7 +32,7 @@ export function FieldShell({ children }: { children: ReactNode }) {
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
   const base = `/fields/${fieldId}`;
-  const isResult = /\/report$|\/questions\//.test(pathname);
+  const isResult = /\/(report|share)$|\/questions\//.test(pathname);
 
   if (status === "ready" && !field) return <>{children}</>;
 
@@ -39,7 +41,7 @@ export function FieldShell({ children }: { children: ReactNode }) {
       <PageBar backHref={isResult ? `${base}/compare` : "/"} backLabel={isResult ? "Compare" : "Fields"} />
       {field ? (
         <nav aria-label={`Pages for ${field.name}`} className="-mx-4 border-b border-line px-4 sm:-mx-6 sm:px-6 print:hidden">
-          <ul className="m-0 grid grid-cols-4 list-none gap-0 p-0 sm:flex sm:gap-1">
+          <ul className="m-0 grid grid-cols-5 list-none gap-0 p-0 sm:flex sm:gap-1">
             {TABS.map((tab) => {
               const selected = activeTab(pathname, base) === tab.path;
               return (

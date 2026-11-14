@@ -7,17 +7,15 @@ import type { DrawTool, MapFocus } from "@/components/map/field-map";
 import { MAPBOX_TOKEN, MAPBOX_TOKEN_PROBLEM } from "@/components/map/mapbox-config";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
-import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
 import { parseCoordinate } from "@/lib/geo/format";
 import { searchPlaces, type Place } from "@/lib/geo/geocode";
-import { acresFromHa, areaHa, centroid, isSelfIntersecting } from "@/lib/geo/shapes";
-import { checkRegion } from "@/lib/data/regions";
+import { acresFromHa, areaHa, isSelfIntersecting } from "@/lib/geo/shapes";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { LARGE_FIELD_HA, ValidationError } from "@/lib/store/repository";
-import type { Field, FieldGeometry, Irrigation } from "@/lib/types";
+import type { Field, FieldGeometry } from "@/lib/types";
 
 const FieldMap = dynamic(() => import("@/components/map/field-map").then((m) => m.FieldMap), {
   ssr: false,
@@ -82,7 +80,6 @@ export function LocationPicker({ field }: { field?: Field }) {
 
   const fieldCount = useFieldsStore((s) => s.fields.length);
   const [name, setName] = useState(field?.name ?? "");
-  const [water, setWater] = useState<Irrigation>(field?.irrigation ?? "none");
   const [geometry, setGeometry] = useState<FieldGeometry | null>(field?.geometry.type === "Polygon" ? field.geometry : null);
   const [tool, setTool] = useState<DrawTool | null>(field?.geometry.type === "Polygon" || !hasMap ? null : "box");
   const [toolNonce, setToolNonce] = useState(0);
@@ -225,8 +222,8 @@ export function LocationPicker({ field }: { field?: Field }) {
     try {
       const saved = field
         ? await update(field.id, { name: finalName, geometry, locationConfirmed: true })
-        : await add({ name: finalName, geometry, irrigation: water, locationConfirmed: true });
-      router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/rotation`);
+        : await add({ name: finalName, geometry, irrigation: "none", locationConfirmed: true });
+      router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/profile`);
     } catch (err) {
       setSaving(false);
       setSaveError(
@@ -235,7 +232,6 @@ export function LocationPicker({ field }: { field?: Field }) {
     }
   }
 
-  const outsideRegion = geometry ? checkRegion(geometry, centroid(geometry)).region === "unsupported" : false;
   const startCenter = field?.centroid ?? ([95.5, 20.5] as [number, number]);
 
   const status = locateError
@@ -512,30 +508,13 @@ export function LocationPicker({ field }: { field?: Field }) {
                   className={inputClass}
                 />
               </div>
-              {field ? null : (
-                <Segmented
-                  legend={copy.profile.irrigationLabel}
-                  value={water}
-                  onChange={setWater}
-                  options={[
-                    { value: "none", label: copy.irrigation.none },
-                    { value: "supplemental", label: copy.irrigation.supplemental },
-                    { value: "full", label: copy.irrigation.full },
-                  ]}
-                />
-              )}
-              {outsideRegion ? (
-                <p role="status" className="m-0 text-body-sm text-ink">
-                  <strong>{copy.region.unsupportedTitle}.</strong> {copy.region.unsupportedBody}
-                </p>
-              ) : null}
               {saveError ? (
                 <p role="alert" className="text-body text-heat">
                   {saveError}
                 </p>
               ) : null}
               <Button type="submit" variant="primary" size="lg" iconEnd="done" disabled={saving} block>
-                {saving ? "Saving" : field ? "Save changes" : "Save field and continue"}
+                {saving ? "Saving" : field ? "Save changes" : "Save field"}
               </Button>
             </form>
           )}

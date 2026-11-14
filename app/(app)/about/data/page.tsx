@@ -8,7 +8,7 @@ import { earthdataConfigured } from "@/lib/nasa/earthdata";
 
 export const metadata: Metadata = { title: "About the data" };
 
-type Status = "Working" | "Needs Earthdata login";
+type Status = "Connected adapter" | "Credentials configured; unverified" | "Needs Earthdata login" | "Not connected" | "Proposed";
 
 interface SourceItem {
   name: string;
@@ -27,77 +27,76 @@ function getSources(): SourceItem[] {
       name: "Weather",
       gives: "Air temperature (mean, highest, lowest), humidity, wind, sunshine energy, rain and air pressure, daily.",
       detail: { dataset: "NASA POWER daily point API", resolution: "about 0.5° x 0.625°", dates: "2016 to 2025, UTC days" },
-      status: "Working",
+      status: "Connected adapter",
       note: "Days are UTC days, not Myanmar local days. A missing value is missing, never zero rain. Rainfall here is the MERRA-2 bias-corrected series until satellite rainfall is connected.",
     },
     {
       name: "Soil properties",
       gives: "Clay, sand, silt, acidity, organic carbon and more, to 30 cm.",
       detail: { dataset: "ISRIC SoilGrids v2 (not NASA)", resolution: "250 m", dates: "modelled map" },
-      status: "Working",
+      status: "Connected adapter",
       note: "Some places, such as towns and water, have no value. A soil test you enter always replaces it.",
     },
     {
       name: "Field vegetation",
       gives: "How green the field was on clear days, with cloud, shadow, snow and water removed.",
       detail: { dataset: "USGS Landsat Collection 2 Level-2 via Microsoft Planetary Computer", resolution: "30 m", dates: "available clear days" },
-      status: "Working",
-      note: "Surface reflectance, NDVI and NDMI retrieved on demand from Microsoft Planetary Computer COGs. Open access, no Earthdata login required. AppEEARS HLS is configured as fallback.",
+      status: "Connected adapter",
+      note: "Surface reflectance, NDVI and NDMI retrieved on demand from Microsoft Planetary Computer COGs. Open access, no Earthdata login required. AppEEARS HLS is a credentials-gated fallback. Result availability depends on valid clear observations.",
     },
     {
       name: "Regional vegetation history (optional)",
       gives: "16-day greenness over 250 m cells, for regional context.",
-      detail: { dataset: "MOD13Q1 v061 via Microsoft Planetary Computer", resolution: "250 m", dates: "16-day composites" },
-      status: "Working",
-      note: "16-day composite greenness over 250 m cells from Planetary Computer COGs, for regional context without needing credentials. AppEEARS is configured as fallback.",
+      detail: { dataset: "MOD13Q1 v061", resolution: "250 m", dates: "16-day composites" },
+      status: "Not connected",
+      note: "This dataset is listed for future regional context only. There is no active MODIS adapter or result path in the app.",
     },
     {
       name: "Satellite rainfall",
       gives: "Daily rain estimated from satellites, used as the main rainfall once it covers the whole record.",
       detail: { dataset: "GPM IMERG Final daily V07", resolution: "0.1°", dates: "2016 to 2025" },
-      status: imergOk ? "Working" : "Needs Earthdata login",
+      status: imergOk ? "Credentials configured; unverified" : "Needs Earthdata login",
       note: imergOk
-        ? "Reading values via NASA GES DISC OPeNDAP DAP4 with Earthdata token."
+        ? "Credentials are configured for NASA GES DISC OPeNDAP DAP4. This does not prove successful retrieval; inspect each result's status and coverage."
         : "The search for files works. Reading values needs an Earthdata token (EARTHDATA_TOKEN) on the server. When unconfigured, rainfall safely falls back to NASA POWER PRECTOTCORR.",
     },
     {
       name: "Soil moisture from satellite",
       gives: "How wet the surface and the top metre of soil were, as regional context.",
       detail: { dataset: "SMAP L4 (SPL4SMGP v008)", resolution: "9 km, three-hourly", dates: "through 2025" },
-      status: appeearsOk ? "Working" : "Needs Earthdata login",
+      status: appeearsOk ? "Credentials configured; unverified" : "Needs Earthdata login",
       note: appeearsOk
-        ? "Retrieving 9 km regional soil moisture from NASA AppEEARS."
+        ? "Credentials are configured for NASA AppEEARS. Successful retrieval is checked per result. SMAP is 9 km regional context."
         : "A 9 km model value, larger than most fields. Retrieved via NASA AppEEARS, which requires EARTHDATA_USERNAME and EARTHDATA_PASSWORD on the server.",
     },
     {
       name: "Terrain",
       gives: "Ground height, and from it the slope of the field.",
       detail: { dataset: "SRTMGL1", resolution: "about 30 m", dates: "February 2000" },
-      status: appeearsOk ? "Working" : "Needs Earthdata login",
-      note: appeearsOk
-        ? "Ground height and slope retrieved via NASA AppEEARS SRTM."
-        : "Slope needs neighbouring cells, so a single pin has none. Retrieved via NASA AppEEARS, which requires EARTHDATA_USERNAME and EARTHDATA_PASSWORD on the server.",
+      status: appeearsOk ? "Credentials configured; unverified" : "Needs Earthdata login",
+      note: "Slope needs neighbouring cells, so a single pin has none. This is credentials-gated through NASA AppEEARS and is not assumed available from configuration alone.",
     },
     {
       name: "Surface temperature and water use (optional)",
       gives: "Land-surface temperature and modelled water use on dates the satellite passed over.",
       detail: { dataset: "ECOSTRESS LSTE and JET", resolution: "about 70 m", dates: "available passes" },
-      status: appeearsOk ? "Working" : "Needs Earthdata login",
-      note: appeearsOk
-        ? "Land-surface temperature and modelled ET retrieved via NASA AppEEARS ECOSTRESS."
-        : "Surface temperature is not air temperature, and water use is in W/m², not mm. Retrieved via NASA AppEEARS, which requires EARTHDATA_USERNAME and EARTHDATA_PASSWORD on the server.",
+      status: "Proposed",
+      note: "Only a quality-assurance helper exists; there is no active ECOSTRESS result adapter. Surface temperature is not air temperature, and ET is not a verified field water measurement.",
     },
   ];
 }
 
 const STATUS_ICON = {
-  Working: <CheckGlyph className="text-healthy" />,
+  "Connected adapter": <CheckGlyph className="text-healthy" />,
+  "Credentials configured; unverified": <ClockGlyph className="text-ink-muted" />,
   "Needs Earthdata login": <ClockGlyph className="text-drought" />,
+  "Not connected": <ClockGlyph className="text-ink-muted" />,
+  Proposed: <ClockGlyph className="text-ink-muted" />,
 } satisfies Record<Status, React.ReactNode>;
 
 export default function AboutDataPage() {
   const sources = getSources();
-  const working = sources.filter((s) => s.status === "Working").length;
+  const connected = sources.filter((s) => s.status === "Connected adapter").length;
 
   return (
     <>
@@ -108,7 +107,7 @@ export default function AboutDataPage() {
           the app says so instead of filling the gap.
         </p>
         <p className="m-0 text-body-sm text-ink-muted">
-          {working} of {sources.length} sources are working now.
+          {connected} of {sources.length} sources have connected open-access adapters. This catalog describes implementation, not live service health or field validation.
         </p>
       </div>
 
@@ -121,7 +120,7 @@ export default function AboutDataPage() {
                 <span
                   className={cn(
                     "inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-pill border px-2.5 py-0.5 text-label",
-                    s.status === "Working"
+                    s.status === "Connected adapter"
                       ? "border-healthy/30 bg-field-soft text-healthy"
                       : "border-line-strong bg-surface text-ink",
                   )}

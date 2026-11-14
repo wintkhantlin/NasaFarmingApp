@@ -239,24 +239,18 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
       .then(({ soil: estimate }) => {
         setSoilMap(estimate);
         setSoilMapStatus(estimate ? "ready" : "unavailable");
+        if (estimate) {
+          setSoilPh((cur) => (cur === "" && estimate.ph != null ? estimate.ph.toFixed(1) : cur));
+          setSoilTexture((cur) => (cur === "" && estimate.texture ? estimate.texture : cur));
+          setAuto((a) => ({
+            ph: a.ph || estimate.ph != null,
+            texture: a.texture || Boolean(estimate.texture),
+          }));
+        }
       })
       .catch(() => { if (!controller.signal.aborted) setSoilMapStatus("unavailable"); });
     return () => controller.abort();
   }, [field.id, field.centroid]);
-
-  useEffect(() => {
-    if (!soilMap) return;
-    if (soilPh === "" && soilMap.ph != null) {
-      setSoilPh(soilMap.ph.toFixed(1));
-      setAuto((a) => ({ ...a, ph: true }));
-    }
-    if (soilTexture === "" && soilMap.texture) {
-      setSoilTexture(soilMap.texture);
-      setAuto((a) => ({ ...a, texture: true }));
-    }
-    // fill once when the estimate arrives; later edits belong to the farmer
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soilMap]);
 
   const region = field.region && field.region !== "unsupported" ? field.region : null;
   const cropChoices = useMemo(() => {

@@ -346,8 +346,8 @@ export function soilMechanisms(rotation: Pick<Rotation, "slots">, structure: Rot
       ref: "FAO species diversification",
     });
   }
-  const retained = rotation.slots.filter((s) => s.residue === "retained").length;
-  const burned = rotation.slots.filter((s) => s.residue === "burned").length;
+  const retained = rotation.slots.filter((s) => (s.residueFate ? s.residueFate === "retain_incorporate" || s.residueFate === "retain_mulch" : s.residue === "retained")).length;
+  const burned = rotation.slots.filter((s) => (s.residueFate ? s.residueFate === "burn" : s.residue === "burned")).length;
   if (retained > 0) out.push({ id: "residue-kept", title: "Residue kept on the field", text: `You record keeping residue in ${retained} slot${retained > 1 ? "s" : ""}.`, scope: "local-validated", ref: "Farmer report" });
   if (burned > 0) out.push({ id: "residue-burned", title: "Residue burned", text: `You record burning residue in ${burned} slot${burned > 1 ? "s" : ""}, which removes that organic input.`, scope: "local-validated", ref: "Farmer report" });
   return out;

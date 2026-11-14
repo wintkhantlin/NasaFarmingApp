@@ -2,16 +2,18 @@
 
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
 import { cn } from "@/lib/cn";
-import { CROPS, getCropById } from "@/lib/data/crops";
+import { getCropById } from "@/lib/data/crops";
 import { getRealWorldCropEconomics } from "@/lib/data/crops/real-world-economics";
 import {
   classifyRotationFeasibility,
   type FarmerDecisionInput,
   type FarmerTopPriority,
   type CandidateFeasibility,
+  type FarmerWaterAccess,
+  type FarmerLaborEquipment,
 } from "@/lib/engine/farmer-decision";
 import { calculateScenarioGrossMargin } from "@/lib/engine/economics";
 import type { Field, Rotation, RotationSlot } from "@/lib/types";
@@ -429,9 +431,9 @@ export function FarmerGuidedFlow({
 
           {/* Water Access */}
           <div className="flex flex-col gap-2">
-            <label className="text-label font-semibold text-ink">
+            <p className="text-label font-semibold text-ink">
               1. Dry season water access (နွေရာသီရေရရှိနိုင်မှု)
-            </label>
+            </p>
             <div className="grid gap-2 sm:grid-cols-4">
               {[
                 { id: "rainfed", label: "Rainfed only", sub: "မိုးကောင်းသောက် (ရေမသွင်းနိုင်)" },
@@ -442,7 +444,7 @@ export function FarmerGuidedFlow({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setFarmerInputs({ ...farmerInputs, availableWater: opt.id as any })}
+                  onClick={() => setFarmerInputs({ ...farmerInputs, availableWater: opt.id as FarmerWaterAccess })}
                   className={cn(
                     "flex min-h-tap flex-col items-start rounded-lg border p-3 text-left transition-colors cursor-pointer",
                     farmerInputs.availableWater === opt.id
@@ -472,7 +474,7 @@ export function FarmerGuidedFlow({
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setFarmerInputs({ ...farmerInputs, equipment: opt.id as any })}
+                  onClick={() => setFarmerInputs({ ...farmerInputs, equipment: opt.id as FarmerLaborEquipment })}
                   className={cn(
                     "flex min-h-tap flex-col items-start rounded-lg border p-3 text-left transition-colors cursor-pointer",
                     farmerInputs.equipment === opt.id
@@ -562,7 +564,7 @@ export function FarmerGuidedFlow({
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-headline font-semibold text-ink flex items-center gap-2">
-                      <Icon name={opt.icon as any} size={20} className="text-field" />
+                      <Icon name={opt.icon as IconName} size={20} className="text-field" />
                       {opt.titleEn}
                     </span>
                     {selected ? (
@@ -794,7 +796,7 @@ export function FarmerGuidedFlow({
                 variant="primary"
                 size="lg"
                 onClick={() => {
-                  onApplyPlan(selectedCandidate.rotation.slots, selectedCandidate.rotation.cycleYears);
+                  onApplyPlan(selectedCandidate.rotation.slots, selectedCandidate.rotation.cycleYears ?? cycleYears);
                 }}
                 className="min-h-tap"
               >

@@ -77,8 +77,13 @@ export function SettingsButton() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const locale = useLocaleStore((s) => s.locale);
   const areaUnit = useLocaleStore((s) => s.areaUnit);
+  const hydrate = useLocaleStore((s) => s.hydrate);
   const toggleLocale = useLocaleStore((s) => s.toggleLocale);
   const toggleAreaUnit = useLocaleStore((s) => s.toggleAreaUnit);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
 
   useEffect(() => {
     if (!open) return;
@@ -140,6 +145,10 @@ export function SettingsButton() {
                 onClick={toggleLocale}
               />
             </ul>
+            <Link href="/settings" onClick={() => setOpen(false)} className="mx-4 mt-2 flex min-h-tap items-center justify-between border-t border-line text-label text-field no-underline hover:underline">
+              More settings, privacy and backup
+              <Icon name="next" size={16} />
+            </Link>
           </div>
         </div>
       ) : null}

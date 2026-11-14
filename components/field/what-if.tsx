@@ -83,10 +83,10 @@ function TestSlider({
   const id = useId();
   return (
     <div className="flex flex-col gap-0.5">
-      <label id={id} className="flex justify-between gap-3 text-label text-ink">
+      <p id={id} className="flex justify-between gap-3 text-label text-ink">
         {label}
         <span className={cn("tabular", value === 0 ? "text-ink-muted" : "font-medium")}>{valueText}</span>
-      </label>
+      </p>
       <Slider
         aria-labelledby={id}
         getAriaValueText={() => valueText}

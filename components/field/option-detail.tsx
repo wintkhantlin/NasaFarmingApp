@@ -79,11 +79,12 @@ export function YourCallMarker({
       <p className="m-0 text-ink-muted">{note}</p>
       {open ? (
         <div className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
-          <label className="text-source text-ink font-medium">
+          <p className="text-source text-ink font-medium">
             Add what you see on your land (saved to your adviser report):
-          </label>
+          </p>
           <div className="flex gap-2">
             <input
+              aria-label="Local field observation for adviser report"
               type="text"
               value={disagreeText}
               onChange={(e) => setDisagreeText(e.target.value)}
@@ -261,6 +262,7 @@ export function OptionDetail({
       </Section>
 
       <Section id={`${o.id}-water`} title={copy.compare.waterTitle} description="Historical seasons replayed over these crop windows. Not a forecast.">
+        {o.slots.some(s => s.evaluationStatus === "not-evaluated") ? <p className="text-body-sm text-ink-muted">Not-evaluated: overlapping or relay crops cannot use the sequential water/ET model. Check drainage and topsoil locally.</p> : null}
         <div className="grid gap-3 lg:grid-cols-2">
           {o.slots.map((e) => (
             <WaterBlock key={e.slot.id} e={e} />
@@ -330,7 +332,7 @@ export function OptionDetail({
       </Section>
 
       <Section id={`${o.id}-pest`} title={copy.compare.pestTitle} description="From crop family relationships only. Weather cannot identify a disease.">
-        {o.pest.length === 0 ? (
+        {o.slots.some(s => s.evaluationStatus === "not-evaluated") ? <p className="text-body-sm text-ink-muted">Not-evaluated: disease and family-sequence interpretation for overlapping crops is unverified.</p> : o.pest.length === 0 ? (
           <p className="m-0 text-body-sm text-ink-muted">Only one crop, so there is no sequence to check.</p>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-2 p-0">

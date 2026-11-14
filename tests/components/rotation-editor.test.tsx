@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup } from "@testing-library/react";
 import { RotationEditor } from "@/components/field/rotation-editor";
 import { daysBetween, addDaysToIso, segmentYear } from "@/lib/rotation-format";
 import type { Field, Rotation } from "@/lib/types";

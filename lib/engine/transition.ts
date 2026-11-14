@@ -1,5 +1,5 @@
 import type { RotationSlot } from "../types";
-import { daysBetween } from "../rotation-format";
+import { daysBetween, addDaysToIso } from "../rotation-format";
 
 export type TurnaroundMethod = "standard_turnaround" | "zero_till" | "relay_broadcast";
 
@@ -23,6 +23,7 @@ export function isRelayPairEligible(previousCropId?: string | null, nextCropId?:
 
 export interface TransitionAssessment {
   status: "valid" | "relay" | "collision";
+  evaluationStatus?: "not-evaluated";
   gapDays: number; // positive = days bare/idle; negative = days overlapping
   overlapDays: number; // 0 if no overlap; positive if overlapping
   allowedRelayDays: number;
@@ -70,13 +71,14 @@ export function evaluateTransition(
       overlapDays,
       allowedRelayDays,
       isRelay: true,
-      message: `Relay broadcast established ${overlapDays} days before harvest (valid Ye-pyan window)`,
+      evaluationStatus: "not-evaluated",
+      message: `Relay recorded ${overlapDays} days before harvest. Overlapping water/ET, disease and planting-window models are unverified; check this practice locally.`,
     };
   }
 
   let message = `Date overlap: starts ${overlapDays} days before previous harvest finishes.`;
   if (gapDays < -MAX_RELAY_OVERLAP_DAYS && isEligiblePair && isRelayMode) {
-    message = `Relay overlap of ${overlapDays} days exceeds maximum biological window (${MAX_RELAY_OVERLAP_DAYS} days).`;
+    message = `Relay overlap of ${overlapDays} days is outside the legacy calendar screen; local review is needed. No biological safety limit is established here.`;
   } else if (gapDays < 0 && !isEligiblePair && isRelayMode) {
     message = `Relay broadcasting is not documented for this crop pairing. Sowing overlaps by ${overlapDays} days.`;
   } else if (gapDays < 0 && !isRelayMode) {
@@ -90,5 +92,39 @@ export function evaluateTransition(
     allowedRelayDays,
     isRelay: false,
     message,
+  };
+}
+
+/**
+ * Repairs a transition by snapping the next crop to pre-harvest relay broadcast (-7d default).
+ */
+export function snapToRelayBroadcast<T extends Pick<RotationSlot, "plantDate" | "harvestDate">>(
+  prevSlot: Pick<RotationSlot, "harvestDate">,
+  nextSlot: T,
+  relayDays = 7
+): T {
+  const duration = daysBetween(nextSlot.plantDate, nextSlot.harvestDate);
+  const newPlant = addDaysToIso(prevSlot.harvestDate, -relayDays);
+  return {
+    ...nextSlot,
+    plantDate: newPlant,
+    harvestDate: addDaysToIso(newPlant, duration),
+  };
+}
+
+/**
+ * Repairs a transition by snapping the next crop to standard post-harvest turnaround (+14d default).
+ */
+export function snapToStandardTurnaround<T extends Pick<RotationSlot, "plantDate" | "harvestDate">>(
+  prevSlot: Pick<RotationSlot, "harvestDate">,
+  nextSlot: T,
+  turnaroundDays = 14
+): T {
+  const duration = daysBetween(nextSlot.plantDate, nextSlot.harvestDate);
+  const newPlant = addDaysToIso(prevSlot.harvestDate, turnaroundDays);
+  return {
+    ...nextSlot,
+    plantDate: newPlant,
+    harvestDate: addDaysToIso(newPlant, duration),
   };
 }
