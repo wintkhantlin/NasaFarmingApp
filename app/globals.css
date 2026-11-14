@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+/*
+ * Field Almanac design tokens. Source of truth: DESIGN.md.
+ * Light mode only (The Light-Only Rule): no dark palette, no prefers-color-scheme
+ * switch, and Tailwind's `dark:` variant is bound to a class that is never set.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* static: emit every token as a CSS variable, used by a class yet or not */
+@theme static {
+  /* Surfaces */
+  --color-surface: #f4f2ea; /* Parchment: page background */
+  --color-surface-raised: #fbfaf6; /* Cards, sheets, the recommendation */
+  --color-surface-sunken: #e9e6da; /* Inputs, chart plots, map frame */
+  --color-line: #d8d3c2; /* Hairlines; decorative only */
+  --color-line-strong: #8c8676; /* Control borders, 3:1+ on surfaces */
+
+  /* Text */
+  --color-ink: #1f1d17; /* Soil: primary text, 13:1+ on every surface */
+  --color-ink-muted: #5a564a; /* Reasons, metadata, source lines, 5.8:1+ */
+
+  /* Accent */
+  --color-field: #2e5e3a; /* Field Green: primary actions, active, focus */
+  --color-field-soft: #dfe8d8; /* Fill behind field text, in-range band */
+  --color-on-field: #fbfaf6; /* Label on a field fill */
+
+  /* Data meaning only (never decorative, never color alone) */
+  --color-healthy: #2e5e3a;
+  --color-water: #1d5c91;
+  --color-water-soft: #dce8f2;
+  --color-heat: #a33d17;
+  --color-heat-soft: #f6e1d6;
+  --color-drought: #765709;
+  --color-drought-soft: #f1e6c8;
+  --color-frost: #4850a6;
+  --color-frost-soft: #e3e4f5;
+
+  /* Type scale (Geist / Geist Mono) */
+  --text-display: 2.5rem;
+  --text-display--line-height: 2.75rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 700;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.875rem;
+  --text-title--letter-spacing: -0.01em;
+  --text-title--font-weight: 650;
+  --text-headline: 1.1875rem;
+  --text-headline--line-height: 1.625rem;
+  --text-headline--font-weight: 600;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.25rem;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.125rem;
+  --text-label--font-weight: 500;
+  --text-reading: 1.75rem;
+  --text-reading--line-height: 2rem;
+  --text-reading--letter-spacing: -0.01em;
+  --text-reading--font-weight: 500;
+  --text-data: 0.9375rem;
+  --text-data--line-height: 1.25rem;
+  --text-data--font-weight: 500;
+  --text-source: 0.75rem;
+  --text-source--line-height: 1rem;
+  --text-overline: 0.6875rem;
+  --text-overline--line-height: 0.875rem;
+  --text-overline--letter-spacing: 0.08em;
+  --text-overline--font-weight: 500;
+
+  /* Radius */
+  --radius-sm: 6px; /* Inputs, legend swatches, map parcels */
+  --radius-md: 10px; /* Buttons, cards, row groups */
+  --radius-lg: 16px; /* Sheets, the recommendation block */
+  --radius-pill: 999px; /* Risk chips and status pills only */
+
+  /* Elevation: floating elements only */
+  --shadow-float: 0 8px 24px -12px rgb(31 29 23 / 0.35);
+
+  /* Sizes */
+  --spacing-tap: 44px; /* min-h-tap / min-w-tap: smallest tappable target */
+  --container-measure: 68ch; /* max-w-measure: body text line length */
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/*
+ * Spacing steps from DESIGN.md, for plain CSS. Tailwind's default 4px scale
+ * covers the same values: space-1 = 1, space-2 = 2, space-3 = 3, space-4 = 4,
+ * space-5 = 6, space-6 = 8, space-7 = 12, space-8 = 16.
+ */
+:root {
+  color-scheme: light;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --icon: 16px;
+}
+
+@layer base {
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-field);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Readings, amounts and source lines line up in columns */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}

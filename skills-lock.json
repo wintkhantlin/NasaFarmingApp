@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "skills": {
+    "deep-learning": {
+      "source": "ericrisco/rsc-harness",
+      "sourceType": "github",
+      "skillPath": "skills/deep-learning/SKILL.md",
+      "computedHash": "8dc1b0918e4b7de4b8c3bd8a0650041c538cea5469c2a89aa0f089c3a2c97f4c",
+      "installMode": "copy"
+    },
+    "hallmark": {
+      "source": "Nutlope/hallmark",
+      "sourceType": "github",
+      "skillPath": "skills/hallmark/SKILL.md",
+      "computedHash": "e5d4ee5cf0af2dcc81a23ef49b587fbfd71236ff9f9df9da12d3bf347e26e572"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "20bb60ceec725033aa062ab280516922cf17ace30afd273706845757010c0dfa"
+    },
+    "machine-learning": {
+      "source": "ericrisco/rsc-harness",
+      "sourceType": "github",
+      "skillPath": "skills/machine-learning/SKILL.md",
+      "computedHash": "5b9b17eb0f005a5e47fe5d7d57825399547ecf0b8a73f9d303325006b8039f9e",
+      "installMode": "copy"
+    },
+    "stageshow": {
+      "source": "benjitaylor/skills",
+      "sourceType": "github",
+      "skillPath": "stageshow/SKILL.md",
+      "computedHash": "faaf72b41c206b98da5788093eb07fcdceb80dee90b5dc6dd921048196279474"
+    }
+  }
+}
