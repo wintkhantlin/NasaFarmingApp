@@ -12,14 +12,10 @@ import { RiskChip } from "@/components/ui/risk-chip";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SourceLine } from "@/components/ui/source-line";
-import { CropCalendar } from "@/components/field/crop-calendar";
-import { SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
+import { SourceStatusPanel } from "@/components/field/conditions-panels";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
 import { downloadCsv, generateWeatherCsv } from "@/lib/download";
-import { compareRotations } from "@/lib/engine/compare";
-import { monthlyNormals } from "@/lib/engine/climate";
-import { BASELINE } from "@/lib/engine/data";
 import { getCropById } from "@/lib/data/crops";
 import { shortSlotName } from "@/lib/rotation-format";
 import { isStale } from "@/lib/store/data-cache";
@@ -74,20 +70,6 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
     void updater;
     analysis.retry();
   };
-
-  const comparison = useMemo(
-    () => (field && engineData && rotations[0]?.slots.length ? compareRotations(engineData, rotations[0]) : null),
-    [field, engineData, rotations],
-  );
-  const rainyMonths = useMemo(
-    () =>
-      engineData?.records.length
-        ? monthlyNormals(engineData.records.filter((r) => r.year >= BASELINE.startYear && r.year <= BASELINE.endYear))
-            .filter((n) => n.rainMm >= 100)
-            .map((n) => n.month)
-        : [],
-    [engineData],
-  );
 
   // The crops of the farmer's rotation. Ranges on this screen are for one of them.
   const rotationCrops = useMemo(() => {
@@ -308,25 +290,6 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                 dates before planting.
               </p>
               <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="2016 to 2025, daily values averaged by month" />
-            </Panel>
-          ) : null}
-
-          {comparison ? <VulnerabilityPanel comparison={comparison} /> : null}
-          {comparison ? <WaterUsePanel comparison={comparison} /> : null}
-
-          {comparison ? (
-            <Panel as="section" aria-labelledby="calendar" className="flex flex-col gap-4 p-4 sm:p-6">
-              <PanelHeader id="calendar" title={copy.calendar.title} description={copy.calendar.lead} />
-              <CropCalendar option={comparison.current} rainyMonths={rainyMonths} />
-              {comparison.current.lowCover.length > 0 ? (
-                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
-                  {comparison.current.lowCover.map((g) => (
-                    <li key={g.gap.from}>
-                      {g.gap.from.slice(5)} to {g.gap.to.slice(5)}: {g.text}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
             </Panel>
           ) : null}
 

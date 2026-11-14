@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { getCropById, strategyCrops, getDefaultTypicalDates, CROPS } from "../../lib/data/crops";
 import { regionOfPoint, checkRegion } from "../../lib/data/regions";
-import { generateCandidates, sequenceKey } from "../../lib/engine/candidates";
 import { toDailyRecords } from "../../lib/engine/climate";
 import { buildRainSeries, IMERG_MIN_COVERAGE } from "../../lib/engine/data";
 import { rankRotations } from "../../lib/engine/mcda";
@@ -350,54 +349,6 @@ describe("MCDA", () => {
     );
     expect(res.weights["water-shortfall"]).toBeCloseTo(0.75);
     expect(res.weights["income-margin"]).toBeCloseTo(0.25);
-  });
-});
-
-describe("candidate rotations", () => {
-  const common = { fieldId: "f", fieldIrrigation: "none" as const, baseYear: 2026 };
-
-  test("the current sequence is never offered back, and an excluded crop is respected", () => {
-    const current = rotation("f", [slot("a", "maize", "2026-04-15", "2026-08-13"), slot("b", "soybean", "2026-08-20", "2026-12-18")]);
-    const res = generateCandidates({ ...common, region: "shan", current, constraints: { excludedCropIds: ["lablab"] } });
-    expect(res.alternatives.map((a) => a.template.id)).not.toContain("sh-maize-soybean");
-    expect(res.alternatives.map((a) => a.template.id)).not.toContain("sh-maize-lablab");
-    expect(res.rejected.find((r) => r.template.id === "sh-maize-lablab")?.reason).toContain("excluded");
-  });
-
-  test("a sequence whose next crop misses its sowing window is rejected with the reason", () => {
-    const current = rotation("f", [slot("a", "groundnut", "2026-05-15", "2026-09-07")]);
-    const res = generateCandidates({ ...common, region: "shan", current });
-    expect(res.rejected.find((r) => r.template.id === "sh-maize-sunn-hemp")?.reason).toMatch(/sunn hemp|Sunn hemp/);
-  });
-
-  test("a farmer's planting window rejects dates outside it", () => {
-    const current = rotation("f", [slot("a", "sesame", "2026-05-15", "2026-08-23")]);
-    const res = generateCandidates({ ...common, region: "magway", current, constraints: { plantingWindow: { from: "05-01", to: "06-30" } } });
-    // green gram and chickpea are sown after August, so every template that needs them is rejected
-    expect(res.rejected.length).toBeGreaterThan(0);
-    for (const a of res.alternatives) for (const s of a.rotation.slots) expect(s.plantDate.slice(5) >= "05-01" && s.plantDate.slice(5) <= "06-30").toBe(true);
-  });
-
-  test("an unsupported region returns a typed reason, not a guess", () => {
-    const res = generateCandidates({ ...common, region: "unsupported", current: rotation("f", []) });
-    expect(res.alternatives).toHaveLength(0);
-    expect(res.shortfall).toContain("outside");
-  });
-
-  test("every built alternative is dated inside each crop's sowing window", () => {
-    for (const region of ["ayeyarwady", "magway", "shan"] as const) {
-      const res = generateCandidates({ ...common, region, current: rotation("f", [slot("a", "rice", "2026-06-01", "2026-10-13")]) });
-      expect(res.alternatives.length).toBeGreaterThanOrEqual(2);
-      for (const a of res.alternatives) {
-        for (const s of a.rotation.slots) {
-          const cal = getCropById(s.cropId!)!.profile!.regionalCalendars[region]!;
-          const d = s.plantDate.slice(5);
-          const inside = cal.sowWindow[0] <= cal.sowWindow[1] ? d >= cal.sowWindow[0] && d <= cal.sowWindow[1] : d >= cal.sowWindow[0] || d <= cal.sowWindow[1];
-          expect(inside).toBe(true);
-        }
-      }
-    }
-    expect(sequenceKey(["a", "b"])).toBe(sequenceKey(["b", "a"]));
   });
 });
 

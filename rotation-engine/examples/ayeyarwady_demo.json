@@ -1,0 +1,29 @@
+{
+  "location": {"label": "Demonstration farm — Ayeyarwady", "lat": 16.731, "lon": 95.655, "region": "Ayeyarwady"},
+  "planning": {
+    "start_date": "2026-11-20", "end_date": "2027-04-15", "max_future_crops": 1,
+    "include_fallow": true, "max_results": 20,
+    "crop_duration_days": {"green_gram": 90, "black_gram": 100, "sesame": 90, "rice": 120, "maize": 110}
+  },
+  "history": ["rice"],
+  "farm": {
+    "soil_ph": 6.1, "drainage": "well", "irrigation": "none",
+    "available_crops": ["green_gram", "black_gram", "sesame", "rice"],
+    "fallow_management": "bare", "residues_retained": null
+  },
+  "environment": {
+    "source": "Synthetic values for demonstration — NOT NASA observations",
+    "basis": "synthetic", "spatial_resolution_km": 9,
+    "monthly": [
+      {"month": "2026-11", "temp_c": 28.0, "rain_mm": 35},
+      {"month": "2026-12", "temp_c": 25.5, "rain_mm": 18},
+      {"month": "2027-01", "temp_c": 24.0, "rain_mm": 12},
+      {"month": "2027-02", "temp_c": 27.0, "rain_mm": 20},
+      {"month": "2027-03", "temp_c": 29.5, "rain_mm": 33},
+      {"month": "2027-04", "temp_c": 31.0, "rain_mm": 77}
+    ]
+  },
+  "farmer": {
+    "priorities": {"crop_diversity": 3, "legume_inclusion": 5, "living_cover": 2, "water_conservation": 5, "income": 3}
+  }
+}
