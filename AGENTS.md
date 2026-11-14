@@ -10,6 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Design rules
 
-- Follow `DESIGN.md`. Its tokens are implemented in `app/globals.css`; change both together.
+- Follow `DESIGN.md` for visual design. Its tokens are implemented in `app/globals.css`; change both together.
+- Follow `UX.md` for behaviour: who the app is for, screen structure (Today, Map, Plan, Fields), alert and recommendation formats, and the data-to-plain-language vocabulary.
 - **Light mode only.** Don't add dark tokens, `dark:` classes, a `prefers-color-scheme` switch or a theme toggle (DESIGN.md, The Light-Only Rule).
 - Data colors (`water`, `heat`, `drought`, `frost`, `healthy`) mean data only and always come with an icon or words.
