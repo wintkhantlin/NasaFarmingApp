@@ -1,0 +1,167 @@
+/*
+ * The first-run preview, in the app's own Field Almanac tokens (DESIGN.md).
+ * Only values the kit exposes as --ss-* tokens are set here; the kit's parts
+ * read them. The stage sits on the panel's own surface, so it draws no plate.
+ */
+.rp-host {
+  min-width: 0;
+}
+
+.rp .ss-stage {
+  --ss-canvas: transparent;
+  --ss-surface: #fbfaf6;
+  --ss-chrome: #fbfaf6;
+  --ss-well: #e9e6da;
+  --ss-accent: #2e5e3a;
+  --ss-accent-2: #2e5e3a;
+  --ss-accent-soft: #dfe8d8;
+  --ss-accent-text: #2e5e3a;
+  --ss-success: #2e5e3a;
+  --ss-success-soft: #dfe8d8;
+  --ss-success-text: #2e5e3a;
+  --ss-warning: #765709;
+  --ss-warning-soft: #f1e6c8;
+  --ss-warning-text: #765709;
+  --ss-text-strong: #1f1d17;
+  --ss-text: #5a564a;
+  --ss-text-faint: #8c8676;
+  --ss-line: rgba(31, 29, 23, 0.1);
+  --ss-line-faint: rgba(31, 29, 23, 0.06);
+  --ss-font: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --ss-radius-md: 10px;
+  --ss-radius-window: 12px;
+}
+
+.rp .ss-stage {
+  overflow: hidden;
+  background: transparent;
+}
+
+/* The window fills the stage's width and runs off its bottom edge; only its empty foot is cut */
+.rp-win {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  width: 620px;
+  height: 420px;
+}
+
+.rp-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 22px 24px;
+  background: var(--ss-surface);
+}
+
+.rp-title {
+  color: var(--ss-text-strong);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.rp-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rp-col {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--ss-line);
+  border-radius: 10px;
+  background: var(--ss-surface);
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease;
+}
+
+.rp-col[data-on] {
+  border-color: var(--ss-accent);
+  background: var(--ss-accent-soft);
+}
+
+.rp-col__name {
+  color: var(--ss-text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rp-col__crops {
+  min-height: 34px;
+  color: var(--ss-text);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.rp-col__row {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.rp-col__label {
+  color: var(--ss-text-faint);
+  font-size: 11px;
+}
+
+.rp-answer {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--ss-line);
+  border-radius: 12px;
+  background: var(--ss-surface);
+}
+
+.rp-answer__ctx {
+  color: var(--ss-text-faint);
+  font-size: 12px;
+}
+
+.rp-answer__head {
+  display: block;
+  min-height: 23px;
+  color: var(--ss-text-strong);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 23px;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.rp-answer__chips {
+  display: flex;
+}
+
+/* Compact: one option at a time under a selector, the window narrower */
+.rp .ss-stage[data-layout="compact"] .rp-win {
+  top: 20px;
+  width: 358px;
+  height: 420px;
+}
+
+.rp .ss-stage[data-layout="compact"] .rp-body {
+  padding: 18px 16px;
+}
+
+.rp-seg {
+  width: 100%;
+}
+
+.rp-col--solo {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.rp-col--solo .rp-col__row {
+  justify-items: end;
+}
+
+.rp .ss-stage[data-layout="compact"] .rp-answer__head {
+  min-height: 46px;
+}

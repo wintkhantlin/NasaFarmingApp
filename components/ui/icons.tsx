@@ -1,8 +1,8 @@
 import type { SVGProps } from "react";
 
 /**
- * Placeholder glyphs: 16px, 1.6px stroke, currentColor. Replace with the chosen
- * icon set when one is picked (see DESIGN.md, Iconography).
+ * Line glyphs: 16px, 1.6px stroke, currentColor. Hazard glyphs carry data
+ * meaning and always sit beside words (The Never-Color-Alone Rule).
  */
 export type Hazard = "water" | "heat" | "drought" | "frost" | "healthy";
 
@@ -14,7 +14,7 @@ const PATHS: Record<Hazard, string> = {
   healthy: "M13.5 2.5C7 2.5 3 5.5 3 10.5c0 1 .2 2 .6 2.9M13.5 2.5c0 6.5-3.5 10-8.5 10M3.6 13.4C5 10 8 7 10.5 5.5",
 };
 
-export function HazardGlyph({ hazard, ...rest }: { hazard: Hazard } & SVGProps<SVGSVGElement>) {
+function Glyph({ d, strokeWidth = 1.6, children, ...rest }: { d?: string } & SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 16 16"
@@ -22,38 +22,85 @@ export function HazardGlyph({ hazard, ...rest }: { hazard: Hazard } & SVGProps<S
       height={16}
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.6}
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       {...rest}
     >
-      <path d={PATHS[hazard]} />
+      {d ? <path d={d} /> : null}
+      {children}
     </svg>
   );
 }
 
+export function HazardGlyph({ hazard, ...rest }: { hazard: Hazard } & SVGProps<SVGSVGElement>) {
+  return <Glyph d={PATHS[hazard]} {...rest} />;
+}
+
 export function CheckGlyph(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <path d="M3.5 8.5l3 3 6-7" />
-    </svg>
-  );
+  return <Glyph d="M3.5 8.5l3 3 6-7" strokeWidth={2} {...props} />;
 }
 
 export function PinGlyph(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <Glyph {...props}>
       <path d="M8 14.5s4.5-4.2 4.5-8A4.5 4.5 0 0 0 3.5 6.5c0 3.8 4.5 8 4.5 8Z" />
       <circle cx="8" cy="6.5" r="1.6" />
-    </svg>
+    </Glyph>
   );
 }
 
 export function ArrowLeftGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M13 8H3M7 4 3 8l4 4" strokeWidth={1.8} {...props} />;
+}
+
+export function ChevronRightGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M6 3.5 10.5 8 6 12.5" strokeWidth={1.8} {...props} />;
+}
+
+export function PlusGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M8 3v10M3 8h10" strokeWidth={1.8} {...props} />;
+}
+
+export function PrintGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M4.5 6V1.8h7V6M4.5 11.5h-2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-2M4.5 9.5h7v4.7h-7z" {...props} />;
+}
+
+export function DocGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M9.5 1.5h-5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V4.5l-3-3ZM9.5 1.5v3h3M5.8 8h4.4M5.8 10.8h4.4" {...props} />;
+}
+
+export function ClockGlyph(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      <path d="M13 8H3M7 4 3 8l4 4" />
-    </svg>
+    <Glyph {...props}>
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M8 4.6V8l2.3 1.6" />
+    </Glyph>
   );
+}
+
+export function CrossGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M4 4l8 8M12 4l-8 8" strokeWidth={1.8} {...props} />;
+}
+
+export function LayersGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M8 1.8 1.5 5.2 8 8.6l6.5-3.4L8 1.8ZM1.5 8.2 8 11.6l6.5-3.4M1.5 11.1 8 14.5l6.5-3.4" {...props} />;
+}
+
+export function InfoGlyph(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Glyph {...props}>
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M8 7.2v4M8 4.8v.1" />
+    </Glyph>
+  );
+}
+
+export function UpArrowGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M8 13V3M4 7l4-4 4 4" strokeWidth={1.8} {...props} />;
+}
+
+export function DownArrowGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M8 3v10M4 9l4 4 4-4" strokeWidth={1.8} {...props} />;
 }

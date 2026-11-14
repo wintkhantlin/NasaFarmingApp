@@ -105,7 +105,18 @@
   --icon: 16px;
 }
 
+/* A stray wide child never makes the page scroll sideways. clip, not hidden, so sticky still works. */
+html,
+body {
+  overflow-x: clip;
+}
+
 @layer base {
+  html {
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background: var(--color-surface);
     color: var(--color-ink);
@@ -126,6 +137,20 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/* The report is a document: no app chrome, no tint, sensible margins. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: none;
+    color: var(--color-ink);
+  }
+  a {
+    text-decoration: none;
   }
 }
 

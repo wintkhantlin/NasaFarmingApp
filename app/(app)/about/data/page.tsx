@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { CheckGlyph, ClockGlyph, CrossGlyph } from "@/components/ui/icons";
+import { Panel } from "@/components/ui/panel";
 import { SourceLine } from "@/components/ui/source-line";
+import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
 
 export const metadata: Metadata = { title: "About the data" };
@@ -50,31 +53,55 @@ const SOURCES: Array<{
   },
 ];
 
+const STATUS_ICON = {
+  Working: <CheckGlyph className="text-healthy" />,
+  "Not checked live": <ClockGlyph className="text-drought" />,
+  "Not connected": <CrossGlyph className="text-ink-muted" />,
+} satisfies Record<Status, React.ReactNode>;
+
 export default function AboutDataPage() {
+  const working = SOURCES.filter((s) => s.status === "Working").length;
+
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <h1 className="text-title text-ink">About the data</h1>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-title text-ink sm:text-display">About the data</h1>
         <p className="max-w-measure text-body text-ink-muted">
-          Every figure in this app comes from one of these sources and shows which. Where a source isn&apos;t connected, the app says so instead of filling the gap.
+          Every figure in this app comes from one of these sources and shows which. Where a source isn&apos;t connected,
+          the app says so instead of filling the gap.
+        </p>
+        <p className="m-0 text-body-sm text-ink-muted">
+          {working} of {SOURCES.length} sources are working now.
         </p>
       </div>
 
-      <ul className="flex flex-col gap-3">
+      <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">
         {SOURCES.map((s) => (
-          <li key={s.name} className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-headline text-ink">{s.name}</h2>
-              <span className="text-label text-ink-muted">{s.status}</span>
-            </div>
-            <p className="max-w-measure text-body text-ink">{s.gives}</p>
-            <p className="max-w-measure text-body-sm text-ink-muted">{s.note}</p>
-            <SourceLine {...s.detail} />
+          <li key={s.name} className="min-w-0">
+            <Panel as="article" className="flex h-full flex-col gap-3 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                <h2 className="min-w-0 text-headline text-ink">{s.name}</h2>
+                <span
+                  className={cn(
+                    "inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-pill border px-2.5 py-0.5 text-label",
+                    s.status === "Working"
+                      ? "border-healthy/30 bg-field-soft text-healthy"
+                      : "border-line-strong bg-surface text-ink",
+                  )}
+                >
+                  {STATUS_ICON[s.status]}
+                  {s.status}
+                </span>
+              </div>
+              <p className="m-0 max-w-measure text-body text-ink">{s.gives}</p>
+              <p className="m-0 max-w-measure text-body-sm text-ink-muted">{s.note}</p>
+              <SourceLine {...s.detail} className="mt-auto border-t border-line pt-3" />
+            </Panel>
           </li>
         ))}
       </ul>
 
-      <p className="max-w-measure text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
+      <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
     </>
   );
 }

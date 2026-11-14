@@ -1,6 +1,17 @@
+import Skeleton from "@mui/material/Skeleton";
 import { cn } from "@/lib/cn";
 
-/** A placeholder block at the size of the content it stands in for. */
-export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn("animate-pulse rounded-md bg-surface-sunken motion-reduce:animate-none", className)} />;
+export function SkeletonLoader({ className }: { className?: string }) {
+  return (
+    <Skeleton
+      variant="rounded"
+      className={cn("bg-surface-sunken", className)}
+      sx={{
+        backgroundColor: "#e9e6da",
+        transform: "none",
+      }}
+    />
+  );
 }
+
+export { SkeletonLoader as Skeleton };

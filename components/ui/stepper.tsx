@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
-import { CheckGlyph } from "./icons";
+import { CheckGlyph, ClockGlyph } from "./icons";
 
 export type StepId = "location" | "rotation" | "conditions" | "compare";
 export type StepState = "done" | "needs-input" | "loading" | "not-started";
@@ -22,49 +22,73 @@ const HREF: Record<StepId, (id: string) => string> = {
   compare: (id) => `/fields/${id}/compare`,
 };
 
-interface StepperProps {
+export interface StepperProps {
   fieldId: string;
   current: StepId;
   states: Record<StepId, StepState>;
-  /** Steps whose page exists. Others show as plain text, not links. */
-  available: Record<StepId, boolean>;
+  /** Steps whose page exists. Others show as non-clickable. */
+  available?: Record<StepId, boolean>;
+  className?: string;
 }
 
-/** The four steps of a field, with where each one stands. */
-export function Stepper({ fieldId, current, states, available }: StepperProps) {
+/**
+ * The four steps of a field and where each one stands. One list that reads as
+ * a progress strip on phones and as a left rail from the lg breakpoint.
+ */
+export function Stepper({ fieldId, current, states, available, className }: StepperProps) {
   return (
-    <nav aria-label="Steps for this field">
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <nav aria-label="Steps for this field" className={className}>
+      <ol className="grid grid-cols-4 gap-1.5 lg:grid-cols-1 lg:gap-1">
         {ORDER.map((id, i) => {
           const isCurrent = id === current;
-          const body = (
+          const isAvailable = available ? available[id] : true;
+          const state = states[id];
+          const isDone = state === "done";
+
+          const content = (
             <>
-              <span className="flex items-center gap-2 text-label text-ink">
-                <span
-                  className={cn(
-                    "tabular grid size-6 shrink-0 place-items-center rounded-pill border text-source",
-                    states[id] === "done" ? "border-field bg-field text-on-field" : "border-line-strong text-ink-muted",
-                  )}
-                >
-                  {states[id] === "done" ? <CheckGlyph width={14} height={14} /> : i + 1}
-                </span>
-                {copy.steps[id]}
+              {/* Phone: a bar that fills when the step is done */}
+              <span
+                aria-hidden="true"
+                className={cn("h-1 rounded-pill lg:hidden", isDone ? "bg-field" : isCurrent ? "bg-line-strong" : "bg-line")}
+              />
+              {/* Rail: a numbered marker */}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "tabular hidden size-7 shrink-0 place-items-center rounded-pill border font-mono text-source lg:grid",
+                  isDone ? "border-field bg-field text-on-field" : "border-line-strong bg-surface text-ink-muted",
+                )}
+              >
+                {isDone ? <CheckGlyph width={14} height={14} /> : i + 1}
               </span>
-              <span className="pl-8 text-body-sm text-ink-muted">{STATE_WORDS[states[id]]}</span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className={cn("text-label text-balance", isCurrent ? "text-ink" : "text-ink")}>{copy.steps[id]}</span>
+                <span className="flex items-center gap-1 text-body-sm text-ink-muted">
+                  {isDone ? <CheckGlyph width={12} height={12} className="shrink-0 text-healthy lg:hidden" /> : null}
+                  {state === "loading" ? <ClockGlyph width={12} height={12} className="shrink-0" /> : null}
+                  <span className="text-balance">{STATE_WORDS[state]}</span>
+                </span>
+              </span>
             </>
           );
-          const box = cn(
-            "flex min-h-tap flex-col gap-0.5 rounded-md border px-3 py-2",
-            isCurrent ? "border-field bg-field-soft" : "border-line bg-surface-raised",
+
+          const boxClass = cn(
+            "flex min-h-tap flex-col gap-2 rounded-md p-1 no-underline transition-colors",
+            "lg:flex-row lg:items-center lg:gap-3 lg:border lg:p-2.5",
+            isCurrent
+              ? "lg:border-field lg:bg-field-soft"
+              : "lg:border-transparent lg:hover:bg-surface-sunken",
           );
+
           return (
-            <li key={id}>
-              {available[id] ? (
-                <Link href={HREF[id](fieldId)} aria-current={isCurrent ? "step" : undefined} className={cn(box, "no-underline hover:bg-surface-sunken")}>
-                  {body}
+            <li key={id} className="min-w-0">
+              {isAvailable ? (
+                <Link href={HREF[id](fieldId)} aria-current={isCurrent ? "step" : undefined} className={boxClass}>
+                  {content}
                 </Link>
               ) : (
-                <div className={cn(box, "opacity-70")}>{body}</div>
+                <div className={cn(boxClass, "cursor-not-allowed opacity-60")}>{content}</div>
               )}
             </li>
           );

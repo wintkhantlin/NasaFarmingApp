@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".agents/**",
+    // Vendored Stageshow kit, kept as published.
+    "components/preview/kit/**",
   ]),
 ]);
 
