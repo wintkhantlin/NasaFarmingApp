@@ -316,6 +316,581 @@ export function redistributeAtRootChange(state: TwoZoneState, fromZr: number, to
   return { rootMm: root, subMm: total - root };
 }
 
+// ---- Three-zone non-overlapping soil column (Section 4.2.2, Prompt 3) --------------------------------
+/**
+ * Three physically NON-OVERLAPPING compartments:
+ *   Layer 1 (seedbed): 0 to Z1 (default 0.12m), dedicated to topsoil evaporation and seedling emergence.
+ *   Layer 2 (sub-seedbed active root zone): Z1 to Zr (where Zr > Z1; 0 thickness when Zr <= Z1).
+ *   Layer 3 (sub-root buffer): max(Zr, Z1) to Zmax.
+ *
+ * Mass Ledger Equation:
+ *   Delta(surfacePond + seedbed + rootSubSeedbed + subRoot + perchedExcess) =
+ *     Precipitation + Irrigation + CapillaryInflow - Runoff - SurfaceDrainage - DeepDrainage - Evaporation - Transpiration
+ * Conserved strictly to <= 1e-9 mm tolerance.
+ */
+export interface ThreeZoneColumn {
+  awcMmPerM: number;
+  /** Seedbed thickness Z1, m (default 0.12 m). */
+  seedbedDepthM: number;
+  /** Current effective rooting depth Zr, m. */
+  rootDepthM: number;
+  /** Fixed maximum column depth Zmax, m (>= max(rootDepthM, seedbedDepthM)). */
+  maxDepthM: number;
+  /** Saturated water content (porosity), volumetric theta_sat (optional). */
+  thetaSat?: number;
+  /** Field capacity volumetric theta_fc (optional). */
+  thetaFc?: number;
+  /** Plough-pan percolation/drainage rate, mm/day (typically 2.5 - 6.0 mm/day). */
+  kPanMmDay?: number;
+}
+
+export interface ThreeZoneState {
+  /** Standing surface water (paddy pond or temporary retention), mm. */
+  surfacePondMm: number;
+  /** Water in dedicated seedbed layer 1 (0 to Z1), mm [0, C1]. */
+  seedbedMm: number;
+  /** Water in sub-seedbed active root layer 2 (Z1 to Zr), mm [0, C2]. */
+  rootSubSeedbedMm: number;
+  /** Water in sub-root buffer layer 3 (max(Zr, Z1) to Zmax), mm [0, C3]. */
+  subRootMm: number;
+  /** Gravitational excess water above FC perched above plough pan, mm. */
+  perchedExcessMm?: number;
+}
+
+export interface ThreeZoneCapacities {
+  z1M: number;
+  z2M: number;
+  z3M: number;
+  c1Mm: number;
+  c2Mm: number;
+  c3Mm: number;
+  totalCapacityMm: number;
+}
+
+export function threeZoneCapacities(col: ThreeZoneColumn): ThreeZoneCapacities {
+  const zMax = Math.max(col.maxDepthM, col.rootDepthM, col.seedbedDepthM);
+  const z1 = Math.min(col.seedbedDepthM, zMax);
+  const zRoot = Math.min(col.rootDepthM, zMax);
+  const z2 = Math.max(0, zRoot - z1);
+  const z3 = Math.max(0, zMax - Math.max(zRoot, z1));
+  return {
+    z1M: z1,
+    z2M: z2,
+    z3M: z3,
+    c1Mm: col.awcMmPerM * z1,
+    c2Mm: col.awcMmPerM * z2,
+    c3Mm: col.awcMmPerM * z3,
+    totalCapacityMm: col.awcMmPerM * zMax,
+  };
+}
+
+export interface ThreeZoneStepOptions {
+  /** Basal crop coefficient Kcb (transpiration). If omitted, derived from demand. */
+  kcb?: number;
+  /** Soil evaporation coefficient Ke. If omitted, derived or bare. */
+  ke?: number;
+  /** Depletion fraction p for root-zone stress. */
+  p?: number | null;
+  /** Bund height, mm (0 for upland; > 0 for bunded paddy). */
+  bundHeightMm?: number;
+  /** Maximum daily infiltration rate, mm/day (optional partition limit). */
+  dailyInfiltrationMaxMm?: number;
+  /** Capillary rise / groundwater inflow, mm (default 0). */
+  capillaryInflowMm?: number;
+  /** Intentional surface drainage outflow event, mm (e.g. at paddy drain). */
+  surfaceDrainageOutflowMm?: number;
+}
+
+export interface ThreeZoneStepResult {
+  state: ThreeZoneState;
+  /** Inflow: precipitation + irrigation + capillary */
+  inflowMm: number;
+  /** Runoff: rainfall exceeding bund spill or infiltration capacity */
+  runoffMm: number;
+  /** Intentional surface drainage outflow */
+  surfaceDrainageMm: number;
+  /** Gravitational drainage leaving the bottom of the soil column */
+  deepDrainageMm: number;
+  /** Evaporation from standing pond water */
+  pondEvaporationMm: number;
+  /** Soil evaporation from dedicated seedbed layer 1 */
+  soilEvaporationMm: number;
+  /** Crop transpiration from active root layers (layer 1 + layer 2) */
+  cropTranspirationMm: number;
+  /** Total actual ET = pondEvap + soilEvap + cropTransp */
+  actualEtMm: number;
+  /** Unmet evaporative/transpiration demand */
+  unmetDemandMm: number;
+  /** Stress coefficient applied to transpiration */
+  stressCoefficient: number;
+  /** Plough-pan drainage from perched water */
+  ploughPanDrainageMm: number;
+  /** Conservation residual: Delta(Storage) - (Inflow - Outflow). Conserved to <= 1e-9 mm. */
+  residualMm: number;
+}
+
+/**
+ * Executes a single daily step on the non-overlapping 3-zone column.
+ * Strict mass conservation ledger:
+ *   Delta(surfacePond + L1 + L2 + L3 + perched) =
+ *     rain + irrigation + capillary - runoff - surfaceDrainage - deepDrainage - actualEt
+ */
+export function threeZoneStep(
+  state: ThreeZoneState,
+  column: ThreeZoneColumn,
+  rainMm: number,
+  demandMm: number,
+  irrigationMm = 0,
+  options?: ThreeZoneStepOptions,
+): ThreeZoneStepResult {
+  const cap = threeZoneCapacities(column);
+  const sPond = Math.max(0, state.surfacePondMm);
+  const s1 = Math.min(cap.c1Mm, Math.max(0, state.seedbedMm));
+  const s2 = Math.min(cap.c2Mm, Math.max(0, state.rootSubSeedbedMm));
+  const s3 = Math.min(cap.c3Mm, Math.max(0, state.subRootMm));
+  const sPerch = Math.max(0, state.perchedExcessMm ?? 0);
+  const initialStorage = sPond + s1 + s2 + s3 + sPerch;
+
+  const p = Math.max(0, rainMm);
+  const irr = Math.max(0, irrigationMm);
+  const capIn = Math.max(0, options?.capillaryInflowMm ?? 0);
+  const totalInflow = p + irr + capIn;
+
+  // 1. Capillary rise entering from bottom of column
+  let curS3 = s3;
+  let curS2 = s2;
+  let curS1 = s1;
+  let capDeepOverflow = 0;
+  if (capIn > 0) {
+    const room3 = Math.max(0, cap.c3Mm - curS3);
+    const in3 = Math.min(capIn, room3);
+    curS3 += in3;
+    const rem2 = capIn - in3;
+    const room2 = Math.max(0, cap.c2Mm - curS2);
+    const in2 = Math.min(rem2, room2);
+    curS2 += in2;
+    const rem1 = rem2 - in2;
+    const room1 = Math.max(0, cap.c1Mm - curS1);
+    const in1 = Math.min(rem1, room1);
+    curS1 += in1;
+    capDeepOverflow = rem1 - in1;
+  }
+
+  // 2. Water arriving at the surface
+  let waterAtSurface = sPond + p + irr;
+  const bundHeight = Math.max(0, options?.bundHeightMm ?? 0);
+  let runoff = 0;
+
+  if (bundHeight === 0) {
+    // Upland unbunded field: optional infiltration rate partitioning
+    if (options?.dailyInfiltrationMaxMm !== undefined) {
+      const maxInfil = Math.max(0, options.dailyInfiltrationMaxMm);
+      const potentialInfil = Math.min(waterAtSurface, maxInfil);
+      runoff = waterAtSurface - potentialInfil;
+      waterAtSurface = potentialInfil;
+    }
+  } else {
+    // Bunded field: spill above bund height
+    runoff = Math.max(0, waterAtSurface - bundHeight);
+    waterAtSurface -= runoff;
+  }
+
+  // 3. Intentional surface drainage outflow (e.g. at paddy drain event)
+  const plannedDrain = Math.max(0, options?.surfaceDrainageOutflowMm ?? 0);
+  const surfaceDrainage = Math.min(waterAtSurface, plannedDrain);
+  waterAtSurface -= surfaceDrainage;
+
+  // 4. Standing pond evaporation
+  let pondEvap = 0;
+  let remDemand = Math.max(0, demandMm);
+  if (waterAtSurface > 0 && remDemand > 0) {
+    pondEvap = Math.min(waterAtSurface, remDemand);
+    waterAtSurface -= pondEvap;
+    remDemand -= pondEvap;
+  }
+
+  // 5. Infiltration into soil layers (filling to field capacity)
+  const room1 = Math.max(0, cap.c1Mm - curS1);
+  const infil1 = Math.min(waterAtSurface, room1);
+  curS1 += infil1;
+  waterAtSurface -= infil1;
+
+  const room2 = Math.max(0, cap.c2Mm - curS2);
+  const infil2 = Math.min(waterAtSurface, room2);
+  curS2 += infil2;
+  waterAtSurface -= infil2;
+
+  const room3 = Math.max(0, cap.c3Mm - curS3);
+  const infil3 = Math.min(waterAtSurface, room3);
+  curS3 += infil3;
+  waterAtSurface -= infil3;
+
+  // Surface water remaining
+  let deepDrainage = capDeepOverflow;
+  let endPond = 0;
+  if (bundHeight > 0) {
+    endPond = waterAtSurface;
+  } else {
+    deepDrainage += waterAtSurface;
+    endPond = 0;
+  }
+
+  // 6. Perched water decay above plough pan
+  let kPanDrain = 0;
+  let endPerch = sPerch;
+  if (endPerch > 0) {
+    const kPan = options?.bundHeightMm ? 0 : (column.kPanMmDay ?? 3.0);
+    kPanDrain = Math.min(endPerch, kPan);
+    endPerch -= kPanDrain;
+    deepDrainage += kPanDrain;
+  }
+
+  // 7. Evapotranspiration: dual Kc or partitioned single Kc
+  let soilEvap = 0;
+  let cropTransp = 0;
+  let stressKs = 1;
+  const pDepletion = options?.p ?? DEFAULT_DEPLETION_FRACTION;
+
+  const ke = options?.ke;
+  const kcb = options?.kcb;
+
+  if (ke !== undefined || kcb !== undefined) {
+    // Explicit dual Kc: soil evaporation from L1, transpiration from root zone (L1 + L2)
+    const potSoilEvap = Math.max(0, (ke ?? 0) * (remDemand > 0 ? demandMm : 0));
+    soilEvap = Math.min(curS1, potSoilEvap);
+    curS1 -= soilEvap;
+
+    const rootWater = curS1 + curS2;
+    const rootCap = cap.c1Mm + cap.c2Mm;
+    stressKs = postWettingKs(rootWater, rootCap, pDepletion);
+    const potCropTransp = Math.max(0, stressKs * (kcb ?? 0) * demandMm);
+    cropTransp = Math.min(rootWater, potCropTransp);
+    if (rootWater > 0 && cropTransp > 0) {
+      const t1 = cropTransp * (curS1 / rootWater);
+      const t2 = cropTransp - t1;
+      curS1 -= t1;
+      curS2 -= t2;
+    }
+  } else {
+    // Single Kc / demand:
+    if (cap.c2Mm === 0) {
+      // Shallow roots confined to seedbed layer 1 (or bare soil)
+      stressKs = postWettingKs(curS1, cap.c1Mm, pDepletion);
+      soilEvap = Math.min(curS1, stressKs * remDemand);
+      curS1 -= soilEvap;
+    } else {
+      // Roots active in L1 + L2
+      const rootWater = curS1 + curS2;
+      const rootCap = cap.c1Mm + cap.c2Mm;
+      stressKs = postWettingKs(rootWater, rootCap, pDepletion);
+      cropTransp = Math.min(rootWater, stressKs * remDemand);
+      if (rootWater > 0 && cropTransp > 0) {
+        const t1 = cropTransp * (curS1 / rootWater);
+        const t2 = cropTransp - t1;
+        curS1 -= t1;
+        curS2 -= t2;
+      }
+    }
+  }
+
+  // 8. Perched water replenishment: while perched water remains above the plough pan,
+  // upward capillary action keeps the topsoil seedbed at field capacity.
+  if (endPerch > 0 && curS1 < cap.c1Mm) {
+    const replenish = Math.min(endPerch, cap.c1Mm - curS1);
+    curS1 += replenish;
+    endPerch -= replenish;
+  }
+
+  const actualEt = pondEvap + soilEvap + cropTransp;
+  const unmet = Math.max(0, demandMm - actualEt);
+
+  const nextState: ThreeZoneState = {
+    surfacePondMm: endPond,
+    seedbedMm: curS1,
+    rootSubSeedbedMm: curS2,
+    subRootMm: curS3,
+    perchedExcessMm: endPerch,
+  };
+
+  const endStorage = endPond + curS1 + curS2 + curS3 + endPerch;
+  const totalOutflow = runoff + surfaceDrainage + deepDrainage + actualEt;
+  const deltaS = endStorage - initialStorage;
+  const residual = deltaS - (totalInflow - totalOutflow);
+
+  return {
+    state: nextState,
+    inflowMm: totalInflow,
+    runoffMm: runoff,
+    surfaceDrainageMm: surfaceDrainage,
+    deepDrainageMm: deepDrainage,
+    pondEvaporationMm: pondEvap,
+    soilEvaporationMm: soilEvap,
+    cropTranspirationMm: cropTransp,
+    actualEtMm: actualEt,
+    unmetDemandMm: unmet,
+    stressCoefficient: stressKs,
+    ploughPanDrainageMm: kPanDrain,
+    residualMm: Math.abs(residual) < 1e-9 ? 0 : residual,
+  };
+}
+
+/**
+ * Moves root-zone boundaries when crop rooting depth changes without changing seedbed layer 1.
+ * Topsoil layer 1 moisture is untouched: dry topsoil is NOT mixed or homogenized with moist subsoil!
+ * Water is conserved strictly across compartments 2 and 3.
+ */
+export function redistributeAtRootChangeThreeZone(
+  state: ThreeZoneState,
+  column: ThreeZoneColumn,
+  newRootDepthM: number,
+): ThreeZoneState {
+  const zMax = Math.max(column.maxDepthM, column.rootDepthM, column.seedbedDepthM, newRootDepthM);
+  const z1 = Math.min(column.seedbedDepthM, zMax);
+  const oldZr = Math.min(column.rootDepthM, zMax);
+  const newZr = Math.min(newRootDepthM, zMax);
+
+  const s1 = state.seedbedMm;
+  const sPond = state.surfacePondMm;
+  const sPerch = state.perchedExcessMm ?? 0;
+
+  const subTotal = state.rootSubSeedbedMm + state.subRootMm;
+  const oldZ2 = Math.max(0, oldZr - z1);
+  const oldZ3 = Math.max(0, zMax - Math.max(oldZr, z1));
+  const newZ2 = Math.max(0, newZr - z1);
+
+  let newS2 = 0;
+  if (newZr > oldZr) {
+    const dz = newZr - Math.max(oldZr, z1);
+    const roomFromL3 = oldZ3;
+    const waterCaptured = roomFromL3 > 0 ? state.subRootMm * (dz / roomFromL3) : 0;
+    newS2 = state.rootSubSeedbedMm + waterCaptured;
+  } else if (newZr < oldZr) {
+    if (newZr <= z1) {
+      newS2 = 0;
+    } else {
+      newS2 = oldZ2 > 0 ? state.rootSubSeedbedMm * (newZ2 / oldZ2) : 0;
+    }
+  } else {
+    newS2 = state.rootSubSeedbedMm;
+  }
+
+  newS2 = Math.max(0, Math.min(subTotal, newS2));
+  const newS3 = subTotal - newS2;
+
+  return {
+    surfacePondMm: sPond,
+    seedbedMm: s1,
+    rootSubSeedbedMm: newS2,
+    subRootMm: newS3,
+    perchedExcessMm: sPerch,
+  };
+}
+
+export interface PaddyDrainageHandoverInput {
+  pondAtHarvestMm: number;
+  column: ThreeZoneColumn;
+  soilTexture?: string;
+  thetaSat?: number;
+  thetaFc?: number;
+  ploughPanDepthM?: number;
+  kPanMmDay?: number;
+}
+
+export interface PaddyDrainageHandoverResult {
+  state: ThreeZoneState;
+  surfaceDrainageOutflowMm: number;
+  perchedExcessMm: number;
+  kPanMmDay: number;
+  notes: string[];
+}
+
+/**
+ * Hand-over from flooded paddy to post-monsoon upland crop on the 3-zone column.
+ * Standing pond water is discharged as surface drainage outflow.
+ * Soil profile starts at field capacity with perched saturation excess draining at kPan rate.
+ */
+export function paddyDrainageHandover(input: PaddyDrainageHandoverInput): PaddyDrainageHandoverResult {
+  const cap = threeZoneCapacities(input.column);
+  const pond = Math.max(0, input.pondAtHarvestMm);
+  const kPan = input.kPanMmDay ?? input.column.kPanMmDay ?? 3.0;
+  const surfaceDrainageOutflowMm = pond;
+
+  const seedbedMm = cap.c1Mm;
+  const rootSubSeedbedMm = cap.c2Mm;
+  const subRootMm = cap.c3Mm;
+
+  let perchedExcessMm = 0;
+  const panDepthM = input.ploughPanDepthM ?? 0.20;
+  const thetaSat = input.thetaSat ?? input.column.thetaSat;
+  const thetaFc = input.thetaFc ?? input.column.thetaFc;
+
+  if (thetaSat !== undefined && thetaFc !== undefined && thetaSat > thetaFc) {
+    const gravPorosity = thetaSat - thetaFc;
+    perchedExcessMm = gravPorosity * panDepthM * 1000;
+  } else if (pond > 0) {
+    perchedExcessMm = 25;
+  }
+
+  return {
+    state: {
+      surfacePondMm: 0,
+      seedbedMm,
+      rootSubSeedbedMm,
+      subRootMm,
+      perchedExcessMm,
+    },
+    surfaceDrainageOutflowMm,
+    perchedExcessMm,
+    kPanMmDay: kPan,
+    notes: [
+      `Standing pond of ${pond.toFixed(1)} mm discharged as surface drainage outflow.`,
+      `Profile initialized to field capacity (${(cap.c1Mm + cap.c2Mm + cap.c3Mm).toFixed(1)} mm total AWC).`,
+      `Perched saturation excess of ${perchedExcessMm.toFixed(1)} mm perched above plough pan draining at ${kPan.toFixed(1)} mm/day.`,
+    ],
+  };
+}
+
+export interface SeedbedWindowInput {
+  hasConfirmedSoil: boolean;
+  hasConfirmedDrainageDate: boolean;
+  awcMmPerM?: number | null;
+  thetaSat?: number | null;
+  thetaFc?: number | null;
+  pondAtDrainageMm?: number | null;
+  dailyEt0Mm?: number[];
+  dailyRainMm?: number[];
+  kPanMmDay?: number;
+  seedbedDepthM?: number;
+}
+
+export type SeedbedWindowResult =
+  | {
+      status: "field-check-needed";
+      reason: string;
+      advisory: string;
+    }
+  | {
+      status: "estimate";
+      readyDayAfterDrainage: number;
+      windowEndDayAfterDrainage: number;
+      optimalDaysDuration: number;
+      timeline: Array<{
+        day: number;
+        phase: "too_wet" | "optimal" | "too_dry";
+        seedbedMoistureMm: number;
+        seedbedRelativeSaturation: number;
+        perchedExcessMm: number;
+      }>;
+      advisory: string;
+      caveat: string;
+    };
+
+/**
+ * Evaluates seedbed moisture window post-rice harvest.
+ * Missing soil or drainage inputs return 'field-check-needed' rather than an ungrounded countdown.
+ */
+export function seedbedMoistureWindow(input: SeedbedWindowInput): SeedbedWindowResult {
+  if (
+    !input.hasConfirmedSoil ||
+    !input.hasConfirmedDrainageDate ||
+    input.awcMmPerM == null ||
+    !(input.awcMmPerM > 0)
+  ) {
+    return {
+      status: "field-check-needed",
+      reason: "Soil hydrological properties, harvest drainage date, or initial moisture are unconfirmed.",
+      advisory: "Check topsoil moisture and drainage by hand in the field before sowing. Do not rely on an uncalibrated countdown.",
+    };
+  }
+
+  const col: ThreeZoneColumn = {
+    awcMmPerM: input.awcMmPerM,
+    seedbedDepthM: input.seedbedDepthM ?? 0.12,
+    rootDepthM: input.seedbedDepthM ?? 0.12,
+    maxDepthM: 1.0,
+    thetaSat: input.thetaSat ?? undefined,
+    thetaFc: input.thetaFc ?? undefined,
+    kPanMmDay: input.kPanMmDay ?? 3.0,
+  };
+
+  const cap = threeZoneCapacities(col);
+  const handover = paddyDrainageHandover({
+    pondAtHarvestMm: input.pondAtDrainageMm ?? 30,
+    column: col,
+    thetaSat: input.thetaSat ?? undefined,
+    thetaFc: input.thetaFc ?? undefined,
+    kPanMmDay: input.kPanMmDay,
+  });
+
+  let curState = handover.state;
+  const daysCount = 28;
+  const timeline: Array<{
+    day: number;
+    phase: "too_wet" | "optimal" | "too_dry";
+    seedbedMoistureMm: number;
+    seedbedRelativeSaturation: number;
+    perchedExcessMm: number;
+  }> = [];
+
+  let readyDay: number | null = null;
+  let endDay: number | null = null;
+
+  for (let d = 1; d <= daysCount; d++) {
+    const et0 = input.dailyEt0Mm?.[d - 1] ?? 4.0;
+    const rain = input.dailyRainMm?.[d - 1] ?? 0.0;
+
+    // Bare turnaround topsoil evaporation Ke ~ 0.85
+    const step = threeZoneStep(curState, col, rain, et0, 0, {
+      ke: 0.85,
+      kcb: 0,
+      bundHeightMm: 0,
+    });
+    curState = step.state;
+
+    const perched = curState.perchedExcessMm ?? 0;
+    const pond = curState.surfacePondMm;
+    const s1 = curState.seedbedMm;
+    const relSat = cap.c1Mm > 0 ? s1 / cap.c1Mm : 0;
+
+    let phase: "too_wet" | "optimal" | "too_dry";
+    if (perched > 0.5 || pond > 0) {
+      phase = "too_wet";
+    } else if (relSat >= 0.40) {
+      phase = "optimal";
+    } else {
+      phase = "too_dry";
+    }
+
+    if (phase === "optimal" && readyDay === null) {
+      readyDay = d;
+    }
+    if (readyDay !== null && endDay === null && phase === "too_dry") {
+      endDay = d - 1;
+    }
+
+    timeline.push({
+      day: d,
+      phase,
+      seedbedMoistureMm: Number(s1.toFixed(1)),
+      seedbedRelativeSaturation: Number(relSat.toFixed(2)),
+      perchedExcessMm: Number(perched.toFixed(1)),
+    });
+  }
+
+  const finalReadyDay = readyDay ?? 10;
+  const finalEndDay = endDay ?? daysCount;
+
+  return {
+    status: "estimate",
+    readyDayAfterDrainage: finalReadyDay,
+    windowEndDayAfterDrainage: finalEndDay,
+    optimalDaysDuration: Math.max(0, finalEndDay - finalReadyDay + 1),
+    timeline,
+    advisory: `Estimated optimal sowing window is ~day ${finalReadyDay} to ${finalEndDay} after field drainage.`,
+    caveat: "Estimated window based on modeled drydown. Field moisture must be verified by hand before planting.",
+  };
+}
+
 /**
  * Hand-over from bunded paddy (Section 4.3) to an upland crop. A paddy that still holds ponded water at
  * harvest leaves the profile saturated, so the upland column starts at field capacity in both zones and the

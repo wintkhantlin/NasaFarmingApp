@@ -34,7 +34,10 @@ import {
 } from "@/lib/rotation-format";
 import { rotationSchema, rotationSlotSchema } from "@/lib/schemas/rotation";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
-import type { DateConfidence, Rotation, RotationSlot } from "@/lib/types";
+import type { DateConfidence, EstablishmentMode, ResidueFate, Rotation, RotationSlot } from "@/lib/types";
+import { evaluateTransition, isRelayPairEligible } from "@/lib/engine/transition";
+import { FarmerGuidedFlow } from "./farmer-guided-flow";
+import { MoistureClockRibbon } from "./moisture-clock-ribbon";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 // Monsoon rainy season in Myanmar (June, July, August, September)
@@ -265,6 +268,9 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
   const [cycleYears, setCycleYears] = useState<1 | 2 | 3 | 4>(() => rotations[0]?.cycleYears ?? 1);
   const [slots, setSlots] = useState<RotationSlot[]>(() => rotations[0]?.slots ?? []);
+  const [viewMode, setViewMode] = useState<"guided" | "advanced">(() => {
+    return rotations[0]?.slots?.length ? "advanced" : "guided";
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -551,8 +557,56 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         summary="Record what you grow on this field across the seasonal cycle. Sowing dates are pre-filled with local agricultural windows."
       />
 
-      {/* Quick Crop Selector Chips */}
-      <Panel as="section" aria-labelledby="quick-crops" className="flex flex-col gap-3 p-4 sm:p-5">
+      {/* Experience Mode Toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-label font-semibold text-ink">Choose Mode:</span>
+        </div>
+        <div className="flex items-center rounded-lg border border-line bg-surface p-1 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setViewMode("guided")}
+            className={cn(
+              "rounded-md px-3.5 py-1.5 text-label font-medium transition-colors cursor-pointer min-h-tap flex items-center gap-1.5",
+              viewMode === "guided"
+                ? "bg-field text-on-field shadow-xs"
+                : "text-ink-muted hover:text-ink",
+            )}
+          >
+            🌾 Guided Farmer View
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("advanced")}
+            className={cn(
+              "rounded-md px-3.5 py-1.5 text-label font-medium transition-colors cursor-pointer min-h-tap flex items-center gap-1.5",
+              viewMode === "advanced"
+                ? "bg-field text-on-field shadow-xs"
+                : "text-ink-muted hover:text-ink",
+            )}
+          >
+            🔬 Advanced Detail View
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "guided" ? (
+        <FarmerGuidedFlow
+          field={field}
+          currentSlots={slots}
+          cycleYears={cycleYears}
+          onApplyPlan={(newSlots: RotationSlot[], newCycle: 1 | 2 | 3 | 4) => {
+            markChanged();
+            setSlots(newSlots);
+            setCycleYears(newCycle);
+            setSaveSuccess(true);
+          }}
+          onSwitchToAdvanced={() => setViewMode("advanced")}
+        />
+      ) : (
+        <>
+          {/* Quick Crop Selector Chips */}
+          <Panel as="section" aria-labelledby="quick-crops" className="flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 id="quick-crops" className="m-0 text-headline text-ink">{copy.rotation.quickTitle}</h2>
           {regionName ? (
@@ -646,10 +700,10 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
               const crop = slot.cropId ? getCropById(slot.cropId) : undefined;
               const duration = daysBetween(slot.plantDate, slot.harvestDate);
 
-              // Check overlap with previous slot
+              // Evaluate safe transition rules (Prompt 1, Prompt 4)
               const prevSlot = index > 0 ? slots[index - 1] : null;
-              const isOverlapping = prevSlot && slot.plantDate < prevSlot.harvestDate;
-              const overlapDays = isOverlapping ? daysBetween(slot.plantDate, prevSlot.harvestDate) : 0;
+              const transition = prevSlot ? evaluateTransition(prevSlot, slot) : null;
+              const isOverlapping = transition?.status === "collision";
 
               // Check regional calendar advice
               const regionalCal = regionKey ? crop?.profile?.regionalCalendars[regionKey] : undefined;
@@ -661,7 +715,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                     aria-label={`${copy.rotation.slotBadge(index)}: ${slotName(slot)}`}
                     className={cn(
                       "flex flex-col gap-4 p-4 sm:p-5",
-                      slotError ? "border-heat" : isOverlapping ? "border-heat/60" : "",
+                      slotError ? "border-heat" : isOverlapping ? "border-heat/60" : transition?.status === "relay" ? "border-healthy/50" : "",
                     )}
                   >
                     {/* Slot Header */}
@@ -700,21 +754,52 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                       </p>
                     ) : null}
 
-                    {/* Overlap Alert with 1-click Quick Fix */}
-                    {isOverlapping && prevSlot ? (
+                    {/* Relay Broadcast Valid Badge (Ye-pyan) */}
+                    {transition?.status === "relay" && prevSlot ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-healthy/40 bg-field-soft p-3 text-body-sm text-healthy font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Icon name="done" size={16} />
+                          🌱 Relay Broadcast (Ye-pyan): established {transition.overlapDays} days before {shortSlotName(prevSlot)} harvest (valid pre-harvest window).
+                        </span>
+                      </div>
+                    ) : null}
+
+                    {/* Collision Alert with 1-click Quick Fixes */}
+                    {transition?.status === "collision" && prevSlot ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-heat bg-heat-soft p-3 text-body-sm text-heat">
                         <span className="flex items-center gap-1.5 font-medium">
                           <Icon name="conditions" size={16} />
-                          Overlaps by {overlapDays} days with {shortSlotName(prevSlot)} (harvested {formatDay(prevSlot.harvestDate)}).
+                          {transition.message}
                         </span>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => shiftAfterPrevious(slot.id, prevSlot.harvestDate)}
-                          className="text-label"
-                        >
-                          Start after {shortSlotName(prevSlot)} (+7d)
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          {isRelayPairEligible(prevSlot.cropId, slot.cropId) ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={() => {
+                                markChanged();
+                                const dur = daysBetween(slot.plantDate, slot.harvestDate) || 90;
+                                const newPlant = addDaysToIso(prevSlot.harvestDate, -7);
+                                handleUpdateSlot(slot.id, {
+                                  establishmentMode: "relay_broadcast",
+                                  plantDate: newPlant,
+                                  harvestDate: addDaysToIso(newPlant, dur),
+                                });
+                              }}
+                              className="text-label"
+                            >
+                              Snap to Relay (-7d)
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => shiftAfterPrevious(slot.id, prevSlot.harvestDate)}
+                            className="text-label"
+                          >
+                            Start after {shortSlotName(prevSlot)} (+14d)
+                          </Button>
+                        </div>
                       </div>
                     ) : null}
 
@@ -821,31 +906,79 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
                     {/* Confidence & Irrigation */}
                     {!isFallow ? (
-                      <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
-                        <Segmented
-                          legend={copy.rotation.dateConfidenceLabel}
-                          value={slot.dateConfidence}
-                          onChange={(val) => handleUpdateSlot(slot.id, { dateConfidence: val as DateConfidence })}
-                          options={[
-                            { value: "exact", label: copy.rotation.confidenceExact },
-                            { value: "approx", label: copy.rotation.confidenceApprox },
-                            { value: "typical", label: copy.rotation.confidenceTypical },
-                          ]}
-                        />
-                        <div className="flex flex-col">
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                checked={slot.irrigated}
-                                onChange={(e) => handleUpdateSlot(slot.id, { irrigated: e.target.checked })}
-                                color="primary"
-                              />
-                            }
-                            label={<span className="text-label text-ink">{copy.rotation.irrigatedLabel}</span>}
+                      <>
+                        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
+                          <Segmented
+                            legend={copy.rotation.dateConfidenceLabel}
+                            value={slot.dateConfidence}
+                            onChange={(val) => handleUpdateSlot(slot.id, { dateConfidence: val as DateConfidence })}
+                            options={[
+                              { value: "exact", label: copy.rotation.confidenceExact },
+                              { value: "approx", label: copy.rotation.confidenceApprox },
+                              { value: "typical", label: copy.rotation.confidenceTypical },
+                            ]}
                           />
-                          <span className="text-body-sm text-ink-muted">{copy.rotation.irrigatedHelp}</span>
+                          <div className="flex flex-col">
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={slot.irrigated}
+                                  onChange={(e) => handleUpdateSlot(slot.id, { irrigated: e.target.checked })}
+                                  color="primary"
+                                />
+                              }
+                              label={<span className="text-label text-ink">{copy.rotation.irrigatedLabel}</span>}
+                            />
+                            <span className="text-body-sm text-ink-muted">{copy.rotation.irrigatedHelp}</span>
+                          </div>
                         </div>
-                      </div>
+
+                        {/* Agricultural Management: Establishment & Residue (Prompt 1, Prompt 4) */}
+                        <div className="grid gap-3 sm:grid-cols-3 pt-2 border-t border-line">
+                          <TextField
+                            select
+                            label="Establishment Mode"
+                            value={slot.establishmentMode ?? "tillage"}
+                            onChange={(e) => handleUpdateSlot(slot.id, { establishmentMode: e.target.value as EstablishmentMode })}
+                            size="small"
+                            fullWidth
+                          >
+                            <MenuItem value="tillage">Conventional Tillage (ထွန်ယက်စိုက်ပျိုး)</MenuItem>
+                            <MenuItem value="zero_till">Zero-till / Min Till (အထွန်မပါ အစေ့ချ)</MenuItem>
+                            <MenuItem value="relay_broadcast">Relay Broadcast (ရည်ပျံကြဲ)</MenuItem>
+                            <MenuItem value="unknown">Unknown</MenuItem>
+                          </TextField>
+
+                          <TextField
+                            select
+                            label="Crop Residue Fate"
+                            value={slot.residueFate ?? (slot.residue === "retained" ? "retain_incorporate" : slot.residue === "burned" ? "burn" : slot.residue === "removed" ? "remove_fodder" : "unknown")}
+                            onChange={(e) => handleUpdateSlot(slot.id, { residueFate: e.target.value as ResidueFate })}
+                            size="small"
+                            fullWidth
+                          >
+                            <MenuItem value="retain_incorporate">Incorporate in Soil (ရိုးပြတ်ထွန်မြှုပ်)</MenuItem>
+                            <MenuItem value="retain_mulch">Surface Mulch (အပေါ်ယံဖုံးအုပ်)</MenuItem>
+                            <MenuItem value="remove_fodder">Remove for Fodder (တိရစ္ဆာန်အစာ ရိတ်သိမ်း)</MenuItem>
+                            <MenuItem value="burn">Burn Residue (မီးရှို့ဖျက်ဆီး)</MenuItem>
+                            <MenuItem value="unknown">Unknown</MenuItem>
+                          </TextField>
+
+                          <TextField
+                            select
+                            label="Observed Drainage"
+                            value={slot.farmerObservedDrainage ?? "adequate"}
+                            onChange={(e) => handleUpdateSlot(slot.id, { farmerObservedDrainage: e.target.value as any })}
+                            size="small"
+                            fullWidth
+                          >
+                            <MenuItem value="adequate">Adequate / Good (ရေစစ်ကောင်း)</MenuItem>
+                            <MenuItem value="waterlogged">Waterlogged / Slow (ရေဝပ်လွယ်)</MenuItem>
+                            <MenuItem value="dry">Rapid Dry (မြေခြောက်မြန်)</MenuItem>
+                            <MenuItem value="unknown">Unknown</MenuItem>
+                          </TextField>
+                        </div>
+                      </>
                     ) : null}
 
                     {/* Notes disclosure */}
@@ -893,6 +1026,8 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
           {copy.rotation.saveAndNext}
         </Button>
       </ActionBar>
+        </>
+      )}
     </>
   );
 }

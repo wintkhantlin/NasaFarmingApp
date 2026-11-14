@@ -176,6 +176,8 @@ export interface RotationSlot {
   establishmentMode?: EstablishmentMode;
   residue?: "retained" | "removed" | "burned" | "grazed";
   residueFate?: ResidueFate;
+  farmerObservedDrainage?: "waterlogged" | "adequate" | "dry" | "unknown";
+  farmerObservedSoilCondition?: string;
   /** Nitrogen applied, kg per ha. */
   nApplied?: number;
   yield?: { value: number; unit: string };
@@ -224,6 +226,8 @@ export interface CropStage {
   heatC?: Sourced<number>;
   /** Air temperature below which this stage is stressed, °C. */
   coldC?: Sourced<number>;
+  /** Daily rainfall above which this stage experiences hazard (e.g. flower drop or pod rot), mm. */
+  excessRainMm?: Sourced<number>;
   droughtSensitive: boolean;
   waterloggingSensitive: boolean;
 }
@@ -262,6 +266,7 @@ export interface CropProfile {
   grainNPct?: Sourced<number>;
   residueNPct?: Sourced<number>;
   rotationRules: RotationRule[];
+  depletionFractionBase?: Sourced<number>;
   forage?: { use: "none" | "residue-fodder" | "green-manure" | "forage"; note: string; ref: string; scope: RuleScope };
   regionalCalendars: Partial<Record<RegionId, RegionalCalendar>>;
 }
@@ -277,6 +282,7 @@ export interface Crop {
   family: string;
   group: FunctionalGroup;
   cycleDays: { min: number; typ: number; max: number };
+  depletionFractionBase?: number;
   gdd: {
     baseC: number;
     toMaturity: number;

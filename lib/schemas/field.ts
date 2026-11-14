@@ -139,6 +139,8 @@ export const rotationSlotSchema: z.ZodType<RotationSlot> = z
     establishmentMode: z.enum(["tillage", "zero_till", "relay_broadcast", "unknown"]).optional(),
     residue: z.enum(["retained", "removed", "burned", "grazed"]).optional(),
     residueFate: z.enum(["retain_incorporate", "retain_mulch", "remove_fodder", "burn", "unknown"]).optional(),
+    farmerObservedDrainage: z.enum(["waterlogged", "adequate", "dry", "unknown"]).optional(),
+    farmerObservedSoilCondition: z.string().max(200).optional(),
     nApplied: z.number().min(0).max(1000).optional(),
     yield: z.object({ value: z.number().min(0), unit: z.string().min(1) }).optional(),
     notes: z.string().max(1000).optional(),
