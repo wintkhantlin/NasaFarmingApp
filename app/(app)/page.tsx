@@ -12,10 +12,16 @@ export default function Home() {
           <h1 className="text-title text-ink sm:text-display">{copy.home.title}</h1>
           <p className="max-w-measure text-body text-ink-muted">{copy.app.tagline}</p>
         </div>
-        <Link href="/fields/new" className={buttonClass("secondary", "max-sm:w-full")}>
-          <Icon name="add" />
-          {copy.home.addField}
-        </Link>
+        <div className="flex flex-wrap gap-2 max-sm:w-full">
+          <Link href="/plan" className={buttonClass("secondary", "max-sm:w-full")}>
+            <Icon name="rotation" />
+            {copy.home.exploreRotations}
+          </Link>
+          <Link href="/fields/new" className={buttonClass("secondary", "max-sm:w-full")}>
+            <Icon name="add" />
+            {copy.home.addField}
+          </Link>
+        </div>
       </div>
       <FieldsList />
     </>

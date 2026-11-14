@@ -35,6 +35,7 @@ export const copy = {
     emptyBody:
       "Choose where your field is, tell us what you grow now, and see how it compares with other rotations.",
     addField: "Add a field",
+    exploreRotations: "Explore next crops",
     loading: "Loading your fields",
     loadError: "We couldn't read your saved fields.",
     retry: "Try again",

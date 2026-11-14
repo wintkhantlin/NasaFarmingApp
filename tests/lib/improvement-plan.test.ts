@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { parsePowerDaily } from "../../lib/nasa/power";
 import { penmanMonteithDetails, normalizeSolarRadiation } from "../../lib/engine/et0";
-import { generateCandidates } from "../../lib/engine/candidates";
+import { recommend } from "../../lib/rotation/engine";
 import {
   dailySoilWaterStep,
   timingBucketModel,
@@ -24,10 +24,9 @@ import { dryGrainNRemoval, partialNitrogenBudgetEnclosure } from "../../lib/engi
 import { layeredWaterCapacity } from "../../lib/engine/soil-input";
 import { areaWeightedCoverage } from "../../lib/nasa/derive/ndvi";
 import { computeFieldSceneMetrics } from "../../lib/engine/lowcover";
-import { pairedImprovementMae } from "../../lib/engine/compare";
+import { pairedImprovementMae } from "../../lib/analysis/paired-improvement";
 import { compareRainfallSources } from "../../lib/engine/rain";
 import { getCropById } from "../../lib/data/crops";
-import { rotation, slot } from "../helpers/synthetic";
 
 const fixture = (name: string): unknown =>
   JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/myanmar", name), "utf8"));
@@ -114,34 +113,22 @@ describe("First Engineering Milestone: Magway 1-2 Jan 2025 POWER Reproduction", 
   });
 });
 
-describe("Priority 1: Verified Myanmar Paddy Demonstration & Irrigation Access", () => {
-  const common = { fieldId: "field-myanmar-paddy", region: "ayeyarwady" as const, baseYear: 2026 };
-  const currentPaddy = rotation("field-myanmar-paddy", [slot("s1", "rice", "2026-06-01", "2026-10-13")]);
+describe("Priority 1: next-crop screening after Myanmar paddy", () => {
+  const request = { planning: { start_date: "2026-11-01", end_date: "2027-04-30" }, history: ["rice"], farm: { irrigation: "none" } };
 
-  test("generates rice -> black gram, rice -> green gram, and rice -> fallow as selectable alternatives", () => {
-    const res = generateCandidates({ ...common, current: currentPaddy, fieldIrrigation: "none", max: 5 });
-    const ids = res.alternatives.map((a) => a.template.id);
-    expect(ids).toContain("ay-rice-black-gram");
-    expect(ids).toContain("ay-rice-green-gram");
-    expect(ids).toContain("ay-rice-fallow");
-
-    const fallowCand = res.alternatives.find((a) => a.template.id === "ay-rice-fallow")!;
-    expect(fallowCand.rotation.slots.some((s) => s.kind === "fallow")).toBe(true);
+  test("screens both pulse crops and fallow after rice", () => {
+    const result = recommend(request);
+    const choices = result.scenarios.map((scenario) => scenario.proposed_crops[0]);
+    expect(choices).toContain("black_gram");
+    expect(choices).toContain("green_gram");
+    expect(choices).toContain("fallow");
   });
 
-  test("an unavailable irrigation supply excludes irrigated rice with explicit pass-condition reason", () => {
-    const res = generateCandidates({ ...common, current: currentPaddy, fieldIrrigation: "none", max: 5 });
-    expect(res.alternatives.map((a) => a.template.id)).not.toContain("ay-rice-irrigated-rice");
-    const rej = res.rejected.find((r) => r.template.id === "ay-rice-irrigated-rice");
-    expect(rej?.reason).toBe("An unavailable irrigation supply excludes irrigated rice.");
-  });
-
-  test("a confirmed irrigation supply includes irrigated rice", () => {
-    const res = generateCandidates({ ...common, current: currentPaddy, fieldIrrigation: "full", max: 5 });
-    const ids = res.alternatives.map((a) => a.template.id);
-    expect(ids).toContain("ay-rice-irrigated-rice");
-    const irriRice = res.alternatives.find((a) => a.template.id === "ay-rice-irrigated-rice")!;
-    expect(irriRice.rotation.slots[1].irrigated).toBe(true);
+  test("irrigation access alone does not establish water adequacy", () => {
+    for (const irrigation of ["none", "available"]) {
+      const result = recommend({ ...request, farm: { irrigation } });
+      expect(result.scenarios.some((scenario) => scenario.missing_information.some((item) => /water adequacy/i.test(item)))).toBe(true);
+    }
   });
 
   test("Priority 2 & Section 28: Compares (A) Climatology vs (B) POWER vs (C) IMERG and isolates timing", () => {

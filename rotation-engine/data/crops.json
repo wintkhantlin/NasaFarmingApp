@@ -1,0 +1,51 @@
+{
+  "version": "0.1.0",
+  "scope": "Illustrative, globally described species-level profiles; not cultivar-specific agronomic recommendations.",
+  "crops": [
+    {
+      "id": "rice", "name": "Rice (lowland paddy)", "scientific_name": "Oryza sativa",
+      "family": "Poaceae", "legume": false,
+      "temperature_c": {"optimal": [20, 30], "absolute": [10, 36]},
+      "soil_ph": {"optimal": [5.5, 7.0], "absolute": [4.5, 9.0]},
+      "duration_days": [80, 180], "preferred_drainage": ["poor"],
+      "sources": ["https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=1574"],
+      "notes": "Profile represents lowland/wet rice in FAO ECOCROP; not suitable for evaluating all upland-rice varieties."
+    },
+    {
+      "id": "green_gram", "name": "Green gram (mung bean)", "scientific_name": "Vigna radiata",
+      "family": "Fabaceae", "legume": true,
+      "temperature_c": {"optimal": [21, 36], "absolute": [8, 40]},
+      "soil_ph": {"optimal": [5.5, 6.2], "absolute": [4.3, 8.3]},
+      "duration_days": [50, 120], "preferred_drainage": ["well"],
+      "sources": ["https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=2150"],
+      "notes": "Grain legume; biological nitrogen fixation does not establish a net soil-N credit."
+    },
+    {
+      "id": "black_gram", "name": "Black gram", "scientific_name": "Vigna mungo",
+      "family": "Fabaceae", "legume": true,
+      "temperature_c": {"optimal": [22, 35], "absolute": [8, 40]},
+      "soil_ph": {"optimal": [5.5, 6.5], "absolute": [4.5, 7.5]},
+      "duration_days": [60, 130], "preferred_drainage": ["well"],
+      "sources": ["https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=2149"],
+      "notes": "Grain legume; local varieties differ in crop duration."
+    },
+    {
+      "id": "sesame", "name": "Sesame", "scientific_name": "Sesamum indicum",
+      "family": "Pedaliaceae", "legume": false,
+      "temperature_c": {"optimal": [20, 30], "absolute": [10, 40]},
+      "soil_ph": {"optimal": [5.5, 7.5], "absolute": [4.5, 8.0]},
+      "duration_days": [40, 180], "preferred_drainage": ["well"],
+      "sources": ["https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=1937"],
+      "notes": "Species-wide duration range is very broad; use local cultivar duration where possible."
+    },
+    {
+      "id": "maize", "name": "Maize", "scientific_name": "Zea mays",
+      "family": "Poaceae", "legume": false,
+      "temperature_c": {"optimal": [18, 33], "absolute": [10, 47]},
+      "soil_ph": {"optimal": [5.0, 7.0], "absolute": [4.5, 8.5]},
+      "duration_days": [65, 365], "preferred_drainage": ["well"],
+      "sources": ["https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=238663"],
+      "notes": "Long species-wide cycle range; farm-variety duration is required for useful calendar evaluation."
+    }
+  ]
+}

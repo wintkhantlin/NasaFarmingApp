@@ -9,6 +9,7 @@ import { useLocaleStore } from "@/lib/store/locale-store";
 
 const LINKS: { href: string; label: string; icon: IconName; match: (p: string) => boolean }[] = [
   { href: "/", label: "Fields", icon: "fields", match: (p) => p === "/" || p.startsWith("/fields") },
+  { href: "/plan", label: "Plan", icon: "rotation", match: (p) => p.startsWith("/plan") },
   { href: "/learn", label: "Learn", icon: "learn", match: (p) => p.startsWith("/learn") || p.startsWith("/about") },
 ];
 
@@ -20,7 +21,7 @@ export function TabBar() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-2">
+      <ul className="mx-auto grid max-w-md grid-cols-3">
         {LINKS.map((l) => {
           const active = l.match(pathname);
           return (
