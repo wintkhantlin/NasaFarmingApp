@@ -159,6 +159,8 @@ export interface Field {
 
 export type SlotKind = "crop" | "cover" | "fallow";
 export type DateConfidence = "exact" | "approx" | "typical";
+export type EstablishmentMode = "tillage" | "zero_till" | "relay_broadcast" | "unknown";
+export type ResidueFate = "retain_incorporate" | "retain_mulch" | "remove_fodder" | "burn" | "unknown";
 
 export interface RotationSlot {
   id: string;
@@ -171,7 +173,9 @@ export interface RotationSlot {
   dateConfidence: DateConfidence;
   irrigated: boolean;
   tillage?: "none" | "reduced" | "conventional";
+  establishmentMode?: EstablishmentMode;
   residue?: "retained" | "removed" | "burned" | "grazed";
+  residueFate?: ResidueFate;
   /** Nitrogen applied, kg per ha. */
   nApplied?: number;
   yield?: { value: number; unit: string };
