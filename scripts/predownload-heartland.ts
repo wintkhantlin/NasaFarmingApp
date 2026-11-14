@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { Redis } from "@upstash/redis";
 import { PROCESSING_VERSION } from "../lib/evidence/indicator";
 import { powerCell, pointKey } from "../lib/geo/cells";
-import { fetchPowerDaily, type DailyWeather } from "../lib/nasa/power";
-import { fetchSoilGrids, type SoilProfile } from "../lib/soil/soilgrids";
+import { fetchPowerDaily } from "../lib/nasa/power";
+import { fetchSoilGrids } from "../lib/soil/soilgrids";
 import { cacheKey } from "../lib/server/cache";
 import { weatherEnd, WEATHER_START } from "../lib/server/weather";
 
@@ -94,8 +94,8 @@ async function main() {
     generatedAt: new Date().toISOString(),
     window: { start: WEATHER_START, end },
     regions: ["ayeyarwady", "magway", "mandalay", "shan", "bago"],
-    weatherCells: [] as any[],
-    soilProfiles: [] as any[],
+    weatherCells: [] as unknown[],
+    soilProfiles: [] as unknown[],
   };
 
   // 1. Download NASA POWER Daily Weather
@@ -137,8 +137,8 @@ async function main() {
 
       // Small throttle to stay well below NASA POWER rate limits (30 req/min)
       await new Promise((r) => setTimeout(r, 800));
-    } catch (err: any) {
-      console.error(`    ✗ Error downloading cell ${cellKey}:`, err.message);
+    } catch (err: unknown) {
+      console.error(`    ✗ Error downloading cell ${cellKey}:`, err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -170,8 +170,8 @@ async function main() {
 
       // Small throttle for SoilGrids
       await new Promise((r) => setTimeout(r, 500));
-    } catch (err: any) {
-      console.error(`    ✗ Error downloading SoilGrids for ${hub.name}:`, err.message);
+    } catch (err: unknown) {
+      console.error(`    ✗ Error downloading SoilGrids for ${hub.name}:`, err instanceof Error ? err.message : String(err));
     }
   }
 

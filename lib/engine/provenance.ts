@@ -1,6 +1,7 @@
 import { IMERG } from "../nasa/imerg";
 import { HLS_QA_POLICY } from "../nasa/qa/hls-fmask";
 import { MODIS_QA_POLICY } from "../nasa/qa/modis-vi";
+import { LANDSAT_QA_POLICY, MPC_CONFIG } from "../nasa/planetary-computer";
 import { PRODUCT_DOI } from "../nasa/appeears/products";
 import { makeIndicator, type DerivedIndicator, type EvidenceKind, type MissingReason } from "../evidence/indicator";
 import type { EngineData, SourceStatus } from "./data";
@@ -136,6 +137,7 @@ export function smapIndicator(c: Common): DerivedIndicator {
 
 export function hlsIndicator(c: Common): DerivedIndicator {
   const i = c.data.hlsInfo;
+  if (i.provider === "planetary-computer") return landsatIndicator(c);
   return makeIndicator({
     ...base(c),
     sourceId: "V",
@@ -151,6 +153,32 @@ export function hlsIndicator(c: Common): DerivedIndicator {
     aggregationMethod: c.statistic,
     qaPolicy: HLS_QA_POLICY,
     sourceCrs: "UTM tile",
+    missingReason: c.value === null ? missingFor(i.status) : null,
+  });
+}
+
+/**
+ * Field vegetation that came from Microsoft Planetary Computer. That route serves USGS Landsat
+ * Collection 2 Level-2 surface reflectance, not HLS: no Sentinel-2 harmonisation, QA_PIXEL instead of
+ * Fmask. The search spans Landsat missions, so no single mission DOI is claimed.
+ */
+export function landsatIndicator(c: Common): DerivedIndicator {
+  const i = c.data.hlsInfo;
+  return makeIndicator({
+    ...base(c),
+    sourceId: "V",
+    kind: "observation",
+    product: "USGS Landsat Collection 2 Level-2 Surface Reflectance (via Microsoft Planetary Computer)",
+    productVersion: "Collection 2, Level-2",
+    variableOrLayer: "red, nir08, swir16, qa_pixel",
+    sourceUrl: `https://planetarycomputer.microsoft.com/dataset/${MPC_CONFIG.landsatCollection}`,
+    doi: null,
+    retrievedAt: i.retrievedAt,
+    sourceResolution: "30 m, available acquisitions only",
+    nativeFootprint: "30 m pixels; polygons use pixels whose centre lies inside the outline",
+    aggregationMethod: c.statistic,
+    qaPolicy: LANDSAT_QA_POLICY,
+    sourceCrs: "WGS84 / UTM (per scene)",
     missingReason: c.value === null ? missingFor(i.status) : null,
   });
 }

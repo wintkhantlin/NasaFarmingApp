@@ -69,6 +69,23 @@
 
 ---
 
+## 4.6 Microsoft Planetary Computer (MPC) STAC & COGs
+
+- **STAC Endpoint:** `https://planetarycomputer.microsoft.com/api/stac/v1` (Public search, zero API key required).
+- **SAS Endpoint:** `https://planetarycomputer.microsoft.com/api/sas/v1` (Token-signed Azure Blob Storage COGs).
+- **Landsat Collection 2 Level-2 (`landsat-c2-l2`):** 30m surface reflectance (1982 to present).
+  - Bands: `red`, `nir08`, `swir16`, `qa_pixel`. Scale: $0.0000275 \times \text{DN} - 0.2$.
+  - Primary vegetation route: HTTP range request window retrieval, USGS QA bitmasking, median NDVI/NDMI.
+- **MODIS Vegetation Indices (`modis-13Q1-061`):** 250m, 16-day composite.
+  - Bands: `250m_16_days_NDVI` (scale 0.0001, fill -3000), `250m_16_days_VI_Quality`, `250m_16_days_pixel_reliability`.
+- **Fallback Hierarchy:** MPC $\to$ AppEEARS $\to$ Heartland offline predownloaded bundles.
+- **Queue Architecture:** Three-lane SQLite queue (`weather`, `precipitation`, `remote_sensing`) with job deduplication and non-blocking asynchronous dispatch.
+
+**Implementation:** `lib/nasa/planetary-computer.ts`, `lib/server/queue.ts`, `lib/server/remote-sensing.ts`  
+**Reference Docs:** `docs/PLANETARY_COMPUTER_COMPATIBILITY.md`, `docs/PLANETARY_COMPUTER_INTEGRATION.md`
+
+---
+
 ## 5. ISRIC SoilGrids v2.0 REST API
 
 - **Base URL:** `https://rest.isric.org/soilgrids/v2.0/properties/query` (Public REST).

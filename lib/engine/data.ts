@@ -4,6 +4,7 @@ import type { ImergDay } from "../nasa/imerg";
 import type { SmapDay } from "../nasa/appeears/results";
 import type { ObservationSummary } from "../nasa/derive/ndvi";
 import type { SlopeStats } from "../nasa/derive/slope";
+import type { RemoteProvider } from "../server/remote-sensing";
 import { completeYears, type DailyRecord } from "./climate";
 import type { DayValue } from "./rain";
 
@@ -36,6 +37,8 @@ export interface ImergInfo {
 
 export interface RemoteInfo {
   status: SourceStatus;
+  /** Which service delivered the data. Vegetation can come from different products, so provenance depends on it. */
+  provider: RemoteProvider | null;
   retrievedAt: string | null;
   start: string | null;
   end: string | null;
