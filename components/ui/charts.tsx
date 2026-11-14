@@ -89,7 +89,7 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
           { swatch: <span className={cn(swatchBox, "bg-water")} />, label: "Rain" },
           ...(cropUse
             ? [
-                { swatch: <span className="inline-block h-0 w-4 shrink-0 border-t-2 border-dashed border-ink" />, label: "Water crops use" },
+                { swatch: <span className="inline-block h-0 w-4 shrink-0 border-t-2 border-dashed border-ink" />, label: "Crop water use (estimate)" },
                 { swatch: <span className={cn(swatchBox, "bg-drought-soft")} />, label: "Rain falls short" },
               ]
             : []),
@@ -140,7 +140,9 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
           <div style={{ height }} className="rounded-md bg-surface-sunken" />
         )}
       </div>
-      <p className="m-0 text-source text-ink-muted">Millimetres per month</p>
+      <p className="m-0 text-source text-ink-muted">
+        Millimetres per month.{cropUse ? " Crop water use is estimated from temperature, so treat it as a guide." : ""}
+      </p>
       <DataTable
         caption="Rain and crop water use by month"
         unit="Rain, mm"

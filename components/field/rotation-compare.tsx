@@ -186,7 +186,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             Your rotation next to two other options, using the climate record for this field.
           </p>
         </div>
-        <Link href={`/fields/${field.id}/report`} className={buttonClass("secondary", "max-sm:w-full")}>
+        <Link href={`/fields/${field.id}/report`} className={buttonClass("secondary", "max-sm:hidden")}>
           <DocGlyph />
           {copy.compare.reportButton}
         </Link>

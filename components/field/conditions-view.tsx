@@ -160,9 +160,11 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
       : "Climate data isn't available for this field right now";
   const reason =
     rain && et0
-      ? dryMonths.length > 0
-        ? `Rain falls short of what crops use in ${dryMonths.length} ${dryMonths.length === 1 ? "month" : "months"} (${listMonths(dryMonths)}). Plan water for those months, or time planting to avoid them.`
-        : "On average, rain keeps up with what crops use in every month."
+      ? dryMonths.length === 12
+        ? "Rain falls short of estimated crop water use in every month on average, so most crops here need irrigation or stored soil water."
+        : dryMonths.length > 0
+          ? `Rain falls short of estimated crop water use in ${dryMonths.length} ${dryMonths.length === 1 ? "month" : "months"} (${listMonths(dryMonths)}). Plan water for those months, or time planting to avoid them.`
+          : "On average, rain keeps up with estimated crop water use in every month."
       : rain
         ? "Soil information is below. Temperature and crop water use could not be read."
         : "Your saved crops and soil below still apply. Try again in a moment.";
