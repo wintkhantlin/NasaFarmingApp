@@ -1,11 +1,10 @@
 import type { ButtonHTMLAttributes } from "react";
-import ButtonBase from "@mui/material/ButtonBase";
 import { cn } from "@/lib/cn";
 
 export type ButtonVariant = "primary" | "secondary" | "quiet";
 
 const BASE =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-md border px-4 text-label font-medium no-underline transition-colors " +
+  "inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md border px-4 text-label no-underline transition-colors " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
 const VARIANTS: Record<ButtonVariant, string> = {
@@ -25,14 +24,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   block?: boolean;
 }
 
-export function Button({ variant = "secondary", block, className, type = "button", disabled, ...rest }: ButtonProps) {
-  return (
-    <ButtonBase
-      component="button"
-      type={type}
-      disabled={disabled}
-      className={buttonClass(variant, cn(block && "w-full", className))}
-      {...rest}
-    />
-  );
+/**
+ * A plain button on the same classes as `buttonClass`. It is not an MUI
+ * ButtonBase: MUI's reset (border 0, transparent background, no padding) is
+ * unlayered CSS, so it would beat these layered Tailwind utilities.
+ */
+export function Button({ variant = "secondary", block, className, type = "button", ...rest }: ButtonProps) {
+  return <button type={type} className={buttonClass(variant, cn(block && "w-full", className))} {...rest} />;
 }

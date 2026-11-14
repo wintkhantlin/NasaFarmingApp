@@ -428,18 +428,18 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
       {/* Actions stay in reach: pinned to the bottom of the screen while the list is long. */}
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-raised px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-lg sm:border sm:p-3 sm:shadow-float">
-        <div className="flex min-h-tap items-center gap-4">
-          <Link href={`/fields/${field.id}`} className="text-label text-ink-muted hover:underline">
+        <div className="flex min-h-tap items-center gap-4 max-sm:contents">
+          <Link href={`/fields/${field.id}`} className="hidden text-label text-ink-muted hover:underline sm:inline">
             Cancel
           </Link>
           {saveSuccess ? (
-            <p role="status" className="flex items-center gap-1.5 text-body-sm text-healthy">
+            <p role="status" className="flex items-center gap-1.5 text-body-sm text-healthy max-sm:w-full">
               <CheckGlyph />
               {copy.rotation.savedNotice}
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2 max-sm:w-full max-sm:[&>*]:flex-1">
+        <div className="flex items-center gap-2 max-sm:w-full max-sm:[&>*:last-child]:flex-1">
           <Button variant="secondary" onClick={() => void handleSave(false)} disabled={saving}>
             {copy.rotation.saveButton}
           </Button>
