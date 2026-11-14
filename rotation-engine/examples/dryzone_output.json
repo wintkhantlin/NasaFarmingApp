@@ -1,0 +1,506 @@
+{
+  "version": "0.1.0",
+  "location": {
+    "label": "Demonstration farm — Magway",
+    "lat": 20.148,
+    "lon": 94.932,
+    "region": "Magway"
+  },
+  "input_environment_source": "Synthetic values for demonstration — NOT NASA observations",
+  "input_environment_basis": "synthetic",
+  "ranking": {
+    "method": "Transparent heuristic alignment: botanical-family change, legume presence, living-cover opportunity, and only externally supplied comparable water/economic metrics. Not an agronomic probability, expected yield, or validated recommendation.",
+    "weights": {
+      "water_conservation": 8.0,
+      "crop_diversity": 3.0,
+      "legume_inclusion": 2.0,
+      "living_cover": 1.0
+    },
+    "score_scale": "0-1; missing objectives contribute zero and reduce priority coverage",
+    "status_note": "An alternative with 'requires_review' is a candidate for investigation, not certified feasible."
+  },
+  "scenarios": [
+    {
+      "sequence": [
+        "sesame",
+        "green_gram"
+      ],
+      "proposed_crops": [
+        "green_gram"
+      ],
+      "status": "requires_review",
+      "hard_constraints": [],
+      "cautions": [
+        "Green gram (mung bean): pH 7.8 outside broad ECOCROP optimal range [5.5, 6.2].",
+        "Climate values are not a validated future-season forecast; seasonal suitability is provisional.",
+        "Environmental grid resolution 9 km is not field-scale ground truth."
+      ],
+      "missing_information": [
+        "Crop water adequacy cannot be determined from rainfall alone without effective rainfall, initial root-zone water, ETc and irrigation information."
+      ],
+      "stages": [
+        {
+          "crop_id": "green_gram",
+          "start": "2026-11-20",
+          "estimated_harvest": "2027-02-18",
+          "duration_days_used_for_screening": 90,
+          "duration_is_user_supplied": true
+        }
+      ],
+      "observations_used": [
+        {
+          "crop_id": "green_gram",
+          "month": "2026-11",
+          "temp_c": 29,
+          "rain_mm": 18,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "green_gram",
+          "month": "2026-12",
+          "temp_c": 25,
+          "rain_mm": 7,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "green_gram",
+          "month": "2027-01",
+          "temp_c": 22,
+          "rain_mm": 4,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "green_gram",
+          "month": "2027-02",
+          "temp_c": 28,
+          "rain_mm": 11,
+          "soil_moisture_anomaly": null
+        }
+      ],
+      "signals": {
+        "crop_diversity": 1.0,
+        "legume_inclusion": 1.0,
+        "living_cover": 1.0,
+        "water_conservation": null,
+        "income": null
+      },
+      "evidence": [
+        {
+          "crop_id": "green_gram",
+          "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=2150",
+          "type": "species-level ecological screening"
+        }
+      ],
+      "explanations": [
+        "Different plant families can diversify host exposure, but this is not a pest-control prediction.",
+        "Legume included: biological nitrogen fixation is possible, but no net nitrogen credit is asserted.",
+        "Planted crops provide an opportunity for living soil cover during growth; actual cover and erosion reduction are not predicted."
+      ],
+      "priority_alignment": 0.4286,
+      "priority_coverage": 0.4286,
+      "unsupported_priorities": [
+        "water_conservation"
+      ]
+    },
+    {
+      "sequence": [
+        "sesame",
+        "maize"
+      ],
+      "proposed_crops": [
+        "maize"
+      ],
+      "status": "requires_review",
+      "hard_constraints": [],
+      "cautions": [
+        "Maize: pH 7.8 outside broad ECOCROP optimal range [5.0, 7.0].",
+        "Maize: 2027-03 monthly mean 34°C outside optimal range [18, 33]°C.",
+        "Climate values are not a validated future-season forecast; seasonal suitability is provisional.",
+        "Environmental grid resolution 9 km is not field-scale ground truth."
+      ],
+      "missing_information": [
+        "Crop water adequacy cannot be determined from rainfall alone without effective rainfall, initial root-zone water, ETc and irrigation information."
+      ],
+      "stages": [
+        {
+          "crop_id": "maize",
+          "start": "2026-11-20",
+          "estimated_harvest": "2027-03-10",
+          "duration_days_used_for_screening": 110,
+          "duration_is_user_supplied": true
+        }
+      ],
+      "observations_used": [
+        {
+          "crop_id": "maize",
+          "month": "2026-11",
+          "temp_c": 29,
+          "rain_mm": 18,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "maize",
+          "month": "2026-12",
+          "temp_c": 25,
+          "rain_mm": 7,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "maize",
+          "month": "2027-01",
+          "temp_c": 22,
+          "rain_mm": 4,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "maize",
+          "month": "2027-02",
+          "temp_c": 28,
+          "rain_mm": 11,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "maize",
+          "month": "2027-03",
+          "temp_c": 34,
+          "rain_mm": 9,
+          "soil_moisture_anomaly": null
+        }
+      ],
+      "signals": {
+        "crop_diversity": 1.0,
+        "legume_inclusion": 0.0,
+        "living_cover": 1.0,
+        "water_conservation": null,
+        "income": null
+      },
+      "evidence": [
+        {
+          "crop_id": "maize",
+          "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=238663",
+          "type": "species-level ecological screening"
+        }
+      ],
+      "explanations": [
+        "Different plant families can diversify host exposure, but this is not a pest-control prediction.",
+        "No planted legume in the proposed sequence.",
+        "Planted crops provide an opportunity for living soil cover during growth; actual cover and erosion reduction are not predicted."
+      ],
+      "priority_alignment": 0.2857,
+      "priority_coverage": 0.4286,
+      "unsupported_priorities": [
+        "water_conservation"
+      ]
+    },
+    {
+      "sequence": [
+        "sesame",
+        "rice"
+      ],
+      "proposed_crops": [
+        "rice"
+      ],
+      "status": "requires_review",
+      "hard_constraints": [],
+      "cautions": [
+        "Rice (lowland paddy): pH 7.8 outside broad ECOCROP optimal range [5.5, 7.0].",
+        "Rice (lowland paddy): well drainage differs from ECOCROP's listed preferred drainage ['poor']; field preparation may change suitability.",
+        "Rice (lowland paddy): 2027-03 monthly mean 34°C outside optimal range [20, 30]°C.",
+        "Climate values are not a validated future-season forecast; seasonal suitability is provisional.",
+        "Environmental grid resolution 9 km is not field-scale ground truth."
+      ],
+      "missing_information": [
+        "Crop water adequacy cannot be determined from rainfall alone without effective rainfall, initial root-zone water, ETc and irrigation information."
+      ],
+      "stages": [
+        {
+          "crop_id": "rice",
+          "start": "2026-11-20",
+          "estimated_harvest": "2027-03-20",
+          "duration_days_used_for_screening": 120,
+          "duration_is_user_supplied": true
+        }
+      ],
+      "observations_used": [
+        {
+          "crop_id": "rice",
+          "month": "2026-11",
+          "temp_c": 29,
+          "rain_mm": 18,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "rice",
+          "month": "2026-12",
+          "temp_c": 25,
+          "rain_mm": 7,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "rice",
+          "month": "2027-01",
+          "temp_c": 22,
+          "rain_mm": 4,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "rice",
+          "month": "2027-02",
+          "temp_c": 28,
+          "rain_mm": 11,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "rice",
+          "month": "2027-03",
+          "temp_c": 34,
+          "rain_mm": 9,
+          "soil_moisture_anomaly": null
+        }
+      ],
+      "signals": {
+        "crop_diversity": 1.0,
+        "legume_inclusion": 0.0,
+        "living_cover": 1.0,
+        "water_conservation": null,
+        "income": null
+      },
+      "evidence": [
+        {
+          "crop_id": "rice",
+          "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=1574",
+          "type": "species-level ecological screening"
+        }
+      ],
+      "explanations": [
+        "Different plant families can diversify host exposure, but this is not a pest-control prediction.",
+        "No planted legume in the proposed sequence.",
+        "Planted crops provide an opportunity for living soil cover during growth; actual cover and erosion reduction are not predicted."
+      ],
+      "priority_alignment": 0.2857,
+      "priority_coverage": 0.4286,
+      "unsupported_priorities": [
+        "water_conservation"
+      ]
+    },
+    {
+      "sequence": [
+        "sesame",
+        "sesame"
+      ],
+      "proposed_crops": [
+        "sesame"
+      ],
+      "status": "requires_review",
+      "hard_constraints": [],
+      "cautions": [
+        "Sesame: pH 7.8 outside broad ECOCROP optimal range [5.5, 7.5].",
+        "Sesame: same botanical family as preceding crop (Sesame); check locally important shared pest hosts.",
+        "Climate values are not a validated future-season forecast; seasonal suitability is provisional.",
+        "Environmental grid resolution 9 km is not field-scale ground truth."
+      ],
+      "missing_information": [
+        "Crop water adequacy cannot be determined from rainfall alone without effective rainfall, initial root-zone water, ETc and irrigation information."
+      ],
+      "stages": [
+        {
+          "crop_id": "sesame",
+          "start": "2026-11-20",
+          "estimated_harvest": "2027-02-18",
+          "duration_days_used_for_screening": 90,
+          "duration_is_user_supplied": true
+        }
+      ],
+      "observations_used": [
+        {
+          "crop_id": "sesame",
+          "month": "2026-11",
+          "temp_c": 29,
+          "rain_mm": 18,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "sesame",
+          "month": "2026-12",
+          "temp_c": 25,
+          "rain_mm": 7,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "sesame",
+          "month": "2027-01",
+          "temp_c": 22,
+          "rain_mm": 4,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "sesame",
+          "month": "2027-02",
+          "temp_c": 28,
+          "rain_mm": 11,
+          "soil_moisture_anomaly": null
+        }
+      ],
+      "signals": {
+        "crop_diversity": 0.0,
+        "legume_inclusion": 0.0,
+        "living_cover": 1.0,
+        "water_conservation": null,
+        "income": null
+      },
+      "evidence": [
+        {
+          "crop_id": "sesame",
+          "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=1937",
+          "type": "species-level ecological screening"
+        }
+      ],
+      "explanations": [
+        "Plant-family diversity is not demonstrated by this sequence.",
+        "No planted legume in the proposed sequence.",
+        "Planted crops provide an opportunity for living soil cover during growth; actual cover and erosion reduction are not predicted."
+      ],
+      "priority_alignment": 0.0714,
+      "priority_coverage": 0.4286,
+      "unsupported_priorities": [
+        "water_conservation"
+      ]
+    },
+    {
+      "sequence": [
+        "sesame",
+        "fallow"
+      ],
+      "proposed_crops": [
+        "fallow"
+      ],
+      "status": "requires_review",
+      "hard_constraints": [],
+      "cautions": [
+        "Fallow has no additional planted crop, but is not necessarily free from soil-water evaporation or soil erosion."
+      ],
+      "missing_information": [],
+      "stages": [
+        {
+          "crop_id": "fallow",
+          "start": "2026-11-20",
+          "end": "2027-04-15"
+        }
+      ],
+      "observations_used": [],
+      "signals": {
+        "crop_diversity": null,
+        "legume_inclusion": 0.0,
+        "living_cover": 1.0,
+        "water_conservation": null,
+        "income": null
+      },
+      "evidence": [],
+      "explanations": [
+        "Plant-family diversity is not demonstrated by this sequence.",
+        "No planted legume in the proposed sequence.",
+        "Fallow cover depends on residue and spontaneous vegetation management."
+      ],
+      "priority_alignment": 0.0714,
+      "priority_coverage": 0.2143,
+      "unsupported_priorities": [
+        "water_conservation",
+        "crop_diversity"
+      ]
+    },
+    {
+      "sequence": [
+        "sesame",
+        "black_gram"
+      ],
+      "proposed_crops": [
+        "black_gram"
+      ],
+      "status": "infeasible",
+      "hard_constraints": [
+        "Black gram: measured soil pH 7.8 outside ECOCROP absolute envelope [4.5, 7.5]."
+      ],
+      "cautions": [
+        "Climate values are not a validated future-season forecast; seasonal suitability is provisional.",
+        "Environmental grid resolution 9 km is not field-scale ground truth."
+      ],
+      "missing_information": [
+        "Crop water adequacy cannot be determined from rainfall alone without effective rainfall, initial root-zone water, ETc and irrigation information."
+      ],
+      "stages": [
+        {
+          "crop_id": "black_gram",
+          "start": "2026-11-20",
+          "estimated_harvest": "2027-02-28",
+          "duration_days_used_for_screening": 100,
+          "duration_is_user_supplied": true
+        }
+      ],
+      "observations_used": [
+        {
+          "crop_id": "black_gram",
+          "month": "2026-11",
+          "temp_c": 29,
+          "rain_mm": 18,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "black_gram",
+          "month": "2026-12",
+          "temp_c": 25,
+          "rain_mm": 7,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "black_gram",
+          "month": "2027-01",
+          "temp_c": 22,
+          "rain_mm": 4,
+          "soil_moisture_anomaly": null
+        },
+        {
+          "crop_id": "black_gram",
+          "month": "2027-02",
+          "temp_c": 28,
+          "rain_mm": 11,
+          "soil_moisture_anomaly": null
+        }
+      ],
+      "signals": {
+        "crop_diversity": 1.0,
+        "legume_inclusion": 1.0,
+        "living_cover": 1.0,
+        "water_conservation": null,
+        "income": null
+      },
+      "evidence": [
+        {
+          "crop_id": "black_gram",
+          "source": "https://ecocrop.apps.fao.org/ecocrop/srv/en/dataSheet?id=2149",
+          "type": "species-level ecological screening"
+        }
+      ],
+      "explanations": [
+        "Different plant families can diversify host exposure, but this is not a pest-control prediction.",
+        "Legume included: biological nitrogen fixation is possible, but no net nitrogen credit is asserted.",
+        "Planted crops provide an opportunity for living soil cover during growth; actual cover and erosion reduction are not predicted."
+      ],
+      "priority_alignment": null,
+      "priority_coverage": 0.0
+    }
+  ],
+  "scenario_count_total": 6,
+  "global_warnings": [
+    "ALL CLIMATE INPUTS ARE SYNTHETIC DEMO DATA; outputs must not be used for real farm decisions.",
+    "Prototype ecological screening, not a field-ready agricultural advisory service.",
+    "ECOCROP species-level envelopes may not describe local cultivars or management practices.",
+    "No validated prediction of yield, soil organic matter, nitrogen credit, pest suppression, or profitability is made.",
+    "Neither rain totals nor coarse satellite soil moisture alone establish crop water adequacy."
+  ],
+  "sources": [
+    "https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/",
+    "https://www.nrcs.usda.gov/sites/default/files/2022-10/National-Agronomy-Manual.pdf",
+    "https://www.fao.org/4/X0490E/x0490e0a.htm",
+    "https://www.fao.org/geospatial/data-and-tools/data-portals/ecocrop/en"
+  ]
+}

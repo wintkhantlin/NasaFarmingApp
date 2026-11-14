@@ -1,0 +1,24 @@
+{
+  "location": {"label": "Illustrative farm — two consecutive proposed crops", "lat": 16.731, "lon": 95.655},
+  "planning": {
+    "start_date": "2026-11-20", "end_date": "2027-09-30", "max_future_crops": 2,
+    "max_results": 25, "turnaround_days": 10,
+    "crop_duration_days": {"green_gram": 90, "sesame": 95, "rice": 125}
+  },
+  "history": ["rice"],
+  "farm": {"soil_ph": 6, "drainage": "well", "irrigation": "unknown", "available_crops": ["green_gram", "sesame", "rice"], "fallow_management": "bare"},
+  "environment": {"source": "Synthetic monthly means for API demonstration", "basis": "synthetic", "monthly": [
+    {"month":"2026-11","temp_c":29,"rain_mm":35},
+    {"month":"2026-12","temp_c":27,"rain_mm":20},
+    {"month":"2027-01","temp_c":25,"rain_mm":15},
+    {"month":"2027-02","temp_c":27,"rain_mm":20},
+    {"month":"2027-03","temp_c":29,"rain_mm":40},
+    {"month":"2027-04","temp_c":30,"rain_mm":80},
+    {"month":"2027-05","temp_c":30,"rain_mm":150},
+    {"month":"2027-06","temp_c":28,"rain_mm":230},
+    {"month":"2027-07","temp_c":28,"rain_mm":270},
+    {"month":"2027-08","temp_c":28,"rain_mm":230},
+    {"month":"2027-09","temp_c":28,"rain_mm":190}
+  ]},
+  "farmer": {"priorities": {"crop_diversity":4, "legume_inclusion":2,"living_cover":2}}
+}
