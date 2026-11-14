@@ -24,7 +24,7 @@ export interface FarmerGuidedFlowProps {
   field: Field;
   currentSlots: RotationSlot[];
   cycleYears: 1 | 2 | 3 | 4;
-  onApplyPlan: (slots: RotationSlot[], cycleYears: 1 | 2 | 3 | 4) => void;
+  onApplyPlan: (slots: RotationSlot[], cycleYears: 1 | 2 | 3 | 4) => void | Promise<void>;
   onSwitchToAdvanced: () => void;
   className?: string;
 }
@@ -90,6 +90,8 @@ export function FarmerGuidedFlow({
   className,
 }: FarmerGuidedFlowProps) {
   const [step, setStep] = useState<Step>(1);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
   const [unit, setUnit] = useState<"acre" | "ha">("acre");
 
   // Farmer Decision Inputs State
@@ -261,9 +263,9 @@ export function FarmerGuidedFlow({
         estimatedMarginMmkHa: pulseMargin.grossMarginMmkHa,
         committedCashMmkHa: pulseMargin.committedCashAtRiskMmkHa,
         waterRisk: "Low: pulse establishes on residual monsoon moisture; zero supplemental irrigation required.",
-        whyThisOption: "Matches residual moisture in clay/clay-loam soils; fixes biological nitrogen for the next season.",
-        mainRisk: "Unseasonal flowering rainfall (>10 mm) or waterlogging if field drainage is slow.",
-        localCheck: "Check subsoil moisture at 20 cm and ensure surface drainage ditches are cleared.",
+        whyThisOption: "A pulse after rice may use moisture left in the soil. The benefit depends on your soil, drainage and crop management.",
+        mainRisk: "Standing water or rain during flowering can damage the crop.",
+        localCheck: "Check whether the soil is moist and drains well. Ask a local adviser about sowing time and seed.",
         isCurrent: currentSlots.some((s) => s.cropId === "black-gram"),
       },
       {
@@ -275,9 +277,9 @@ export function FarmerGuidedFlow({
         estimatedMarginMmkHa: sesameMargin.grossMarginMmkHa,
         committedCashMmkHa: sesameMargin.committedCashAtRiskMmkHa,
         waterRisk: "Low to Moderate: deep taproot tolerates dry spell but requires friable tilth for germination.",
-        whyThisOption: "High unit market price; acts as a non-host break crop against legume soil pathogens.",
-        mainRisk: "Sensitive to standing water; poor germination in heavy puddled clay without seedbed tillage.",
-        localCheck: "Verify topsoil friability and ensure soil is not waterlogged at sowing.",
+        whyThisOption: "Sesame offers a different crop after rice. Check whether the soil and local selling price make it practical.",
+        mainRisk: "Sesame may not establish well in wet, compacted soil.",
+        localCheck: "Check that water has drained and the topsoil breaks apart easily before sowing.",
         isCurrent: currentSlots.some((s) => s.cropId === "sesame"),
       },
       {
@@ -289,9 +291,9 @@ export function FarmerGuidedFlow({
         estimatedMarginMmkHa: summerRiceMargin.grossMarginMmkHa,
         committedCashMmkHa: summerRiceMargin.committedCashAtRiskMmkHa,
         waterRisk: "High: requires 900–1,200 mm continuous irrigation through hot dry months.",
-        whyThisOption: "High volume grain yield for farms with confirmed canal or tube-well irrigation access.",
-        mainRisk: "Severe crop failure if canal water runs dry or pumping fuel costs spike.",
-        localCheck: "Verify pump fuel supply and guaranteed canal water schedule with local irrigation officer.",
+        whyThisOption: "A second rice crop is an option to discuss where dry-season water is reliable.",
+        mainRisk: "The crop can fail if irrigation stops. Pumping costs may also reduce the return.",
+        localCheck: "Confirm the water schedule, pump access and fuel budget before choosing this option.",
         isCurrent: currentSlots.filter((s) => s.cropId === "rice").length > 1,
       },
     ];
@@ -644,7 +646,7 @@ export function FarmerGuidedFlow({
                       </span>
                       {isFeasible ? (
                         <span className="flex items-center gap-1 text-source font-medium text-healthy">
-                          <Icon name="done" size={14} /> Feasible (စိုက်နိုင်)
+                          <Icon name="done" size={14} /> Passes entered checks
                         </span>
                       ) : isNeedsReview ? (
                         <span className="flex items-center gap-1 text-source font-medium text-drought">
@@ -652,7 +654,7 @@ export function FarmerGuidedFlow({
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-source font-medium text-heat">
-                          ❌ Excluded by constraint
+                          Blocked by your answers
                         </span>
                       )}
                     </div>
@@ -664,33 +666,35 @@ export function FarmerGuidedFlow({
 
                     {/* Financial Range */}
                     <div className="rounded-lg bg-surface-sunken p-3">
-                      <span className="text-source text-ink-muted">Est. Gross Margin per ha</span>
+                      <span className="text-source text-ink-muted">Example return after stated costs — MMK per hectare</span>
                       <p className="m-0 text-headline font-bold text-ink">
-                        {Math.round(cand.estimatedMarginMmkHa[0] / 100000).toLocaleString()}L – {Math.round(cand.estimatedMarginMmkHa[1] / 100000).toLocaleString()}L MMK
+                        {Math.round(cand.estimatedMarginMmkHa[0]).toLocaleString()} – {Math.round(cand.estimatedMarginMmkHa[1]).toLocaleString()} MMK
                       </p>
                       <span className="text-source text-ink-muted">
-                        Cash committed: ~{Math.round(cand.committedCashMmkHa).toLocaleString()} MMK/ha
+                        Example upfront spending: {Math.round(cand.committedCashMmkHa).toLocaleString()} MMK per hectare
                       </span>
+                      <p className="mt-2 text-source text-ink-muted">Uses 2024–2026 benchmark prices and assumed costs for the crop after rice. It is not a whole-rotation profit estimate or a promise of income. Check your own prices, yields and costs.</p>
                     </div>
 
                     {/* Explanations */}
                     <div className="flex flex-col gap-2 text-body-sm">
                       <div>
-                        <strong className="text-ink">Why this option: </strong>
+                        <strong className="text-ink">Why consider it? </strong>
                         <span className="text-ink-muted">{cand.whyThisOption}</span>
                       </div>
                       <div>
-                        <strong className="text-heat">Main risk: </strong>
+                        <strong className="text-heat">What could go wrong? </strong>
                         <span className="text-ink-muted">{cand.mainRisk}</span>
                       </div>
                       <div className="rounded-md bg-field-soft/40 p-2 text-source">
-                        <strong className="text-field">Check locally: </strong>
+                        <strong className="text-field">Before you decide: </strong>
                         <span className="text-ink">{cand.localCheck}</span>
                       </div>
                     </div>
                   </div>
 
                   <Button
+                    disabled={cand.feasibility.status === "infeasible"}
                     variant={isSelected ? "primary" : "secondary"}
                     onClick={() => setSelectedCandidateId(cand.id)}
                     className="w-full mt-2 min-h-tap"
@@ -795,14 +799,23 @@ export function FarmerGuidedFlow({
               <Button
                 variant="primary"
                 size="lg"
-                onClick={() => {
-                  onApplyPlan(selectedCandidate.rotation.slots, selectedCandidate.rotation.cycleYears ?? cycleYears);
+                disabled={savingPlan || selectedCandidate.feasibility.status === "infeasible"}
+                onClick={async () => {
+                  setSavingPlan(true);
+                  setSaveMessage("");
+                  try {
+                    await onApplyPlan(selectedCandidate.rotation.slots, selectedCandidate.rotation.cycleYears ?? cycleYears);
+                    setSaveMessage("Plan saved in this browser. Its example dates still need your review.");
+                  } catch {
+                    setSaveMessage("Could not save the plan. Check browser storage and try again.");
+                  } finally { setSavingPlan(false); }
                 }}
                 className="min-h-tap"
               >
-                Save This Plan (သိမ်းဆည်းမည်)
+                {savingPlan ? "Saving plan…" : "Save this plan (သိမ်းဆည်းမည်)"}
               </Button>
             </div>
+            {saveMessage ? <p role="status" className="text-body-sm">{saveMessage}</p> : null}
           </div>
         </Panel>
       )}

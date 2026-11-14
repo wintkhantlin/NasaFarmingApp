@@ -586,7 +586,11 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
           field={field}
           currentSlots={slots}
           cycleYears={cycleYears}
-          onApplyPlan={(newSlots: RotationSlot[], newCycle: 1 | 2 | 3 | 4) => {
+          onApplyPlan={async (newSlots: RotationSlot[], newCycle: 1 | 2 | 3 | 4) => {
+            await saveRotation(rotationSchema.parse({
+              id: `guided-plan-${field.id}`, fieldId: field.id,
+              label: `${field.name} draft plan`, cycleYears: newCycle, slots: newSlots, source: "strategy",
+            }));
             markChanged();
             setSlots(newSlots);
             setCycleYears(newCycle);

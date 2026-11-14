@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { RotationEditor } from "@/components/field/rotation-editor";
 import { MoistureClockRibbon } from "@/components/field/moisture-clock-ribbon";
 import { FarmerGuidedFlow } from "@/components/field/farmer-guided-flow";
@@ -161,6 +161,22 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
   });
 
   describe("Farmer Guided Flow 5-Step Journey", () => {
+    it("shows saving until persistence finishes and reports storage failure", async () => {
+      let rejectSave!: (reason: Error) => void;
+      const apply = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectSave = reject; }));
+      render(<FarmerGuidedFlow field={mockField} currentSlots={mockRotation.slots} cycleYears={1} onApplyPlan={apply} onSwitchToAdvanced={vi.fn()} />);
+      fireEvent.click(screen.getByText(/Continue to Farm Conditions/i));
+      fireEvent.click(screen.getByText(/Continue to Priorities/i));
+      fireEvent.click(screen.getByText(/Compare Recommended Rotations/i));
+      expect(screen.getAllByText(/benchmark prices and assumed costs/)).toHaveLength(3);
+      fireEvent.click(screen.getByText(/Continue with/i));
+      fireEvent.click(screen.getByRole("button", { name: /Save this plan/i }));
+      expect(screen.getByRole("button", { name: "Saving plan…" })).toBeDisabled();
+      expect(screen.queryByText(/Plan saved in this browser/)).not.toBeInTheDocument();
+      rejectSave(new Error("quota"));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Could not save the plan"));
+      expect(screen.getByRole("button", { name: /Save this plan/i })).toBeEnabled();
+    });
     it("navigates through the 5 steps and preserves field input", () => {
       const applyMock = vi.fn();
       const switchMock = vi.fn();
