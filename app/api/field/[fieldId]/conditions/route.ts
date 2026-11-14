@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { monthlyNormals, toDailyRecords } from "@/lib/engine/climate";
 import { BASELINE } from "@/lib/engine/data";
-import { dailyEt0 } from "@/lib/engine/water";
+import { summariseConditions } from "@/lib/server/conditions-summary";
 import { imergBackfill } from "@/lib/server/imerg-backfill";
 import { loadSoil } from "@/lib/server/soil";
 import { loadWeather } from "@/lib/server/weather";
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
-
 /**
- * Long-term conditions around a field: NASA POWER daily history (UTC days, eight parameters), IMERG
+ * Long-term conditions around a field: NASA POWER daily history (UTC days, eight parameters plus GWETROOT), IMERG
  * daily rainfall for the field's 0.1 degree cell when an Earthdata token is set, and ISRIC SoilGrids.
  * A source that fails is reported as missing, never filled with made-up numbers, so the screen can
  * say what it doesn't know.
@@ -35,32 +32,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ fiel
 
   const imerg = await imergBackfill(lat, lng, { start: `${BASELINE.startYear}-01-01`, end: `${BASELINE.endYear}-12-31` });
 
-  // monthly summary of the baseline years, for the charts on the Conditions screen
-  let monthly: Record<string, number[] | undefined> = {};
-  let annualRainMm: number | undefined;
-  if (weather) {
-    const records = toDailyRecords(weather).filter((r) => r.year >= BASELINE.startYear && r.year <= BASELINE.endYear);
-    const normals = monthlyNormals(records);
-    const et0 = dailyEt0(records, weather.latitude, weather.elevationM ?? 0);
-    const et0ByMonth = Array.from({ length: 12 }, () => 0);
-    const years = new Set(records.map((r) => r.year)).size || 1;
-    for (const d of et0) if (d.mm !== null) et0ByMonth[Number(d.date.slice(5, 7)) - 1] += d.mm / years;
-    monthly = {
-      monthlyRainMm: normals.map((n) => Math.round(n.rainMm)),
-      monthlyTmaxC: normals.map((n) => round1(n.tmaxC)),
-      monthlyTminC: normals.map((n) => round1(n.tminC)),
-      monthlyEt0Mm: et0ByMonth.map(Math.round),
-    };
-    annualRainMm = (monthly.monthlyRainMm as number[]).reduce((a, b) => a + b, 0);
-  }
+  // Monthly summary of the baseline years for the Conditions charts, built the same way as the comparison.
+  const summary = weather ? summariseConditions(weather, imerg.days) : null;
 
   return NextResponse.json({
     fieldId,
     fetchedAt: new Date().toISOString(),
     climateAvailable: Boolean(weather),
     soilAvailable: Boolean(soil),
-    annualRainMm,
-    ...monthly,
+    ...(summary ?? {}),
     soil,
     weather,
     power: {

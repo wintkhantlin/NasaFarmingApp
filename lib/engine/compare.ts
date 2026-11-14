@@ -704,13 +704,15 @@ function buildExplanations(ctx: Ctx, evals: SlotEvaluation[], structure: Rotatio
 function contextIndicators(data: EngineData, current: EvaluatedOption): DerivedIndicator[] {
   const out: DerivedIndicator[] = [];
   const slot = current.slots.find((s) => s.hasRules)?.slot ?? current.rotation.slots[0];
-  const year = BASELINE.endYear;
+  // SMAP is requested to the end of the baseline, so a window that crosses New Year starts a year earlier.
+  const crossesYear = slot ? slot.harvestDate.slice(5) < slot.plantDate.slice(5) : false;
+  const year = crossesYear ? BASELINE.endYear - 1 : BASELINE.endYear;
   const from = slot ? `${year}-${slot.plantDate.slice(5)}` : `${year}-01-01`;
-  const to = slot ? `${slot.harvestDate.slice(5) >= slot.plantDate.slice(5) ? year : year + 1}-${slot.harvestDate.slice(5)}` : `${year}-12-31`;
+  const to = slot ? `${crossesYear ? year + 1 : year}-${slot.harvestDate.slice(5)}` : `${year}-12-31`;
   const stats = smapWindowStats(data.smap, from, to);
   out.push(
     smapIndicator({
-      data, name: "Regional root-zone moisture", value: data.smapInfo.status === "ok" && stats.meanRootzone !== null ? Number(stats.meanRootzone.toFixed(3)) : null, units: "m³/m³", statistic: "mean of valid days in the first crop window, 2025",
+      data, name: "Regional root-zone moisture", value: data.smapInfo.status === "ok" && stats.meanRootzone !== null ? Number(stats.meanRootzone.toFixed(3)) : null, units: "m³/m³", statistic: `mean of valid days in the first crop window, ${from.slice(0, 4)}${crossesYear ? `–${to.slice(0, 4)}` : ""}`,
       start: from, end: to, valid: stats.validDays, expected: stats.expectedDays,
       assumptions: ["A 9 km modelled value. It is regional context and does not say how wet your field is."],
     }),
@@ -743,7 +745,7 @@ function dataGaps(data: EngineData, completeYears: number, rain: RainSeries): st
   if (data.imergInfo.status !== "ok") gaps.push(data.imergInfo.status === "unconfigured" ? "GPM IMERG rainfall is not connected; NASA POWER rainfall is used instead." : "GPM IMERG rainfall is not available; NASA POWER rainfall is used instead.");
   else if (rain.fromP > 0) gaps.push(`${rain.fromP} days used NASA POWER rainfall because IMERG was missing or partly sampled.`);
   if (data.smapInfo.status !== "ok") gaps.push("SMAP regional soil moisture is not available.");
-  if (data.hlsInfo.status !== "ok") gaps.push("HLS satellite vegetation observations are not available, so low-cover periods come from your plan only.");
+  if (data.hlsInfo.status !== "ok") gaps.push("Satellite vegetation observations (Landsat or HLS) are not available, so low-cover periods come from your plan only.");
   if (data.srtmInfo.status !== "ok") gaps.push("SRTM terrain is not available, so slope is unknown.");
   if (!data.soil.ph) gaps.push("No soil pH for this field.");
   return gaps;

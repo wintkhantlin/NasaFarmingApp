@@ -19,10 +19,15 @@ export interface ConditionsData {
   /** Mean daily maximum and minimum temperature per month, °C. */
   monthlyTmaxC?: number[];
   monthlyTminC?: number[];
-  /** Reference crop water use (Hargreaves ET0) per month, mm. */
+  /** Reference crop water use (Penman-Monteith ET0, Hargreaves on days missing its inputs) per month, mm. */
   monthlyEt0Mm?: number[];
-  /** Root-zone wetness, % of saturation, long-term mean. */
+  /** Which rainfall series the monthly chart uses; the comparison makes the same choice. */
+  rainSource?: "imerg" | "power";
+  /** Days of the baseline that came from each rainfall source. */
+  rainDays?: { imerg: number; power: number; missing: number };
+  /** NASA POWER GWETROOT, % of saturation, mean of complete baseline years. Modelled, about 50 km. */
   rootWetnessPct?: number;
+  completeYears?: number;
   drySpellsCount?: number;
   hotDaysCount?: number;
   /** Full POWER daily history (UTC days). The engine reads this; the monthly arrays above are for the charts. */
@@ -46,7 +51,7 @@ export interface ConditionsData {
 
 const CONDITIONS_CACHE_PREFIX = "conditions_cache:";
 /** Bump when the shape or units of ConditionsData change, so old caches are refetched. */
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 
 export async function getCachedConditions(fieldId: string): Promise<ConditionsData | null> {
   if (typeof window === "undefined") return null;

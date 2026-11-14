@@ -299,7 +299,7 @@ export const copy = {
     rootZoneUnknown: "A root-zone water balance needs soil water capacity, rooting depth and soil moisture at planting.",
     smapTitle: "Regional soil moisture (SMAP)",
     smapNote: "A 9 km model-and-satellite value. It tells you about the region, not how wet your field is.",
-    hlsTitle: "Satellite view of the field (HLS, 30 m)",
+    hlsTitle: "Satellite view of the field (Landsat or HLS, 30 m)",
     srtmTitle: "Terrain and slope (SRTM)",
     unconfigured: "Not connected. This source needs a NASA Earthdata login on the server.",
     pending: "Being retrieved. This can take a few minutes.",

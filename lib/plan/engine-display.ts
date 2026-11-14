@@ -69,7 +69,7 @@ function farmerFriendlyGap(gap: string): string {
   if (gap === "SMAP regional soil moisture is not available.") {
     return "Regional soil-moisture information is not available, so the soil's starting moisture is unknown.";
   }
-  if (gap.startsWith("HLS satellite vegetation observations are not available")) {
+  if (gap.startsWith("Satellite vegetation observations (Landsat or HLS) are not available")) {
     return "Clear satellite crop-cover images are not available. Bare-soil periods come only from the crops and dates you entered.";
   }
   if (gap === "SRTM terrain is not available, so slope is unknown.") {

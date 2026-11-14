@@ -1,5 +1,5 @@
 import type { DailyWeather } from "../nasa/power";
-import { dayOfYear, hargreavesEt0 } from "./et0";
+import { dayOfYear, hargreavesEt0, penmanMonteithEt0 } from "./et0";
 
 /** Climate statistics for a field, computed from the daily weather record. */
 
@@ -24,6 +24,18 @@ export interface DailyRecord {
   psKpa?: number | null;
 }
 
+/**
+ * Reference ET0 for one day, the same rule as `dailyEt0` in water.ts: FAO-56 Penman-Monteith when
+ * humidity, wind and radiation are all present, Hargreaves from temperature alone otherwise.
+ */
+function et0For(w: DailyWeather, doy: number, tmax: number | null, tmin: number | null, tmean: number | null, rh: number | null, u2: number | null, rs: number | null, ps: number | null): number | null {
+  if (tmax === null || tmin === null) return null;
+  if (rh !== null && u2 !== null && rs !== null) {
+    return penmanMonteithEt0({ latDeg: w.latitude, doy, elevationM: w.elevationM ?? 0, tmaxC: tmax, tminC: tmin, tmeanC: tmean ?? undefined, rhMeanPct: rh, u2, rsMj: rs, pressureKpa: ps ?? undefined });
+  }
+  return hargreavesEt0(w.latitude, doy, tmax, tmin);
+}
+
 export function toDailyRecords(w: DailyWeather): DailyRecord[] {
   const s = w.series;
   return w.dates.map((date, i) => {
@@ -32,6 +44,10 @@ export function toDailyRecords(w: DailyWeather): DailyRecord[] {
     const tmax = s.T2M_MAX?.[i] ?? null;
     const tmin = s.T2M_MIN?.[i] ?? null;
     const t2m = s.T2M?.[i] ?? null;
+    const rh = s.RH2M?.[i] ?? null;
+    const wind2 = s.WS2M?.[i] ?? null;
+    const sw = s.ALLSKY_SFC_SW_DWN?.[i] ?? null;
+    const ps = s.PS?.[i] ?? null;
     return {
       date,
       year: y,
@@ -41,12 +57,12 @@ export function toDailyRecords(w: DailyWeather): DailyRecord[] {
       tminC: tmin,
       tmeanC: t2m ?? (tmax !== null && tmin !== null ? (tmax + tmin) / 2 : null),
       rainMm: s.PRECTOTCORR?.[i] ?? null,
-      et0Mm: tmax !== null && tmin !== null ? hargreavesEt0(w.latitude, doy, tmax, tmin) : null,
+      et0Mm: et0For(w, doy, tmax, tmin, t2m, rh, wind2, sw, ps),
       rootWetness: s.GWETROOT?.[i] ?? null,
-      rhPct: s.RH2M?.[i] ?? null,
-      wind2: s.WS2M?.[i] ?? null,
-      swMj: s.ALLSKY_SFC_SW_DWN?.[i] ?? null,
-      psKpa: s.PS?.[i] ?? null,
+      rhPct: rh,
+      wind2,
+      swMj: sw,
+      psKpa: ps,
     };
   });
 }

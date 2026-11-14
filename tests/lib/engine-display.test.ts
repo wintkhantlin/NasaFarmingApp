@@ -115,7 +115,7 @@ describe("typed engine display adapter", () => {
   test("historical replay and source lineage come from the engine result", () => {
     const view = adaptComparison(input());
     expect(view.replay).toEqual(result.baseline);
-    expect(view.detail).toContain("complete past years from 2016–2025");
+    expect(view.detail).toContain(`${result.baseline.completeYears} past years from 2016–2025`);
     expect(view.detail).toContain("does not predict next season");
     expect(view.sourceStatuses?.power).toBe(data.power.status);
     const source = view.options[0].sources[0];

@@ -261,6 +261,13 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                       ? "not available right now"
                       : "not connected on this server"}
               </p>
+              {data.rainDays ? (
+                <p className="m-0 text-body-sm text-ink">
+                  This chart uses {data.rainSource === "imerg" ? "GPM IMERG satellite rainfall" : "NASA POWER rainfall"}:{" "}
+                  {data.rainDays.imerg} days from IMERG, {data.rainDays.power} from NASA POWER
+                  {data.rainDays.missing ? `, ${data.rainDays.missing} missing` : ""}.
+                </p>
+              ) : null}
               <p className="m-0 text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
             </Disclosure>
           </Panel>
@@ -363,7 +370,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     value={data.rootWetnessPct}
                     unit="% full"
                     scale={[0, 100]}
-                    source={{ dataset: "NASA POWER", resolution: "0.5°", dates: "long-term mean" }}
+                    source={{ dataset: "NASA POWER GWETROOT (modelled)", resolution: "about 0.5° x 0.625°", dates: `${data.completeYears ?? "baseline"} complete years, 2016 to 2025` }}
                   />
                 ) : null}
               </div>
