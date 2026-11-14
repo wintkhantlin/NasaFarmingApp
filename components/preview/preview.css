@@ -9,24 +9,24 @@
 
 .rp .ss-stage {
   --ss-canvas: transparent;
-  --ss-surface: #fbfaf6;
-  --ss-chrome: #fbfaf6;
-  --ss-well: #e9e6da;
-  --ss-accent: #2e5e3a;
-  --ss-accent-2: #2e5e3a;
-  --ss-accent-soft: #dfe8d8;
-  --ss-accent-text: #2e5e3a;
-  --ss-success: #2e5e3a;
-  --ss-success-soft: #dfe8d8;
-  --ss-success-text: #2e5e3a;
-  --ss-warning: #765709;
-  --ss-warning-soft: #f1e6c8;
-  --ss-warning-text: #765709;
-  --ss-text-strong: #1f1d17;
-  --ss-text: #5a564a;
-  --ss-text-faint: #8c8676;
-  --ss-line: rgba(31, 29, 23, 0.1);
-  --ss-line-faint: rgba(31, 29, 23, 0.06);
+  --ss-surface: var(--color-surface-raised);
+  --ss-chrome: var(--color-surface-raised);
+  --ss-well: var(--color-surface-sunken);
+  --ss-accent: var(--color-field);
+  --ss-accent-2: var(--color-field);
+  --ss-accent-soft: var(--color-field-soft);
+  --ss-accent-text: var(--color-field);
+  --ss-success: var(--color-healthy);
+  --ss-success-soft: var(--color-field-soft);
+  --ss-success-text: var(--color-healthy);
+  --ss-warning: var(--color-drought);
+  --ss-warning-soft: var(--color-drought-soft);
+  --ss-warning-text: var(--color-drought);
+  --ss-text-strong: var(--color-ink);
+  --ss-text: var(--color-ink);
+  --ss-text-faint: var(--color-ink-muted);
+  --ss-line: var(--color-line);
+  --ss-line-faint: var(--color-line);
   --ss-font: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --ss-radius-md: 10px;
   --ss-radius-window: 12px;
@@ -50,7 +50,7 @@
   display: grid;
   align-content: start;
   gap: 16px;
-  padding: 22px 24px;
+  padding: 24px;
   background: var(--ss-surface);
 }
 
@@ -64,14 +64,14 @@
 .rp-cols {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .rp-col {
   display: grid;
   align-content: start;
   gap: 8px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--ss-line);
   border-radius: 10px;
   background: var(--ss-surface);
@@ -101,7 +101,7 @@
 .rp-col__row {
   display: grid;
   justify-items: start;
-  gap: 6px;
+  gap: 8px;
 }
 
 .rp-col__label {
@@ -112,7 +112,7 @@
 .rp-answer {
   display: grid;
   gap: 8px;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border: 1px solid var(--ss-line);
   border-radius: 12px;
   background: var(--ss-surface);
@@ -146,7 +146,7 @@
 }
 
 .rp .ss-stage[data-layout="compact"] .rp-body {
-  padding: 18px 16px;
+  padding: 16px;
 }
 
 .rp-seg {

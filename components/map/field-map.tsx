@@ -50,9 +50,19 @@ const PARCHMENT = "#fbfaf6" as HexColor;
 
 function toGeometry(f: GeoJSONStoreFeatures): FieldGeometry | null {
   const g = f.geometry;
-  if (g.type === "Point") return { type: "Point", coordinates: [g.coordinates[0], g.coordinates[1]] };
+  if (!g) return null;
+  if (g.type === "Point") {
+    const coords = g.coordinates as number[];
+    return { type: "Point", coordinates: [coords[0], coords[1]] };
+  }
   if (g.type === "Polygon") {
-    return { type: "Polygon", coordinates: g.coordinates.map((ring) => ring.map((p): LngLat => [p[0], p[1]])) };
+    const rings = g.coordinates as number[][][];
+    return {
+      type: "Polygon",
+      coordinates: rings.map((ring: number[][]): LngLat[] =>
+        ring.map((p: number[]): LngLat => [p[0], p[1]])
+      ),
+    };
   }
   return null;
 }
