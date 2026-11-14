@@ -61,14 +61,32 @@ export interface PenmanMonteithInput {
   eaKpa?: number;
 }
 
+export interface PenmanMonteithDetails {
+  tExtremaMeanC: number;
+  esKpa: number;
+  eaKpa: number;
+  raMj: number;
+  rsoMj: number;
+  rnsMj: number;
+  rnlMj: number;
+  rnMj: number;
+  et0Mm: number;
+}
+
+/** Converts solar radiation to MJ/m2/day. Only responses declaring kWh/m2/day are multiplied by 3.6. */
+export function normalizeSolarRadiation(rs: number, unit?: string | null): number {
+  if (unit && /(kwh|kw-hr)/i.test(unit)) {
+    return rs * 3.6;
+  }
+  return rs;
+}
+
 /**
- * FAO-56 Penman-Monteith reference evapotranspiration, mm per day (equation 6).
- * Net radiation is built from shortwave (equations 38 and 39) and clear-sky radiation (equation 37),
- * with no soil heat flux for a daily step. With only mean RH, actual vapour pressure is
- * es x RHmean / 100, which is an approximation; pass `eaKpa` when RHmax and RHmin are known.
+ * Detailed intermediate FAO-56 Penman-Monteith values for regression and verification.
  */
-export function penmanMonteithEt0(i: PenmanMonteithInput): number {
-  const tmean = i.tmeanC ?? (i.tmaxC + i.tminC) / 2;
+export function penmanMonteithDetails(i: PenmanMonteithInput): PenmanMonteithDetails {
+  const tExtremaMean = (i.tmaxC + i.tminC) / 2;
+  const tmean = i.tmeanC ?? tExtremaMean;
   const p = i.pressureKpa ?? 101.3 * Math.pow((293 - 0.0065 * i.elevationM) / 293, 5.26);
   const gamma = 0.000665 * p;
   const delta = (4098 * satVapourPressure(tmean)) / Math.pow(tmean + 237.3, 2);
@@ -85,5 +103,27 @@ export function penmanMonteithEt0(i: PenmanMonteithInput): number {
 
   const num = 0.408 * delta * rn + (gamma * 900 * i.u2 * (es - ea)) / (tmean + 273);
   const den = delta + gamma * (1 + 0.34 * i.u2);
-  return Math.max(0, num / den);
+  const et0 = Math.max(0, num / den);
+
+  return {
+    tExtremaMeanC: tExtremaMean,
+    esKpa: es,
+    eaKpa: ea,
+    raMj: ra,
+    rsoMj: rso,
+    rnsMj: rns,
+    rnlMj: rnl,
+    rnMj: rn,
+    et0Mm: et0,
+  };
+}
+
+/**
+ * FAO-56 Penman-Monteith reference evapotranspiration, mm per day (equation 6).
+ * Net radiation is built from shortwave (equations 38 and 39) and clear-sky radiation (equation 37),
+ * with no soil heat flux for a daily step. With only mean RH, actual vapour pressure is
+ * es x RHmean / 100, which is an approximation; pass `eaKpa` when RHmax and RHmin are known.
+ */
+export function penmanMonteithEt0(i: PenmanMonteithInput): number {
+  return penmanMonteithDetails(i).et0Mm;
 }

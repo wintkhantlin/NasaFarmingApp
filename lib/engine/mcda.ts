@@ -58,8 +58,13 @@ export interface McdaResult {
 /** Priority weights from the farmer: use given weights, else rank-order weights; normalised to sum 1. */
 export function priorityWeights(p: FarmerPriorities | undefined): Partial<Record<PriorityId, number>> | null {
   if (!p || p.order.length === 0) return null;
+  const hasExplicitWeights = Object.keys(p.weights).length > 0;
   const given = p.order.map((id) => p.weights[id] ?? 0);
   const total = given.reduce((a, b) => a + b, 0);
+  if (hasExplicitWeights && total <= 0) {
+    // If all weights entered are zero, ask for priorities
+    return null;
+  }
   const out: Partial<Record<PriorityId, number>> = {};
   if (total > 0) p.order.forEach((id, i) => (out[id] = given[i] / total));
   else {
@@ -69,6 +74,88 @@ export function priorityWeights(p: FarmerPriorities | undefined): Partial<Record
     p.order.forEach((id, i) => (out[id] = (n - i) / sum));
   }
   return out;
+}
+
+export interface ScenarioUtility {
+  candidateId: string;
+  utilities: Record<string, number>; // scenarioName -> utility
+}
+
+export interface RegretResult {
+  candidateId: string;
+  regrets: Record<string, number>; // scenarioName -> regret
+  worstRegret: number;
+}
+
+/**
+ * Calculates utility scaled to fixed interpretable anchors instead of candidate-relative min/max (Section F).
+ * e.g. for lower-is-better (withdrawal/shortfall): utility = clip((upper - val) / (upper - target), 0, 1).
+ */
+export function anchorUtility(value: number, target: number, limit: number, direction: "higher" | "lower"): number {
+  if (direction === "lower") {
+    if (limit <= target) return value <= target ? 1 : 0;
+    const u = (limit - value) / (limit - target);
+    return Math.max(0, Math.min(1, u));
+  } else {
+    if (target <= limit) return value >= target ? 1 : 0;
+    const u = (value - limit) / (target - limit);
+    return Math.max(0, Math.min(1, u));
+  }
+}
+
+/**
+ * Calculates scenario regret and minimax regret across candidate options (Section H5).
+ * L(r, s) = max_j U(j, s) - U(r, s)
+ * r* = argmin_r max_s L(r, s)
+ */
+export function minimaxRegret(
+  candidates: ScenarioUtility[],
+  scenarioNames: string[],
+): {
+  table: RegretResult[];
+  bestCandidateId: string;
+} {
+  const maxUtility: Record<string, number> = {};
+  for (const s of scenarioNames) {
+    maxUtility[s] = Math.max(...candidates.map((c) => c.utilities[s] ?? 0));
+  }
+
+  const table: RegretResult[] = candidates.map((c) => {
+    const regrets: Record<string, number> = {};
+    let worst = 0;
+    for (const s of scenarioNames) {
+      const u = c.utilities[s] ?? 0;
+      const reg = Math.max(0, maxUtility[s] - u);
+      regrets[s] = Math.round(reg * 1000) / 1000;
+      if (regrets[s] > worst) worst = regrets[s];
+    }
+    return {
+      candidateId: c.candidateId,
+      regrets,
+      worstRegret: worst,
+    };
+  });
+
+  table.sort((a, b) => a.worstRegret - b.worstRegret);
+  return {
+    table,
+    bestCandidateId: table[0]?.candidateId ?? "",
+  };
+}
+
+/**
+ * Switching point analysis for two criteria between two candidates (Section F).
+ */
+export function switchingPoint(
+  utilityA: { u1: number; u2: number },
+  utilityB: { u1: number; u2: number },
+): number | null {
+  const diff1 = utilityA.u1 - utilityB.u1;
+  const diff2 = utilityA.u2 - utilityB.u2;
+  const denom = diff1 - diff2;
+  if (Math.abs(denom) < 1e-9) return null;
+  const w = -diff2 / denom;
+  return w >= 0 && w <= 1 ? w : null;
 }
 
 export function rankRotations(inputs: McdaInput[], priorities: FarmerPriorities | undefined): McdaResult {

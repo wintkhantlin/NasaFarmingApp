@@ -377,6 +377,49 @@ function dryYearFit(ctx: Ctx, evals: SlotEvaluation[]): DryYearFit {
   };
 }
 
+export interface PairedMaeComparison {
+  pairedImprovements: number[];
+  meanImprovementMae: number;
+  baselineMae: number;
+  modelMae: number;
+}
+
+/**
+ * Quantifies whether daily rainfall improved a held-out result (Section H6).
+ * d_i = |b_i - y_i| - |m_i - y_i|
+ * Delta_MAE = (1 / n) * sum(d_i)
+ */
+export function pairedImprovementMae(
+  observed: number[],
+  baseline: number[],
+  model: number[],
+): PairedMaeComparison {
+  if (observed.length === 0 || observed.length !== baseline.length || observed.length !== model.length) {
+    throw new Error("Arrays must have identical, non-zero length.");
+  }
+  const n = observed.length;
+  let baseErrSum = 0;
+  let modelErrSum = 0;
+  const pairedImprovements: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const baseErr = Math.abs(baseline[i] - observed[i]);
+    const modelErr = Math.abs(model[i] - observed[i]);
+    baseErrSum += baseErr;
+    modelErrSum += modelErr;
+    pairedImprovements.push(baseErr - modelErr);
+  }
+
+  const meanImprovement = pairedImprovements.reduce((a, b) => a + b, 0) / n;
+
+  return {
+    pairedImprovements,
+    meanImprovementMae: meanImprovement,
+    baselineMae: baseErrSum / n,
+    modelMae: modelErrSum / n,
+  };
+}
+
 function metricsFor(evals: SlotEvaluation[], structure: RotationStructure, economics: EconomicsAssessment, forage: ForageMarketAssessment, rotation: Rotation): Partial<Record<CriterionId, number | null>> {
   const cycle = rotation.cycleYears || 1;
   const shortfalls = evals.map((e) => e.water?.shortfall.p50 ?? null);
@@ -386,7 +429,11 @@ function metricsFor(evals: SlotEvaluation[], structure: RotationStructure, econo
     "water-shortfall": allRules && shortfalls.every((s) => s !== null) ? (shortfalls as number[]).reduce((a, b) => a + b, 0) / shortfalls.length : null,
     "soil-legume-share": structure.legumeShare,
     "soil-cover": structure.cycleDays > 0 ? structure.coveredShare : null,
-    "income-margin": economics.cycleMarginMmkHa ? (economics.cycleMarginMmkHa[0] + economics.cycleMarginMmkHa[1]) / 2 / cycle : null,
+    "income-margin": economics.annualizedMarginMmkHa
+      ? (economics.annualizedMarginMmkHa[0] + economics.annualizedMarginMmkHa[1]) / 2
+      : economics.cycleMarginMmkHa
+        ? (economics.cycleMarginMmkHa[0] + economics.cycleMarginMmkHa[1]) / 2 / cycle
+        : null,
     "forage-slots": allRules ? forage.forageSlots / cycle : null,
     "input-nitrogen": allRules ? nDemand / cycle : null,
   };

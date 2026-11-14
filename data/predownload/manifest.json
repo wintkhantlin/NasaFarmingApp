@@ -1,0 +1,560 @@
+{
+  "generatedAt": "2026-11-14T09:24:04.425Z",
+  "window": {
+    "start": "20160101",
+    "end": "20261031"
+  },
+  "regions": [
+    "ayeyarwady",
+    "magway",
+    "mandalay",
+    "shan",
+    "bago"
+  ],
+  "weatherCells": [
+    {
+      "cellKey": "power:17.0:95.000",
+      "coordinates": [
+        17,
+        95
+      ],
+      "hubs": [
+        "Pathein"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_17.0_95.000.json"
+    },
+    {
+      "cellKey": "power:17.5:95.625",
+      "coordinates": [
+        17.5,
+        95.625
+      ],
+      "hubs": [
+        "Hinthada"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_17.5_95.625.json"
+    },
+    {
+      "cellKey": "power:16.5:95.000",
+      "coordinates": [
+        16.5,
+        95
+      ],
+      "hubs": [
+        "Myaungmya"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_16.5_95.000.json"
+    },
+    {
+      "cellKey": "power:16.5:95.625",
+      "coordinates": [
+        16.5,
+        95.625
+      ],
+      "hubs": [
+        "Maubin",
+        "Pyapon"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_16.5_95.625.json"
+    },
+    {
+      "cellKey": "power:20.0:95.000",
+      "coordinates": [
+        20,
+        95
+      ],
+      "hubs": [
+        "Magway City",
+        "Minbu"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_20.0_95.000.json"
+    },
+    {
+      "cellKey": "power:21.5:95.000",
+      "coordinates": [
+        21.5,
+        95
+      ],
+      "hubs": [
+        "Pakokku"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_21.5_95.000.json"
+    },
+    {
+      "cellKey": "power:20.0:95.625",
+      "coordinates": [
+        20,
+        95.625
+      ],
+      "hubs": [
+        "Taungdwingyi"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_20.0_95.625.json"
+    },
+    {
+      "cellKey": "power:19.5:95.000",
+      "coordinates": [
+        19.5,
+        95
+      ],
+      "hubs": [
+        "Thayet"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_19.5_95.000.json"
+    },
+    {
+      "cellKey": "power:22.0:96.250",
+      "coordinates": [
+        22,
+        96.25
+      ],
+      "hubs": [
+        "Mandalay City"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_22.0_96.250.json"
+    },
+    {
+      "cellKey": "power:21.0:95.625",
+      "coordinates": [
+        21,
+        95.625
+      ],
+      "hubs": [
+        "Meiktila"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_21.0_95.625.json"
+    },
+    {
+      "cellKey": "power:21.5:95.625",
+      "coordinates": [
+        21.5,
+        95.625
+      ],
+      "hubs": [
+        "Myingyan"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_21.5_95.625.json"
+    },
+    {
+      "cellKey": "power:21.5:96.250",
+      "coordinates": [
+        21.5,
+        96.25
+      ],
+      "hubs": [
+        "Kyaukse"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_21.5_96.250.json"
+    },
+    {
+      "cellKey": "power:20.5:96.250",
+      "coordinates": [
+        20.5,
+        96.25
+      ],
+      "hubs": [
+        "Yamethin"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_20.5_96.250.json"
+    },
+    {
+      "cellKey": "power:21.0:96.875",
+      "coordinates": [
+        21,
+        96.875
+      ],
+      "hubs": [
+        "Taunggyi"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_21.0_96.875.json"
+    },
+    {
+      "cellKey": "power:20.5:96.875",
+      "coordinates": [
+        20.5,
+        96.875
+      ],
+      "hubs": [
+        "Heho-Kalaw",
+        "Aungban"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_20.5_96.875.json"
+    },
+    {
+      "cellKey": "power:23.0:97.500",
+      "coordinates": [
+        23,
+        97.5
+      ],
+      "hubs": [
+        "Lashio"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_23.0_97.500.json"
+    },
+    {
+      "cellKey": "power:22.5:97.500",
+      "coordinates": [
+        22.5,
+        97.5
+      ],
+      "hubs": [
+        "Hsipaw"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_22.5_97.500.json"
+    },
+    {
+      "cellKey": "power:17.5:96.250",
+      "coordinates": [
+        17.5,
+        96.25
+      ],
+      "hubs": [
+        "Bago City"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_17.5_96.250.json"
+    },
+    {
+      "cellKey": "power:19.0:95.000",
+      "coordinates": [
+        19,
+        95
+      ],
+      "hubs": [
+        "Pyay"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_19.0_95.000.json"
+    },
+    {
+      "cellKey": "power:19.0:96.250",
+      "coordinates": [
+        19,
+        96.25
+      ],
+      "hubs": [
+        "Taungoo"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_19.0_96.250.json"
+    },
+    {
+      "cellKey": "power:18.5:95.625",
+      "coordinates": [
+        18.5,
+        95.625
+      ],
+      "hubs": [
+        "Nattalin"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_18.5_95.625.json"
+    },
+    {
+      "cellKey": "power:18.0:96.875",
+      "coordinates": [
+        18,
+        96.875
+      ],
+      "hubs": [
+        "Daik-U"
+      ],
+      "recordsCount": 3957,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/weather/power_18.0_96.875.json"
+    }
+  ],
+  "soilProfiles": [
+    {
+      "hub": "Pathein",
+      "region": "ayeyarwady",
+      "coordinates": [
+        16.78,
+        94.73
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_ayeyarwady_pathein.json"
+    },
+    {
+      "hub": "Hinthada",
+      "region": "ayeyarwady",
+      "coordinates": [
+        17.65,
+        95.45
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_ayeyarwady_hinthada.json"
+    },
+    {
+      "hub": "Myaungmya",
+      "region": "ayeyarwady",
+      "coordinates": [
+        16.6,
+        94.92
+      ],
+      "ph": 6.2,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_ayeyarwady_myaungmya.json"
+    },
+    {
+      "hub": "Maubin",
+      "region": "ayeyarwady",
+      "coordinates": [
+        16.73,
+        95.65
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_ayeyarwady_maubin.json"
+    },
+    {
+      "hub": "Pyapon",
+      "region": "ayeyarwady",
+      "coordinates": [
+        16.3,
+        95.68
+      ],
+      "ph": 6.4,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_ayeyarwady_pyapon.json"
+    },
+    {
+      "hub": "Magway City",
+      "region": "magway",
+      "coordinates": [
+        20.15,
+        94.95
+      ],
+      "ph": 6.833333333333333,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_magway_magway_city.json"
+    },
+    {
+      "hub": "Pakokku",
+      "region": "magway",
+      "coordinates": [
+        21.33,
+        95.08
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_magway_pakokku.json"
+    },
+    {
+      "hub": "Minbu",
+      "region": "magway",
+      "coordinates": [
+        20.18,
+        94.87
+      ],
+      "ph": 6.75,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_magway_minbu.json"
+    },
+    {
+      "hub": "Taungdwingyi",
+      "region": "magway",
+      "coordinates": [
+        20,
+        95.54
+      ],
+      "ph": 6.833333333333333,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_magway_taungdwingyi.json"
+    },
+    {
+      "hub": "Thayet",
+      "region": "magway",
+      "coordinates": [
+        19.32,
+        95.18
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_magway_thayet.json"
+    },
+    {
+      "hub": "Mandalay City",
+      "region": "mandalay",
+      "coordinates": [
+        21.98,
+        96.08
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_mandalay_mandalay_city.json"
+    },
+    {
+      "hub": "Meiktila",
+      "region": "mandalay",
+      "coordinates": [
+        20.88,
+        95.87
+      ],
+      "ph": 6.783333333333333,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_mandalay_meiktila.json"
+    },
+    {
+      "hub": "Myingyan",
+      "region": "mandalay",
+      "coordinates": [
+        21.46,
+        95.39
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_mandalay_myingyan.json"
+    },
+    {
+      "hub": "Kyaukse",
+      "region": "mandalay",
+      "coordinates": [
+        21.6,
+        96.13
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_mandalay_kyaukse.json"
+    },
+    {
+      "hub": "Yamethin",
+      "region": "mandalay",
+      "coordinates": [
+        20.43,
+        96.15
+      ],
+      "ph": 6.583333333333333,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_mandalay_yamethin.json"
+    },
+    {
+      "hub": "Taunggyi",
+      "region": "shan",
+      "coordinates": [
+        20.78,
+        97.03
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_shan_taunggyi.json"
+    },
+    {
+      "hub": "Heho-Kalaw",
+      "region": "shan",
+      "coordinates": [
+        20.73,
+        96.83
+      ],
+      "ph": 5.7,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_shan_heho_kalaw.json"
+    },
+    {
+      "hub": "Aungban",
+      "region": "shan",
+      "coordinates": [
+        20.67,
+        96.63
+      ],
+      "ph": 6,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_shan_aungban.json"
+    },
+    {
+      "hub": "Lashio",
+      "region": "shan",
+      "coordinates": [
+        22.93,
+        97.75
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_shan_lashio.json"
+    },
+    {
+      "hub": "Hsipaw",
+      "region": "shan",
+      "coordinates": [
+        22.62,
+        97.3
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_shan_hsipaw.json"
+    },
+    {
+      "hub": "Bago City",
+      "region": "bago",
+      "coordinates": [
+        17.33,
+        96.48
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_bago_bago_city.json"
+    },
+    {
+      "hub": "Pyay",
+      "region": "bago",
+      "coordinates": [
+        18.82,
+        95.22
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_bago_pyay.json"
+    },
+    {
+      "hub": "Taungoo",
+      "region": "bago",
+      "coordinates": [
+        18.94,
+        96.43
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_bago_taungoo.json"
+    },
+    {
+      "hub": "Nattalin",
+      "region": "bago",
+      "coordinates": [
+        18.43,
+        95.5
+      ],
+      "ph": 6.633333333333334,
+      "texture": "clay loam",
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_bago_nattalin.json"
+    },
+    {
+      "hub": "Daik-U",
+      "region": "bago",
+      "coordinates": [
+        17.8,
+        96.67
+      ],
+      "ph": null,
+      "texture": null,
+      "file": "/Users/happer/Projects/nasafarmingapp/data/predownload/soil/soil_bago_daik_u.json"
+    }
+  ]
+}

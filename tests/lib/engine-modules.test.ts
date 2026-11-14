@@ -390,6 +390,7 @@ describe("candidate rotations", () => {
       expect(res.alternatives.length).toBeGreaterThanOrEqual(2);
       for (const a of res.alternatives) {
         for (const s of a.rotation.slots) {
+          if (s.kind === "fallow" || !s.cropId) continue;
           const cal = getCropById(s.cropId!)!.profile!.regionalCalendars[region]!;
           const d = s.plantDate.slice(5);
           const inside = cal.sowWindow[0] <= cal.sowWindow[1] ? d >= cal.sowWindow[0] && d <= cal.sowWindow[1] : d >= cal.sowWindow[0] || d <= cal.sowWindow[1];

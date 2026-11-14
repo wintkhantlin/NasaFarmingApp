@@ -141,6 +141,8 @@ export interface Rotation {
   label: string;
   /** Length of the repeating cycle, 1 to 4 years. */
   cycleYears: 1 | 2 | 3 | 4;
+  /** Exact occupied cycle days from first planting to restart, preventing integer rounding artifacts. */
+  cycleDays?: number;
   slots: RotationSlot[];
   source: "farmer" | "strategy";
   strategyId?: string;

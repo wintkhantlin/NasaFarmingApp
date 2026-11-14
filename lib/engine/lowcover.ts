@@ -9,6 +9,41 @@ import { LOW_NDVI } from "./soil-health";
  * Missing imagery is not bare soil.
  */
 
+export interface FieldSceneMetrics {
+  totalPixels: number;
+  clearPixels: number;
+  cloudPixels: number;
+  waterPixels: number;
+  validLandPixels: number;
+  waterFractionAmongClear: number;
+  validLandFractionTotal: number;
+}
+
+/**
+ * Computes clear observed area, water fraction among clear observations, and valid vegetated-land area (Section E).
+ * Water fraction is calculated among clear pixels before excluding water pixels.
+ * (e.g. 10 clear pixels: 6 water, 4 land => 60% water fraction).
+ */
+export function computeFieldSceneMetrics(
+  totalPixels: number,
+  cloudPixels: number,
+  waterPixels: number,
+  validLandPixels: number,
+): FieldSceneMetrics {
+  const clearPixels = Math.max(0, totalPixels - cloudPixels);
+  const waterFraction = clearPixels > 0 ? waterPixels / clearPixels : 0;
+  const landFraction = totalPixels > 0 ? validLandPixels / totalPixels : 0;
+  return {
+    totalPixels,
+    clearPixels,
+    cloudPixels,
+    waterPixels,
+    validLandPixels,
+    waterFractionAmongClear: waterFraction,
+    validLandFractionTotal: landFraction,
+  };
+}
+
 export type GapLabel = "possible-low-cover" | "planned-gap-no-clear-imagery" | "mostly-water" | "green-in-past-years";
 
 export interface GapAssessment {

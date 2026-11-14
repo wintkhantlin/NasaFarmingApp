@@ -43,23 +43,44 @@ export const windowDays = (from: string, to: string) => daysBetween(from, to) + 
 
 /**
  * Splits a crop window into its four stages using the crop's stage fractions.
- * The last stage takes any rounding remainder so the stages tile the window exactly.
+ * Takes floors of fractional days and distributes remaining days to the largest
+ * fractional remainders with a deterministic tie rule (stage order), preventing
+ * day loss from independent rounding and ensuring consecutive stages exactly tile the cycle.
  */
 export function stageWindows(crop: Crop, from: string, to: string): StageWindow[] {
   const total = windowDays(from, to);
   const f = crop.stageFractions;
   const order: StageId[] = ["ini", "dev", "mid", "late"];
   const sum = f.ini + f.dev + f.mid + f.late || 1;
+
+  if (total <= 0) return [];
+
+  const raw = order.map((id) => (total * f[id]) / sum);
+  const stageLengths = raw.map((r) => Math.floor(r));
+  const remaining = total - stageLengths.reduce((a, b) => a + b, 0);
+
+  // Distribute remaining days to largest fractional remainders, tie-broken by stage index
+  const remainders = raw.map((r, i) => ({ i, rem: r - Math.floor(r) }));
+  remainders.sort((a, b) => b.rem - a.rem || a.i - b.i);
+  for (let k = 0; k < remaining; k++) {
+    stageLengths[remainders[k % remainders.length].i]++;
+  }
+
+  // Ensure consecutive stages exactly tile the cycle
   const out: StageWindow[] = [];
   let cursor = from;
-  let used = 0;
-  order.forEach((id, i) => {
-    const len = i === order.length - 1 ? total - used : Math.max(1, Math.round((total * f[id]) / sum));
-    const stageTo = addDaysIso(cursor, len - 1);
-    out.push({ id, from: cursor, to: i === order.length - 1 ? to : stageTo });
-    used += len;
-    cursor = addDaysIso(stageTo, 1);
-  });
+  for (let i = 0; i < order.length; i++) {
+    const len = stageLengths[i];
+    // If a stage has 0 length (e.g. total < 4 days), clamp end to cursor
+    const stageTo = len > 0 ? addDaysIso(cursor, len - 1) : cursor;
+    const isLast = i === order.length - 1;
+    out.push({
+      id: order[i],
+      from: cursor,
+      to: isLast ? to : stageTo,
+    });
+    cursor = len > 0 ? addDaysIso(stageTo, 1) : cursor;
+  }
   return out;
 }
 

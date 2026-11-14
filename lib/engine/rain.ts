@@ -96,6 +96,57 @@ export function percentileOf(values: number[], p: number): number | null {
   return s[lo] + (s[hi] - s[lo]) * (idx - lo);
 }
 
+export interface RainfallSourceComparison {
+  seasonTotalA_ClimatologyMm: number | null;
+  seasonTotalB_PowerMm: number | null;
+  seasonTotalC_ImergMm: number | null;
+  departureMm_B_minus_A: number | null;
+  productSensitivityMm_C_minus_B: number | null;
+  timingRedistributedMm: number[] | null;
+}
+
+/**
+ * Compares seasonal rainfall across:
+ * (A) historical daily rainfall climatology,
+ * (B) actual daily POWER rainfall, and
+ * (C) actual daily IMERG (Section 28 / Priority 2).
+ * B - A tests seasonal departure and timing together; C - B tests product sensitivity.
+ */
+export function compareRainfallSources(
+  climatologyDays: DayValue[],
+  powerDays: DayValue[],
+  imergDays: DayValue[],
+  from: string,
+  to: string,
+): RainfallSourceComparison {
+  const rainA = windowRain(climatologyDays, from, to);
+  const rainB = windowRain(powerDays, from, to);
+  const rainC = windowRain(imergDays, from, to);
+
+  const totalA = rainA.totalMm;
+  const totalB = rainB.totalMm;
+  const totalC = rainC.totalMm;
+
+  const departureBA = totalB !== null && totalA !== null ? totalB - totalA : null;
+  const sensitivityCB = totalC !== null && totalB !== null ? totalC - totalB : null;
+
+  // Redistribute observed B season total according to baseline A daily proportions
+  let timingRedistributed: number[] | null = null;
+  if (totalB !== null && totalA !== null && totalA > 0) {
+    const inWindowA = climatologyDays.filter((d) => d.date >= from && d.date <= to && d.mm !== null);
+    timingRedistributed = inWindowA.map((d) => ((d.mm ?? 0) / totalA) * totalB);
+  }
+
+  return {
+    seasonTotalA_ClimatologyMm: totalA,
+    seasonTotalB_PowerMm: totalB,
+    seasonTotalC_ImergMm: totalC,
+    departureMm_B_minus_A: departureBA,
+    productSensitivityMm_C_minus_B: sensitivityCB,
+    timingRedistributedMm: timingRedistributed,
+  };
+}
+
 export interface Spread {
   n: number;
   p10: number | null;

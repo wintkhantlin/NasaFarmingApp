@@ -25,6 +25,54 @@ export interface HlsPixelSeries {
   pixels: Array<Array<[red: number | null, nir: number | null, swir1: number | null, fmask: number | null]>>;
 }
 
+export interface PixelContribution {
+  areaHa: number;
+  usable: boolean;
+  value: number | null;
+}
+
+/**
+ * Computes area-weighted coverage and valid area-weighted mean (Section H3).
+ * f_valid = sum(a_i * q_i) / A
+ * x_bar_valid = sum(a_i * q_i * x_i) / sum(a_i * q_i)
+ * If total clear/valid area is 0, coverage is 0 and mean is undefined (null).
+ */
+export function areaWeightedCoverage(
+  totalParcelAreaHa: number,
+  pixels: PixelContribution[],
+): {
+  coverageFraction: number;
+  validMean: number | null;
+  clearAreaHa: number;
+  cloudAreaHa: number;
+} {
+  if (totalParcelAreaHa <= 0) {
+    return { coverageFraction: 0, validMean: null, clearAreaHa: 0, cloudAreaHa: 0 };
+  }
+  let clearArea = 0;
+  let cloudArea = 0;
+  let weightedSum = 0;
+
+  for (const p of pixels) {
+    if (p.usable && p.value !== null && Number.isFinite(p.value)) {
+      clearArea += p.areaHa;
+      weightedSum += p.areaHa * p.value;
+    } else {
+      cloudArea += p.areaHa;
+    }
+  }
+
+  const coverage = clearArea / totalParcelAreaHa;
+  const mean = clearArea > 0 ? weightedSum / clearArea : null;
+
+  return {
+    coverageFraction: coverage,
+    validMean: mean,
+    clearAreaHa: clearArea,
+    cloudAreaHa: cloudArea,
+  };
+}
+
 export interface ObservationSummary {
   date: string;
   /** Median NDVI of valid land pixels, or null when none were valid. */

@@ -118,6 +118,183 @@ export function waterForCrop(crop: Crop, windows: SeasonWindow[], et0: DailyEt0[
   };
 }
 
+export interface DailyWaterStepResult {
+  endStorageMm: number;
+  drainageMm: number;
+  actualEtMm: number;
+  unmetDemandMm: number;
+  residualMm: number;
+}
+
+/**
+ * A single daily soil water balance step adhering to the wetting-before-ET convention (FAO-56 / Section H1).
+ * Residual = (S' - S) - (P + I - Drainage - ActualET), which is strictly conserved (0 mm).
+ */
+export function dailySoilWaterStep(
+  initialStorageMm: number,
+  capacityMm: number,
+  rainMm: number,
+  demandMm: number,
+  irrigationMm = 0,
+): DailyWaterStepResult {
+  const c = Math.max(0, capacityMm);
+  const s = Math.min(c, Math.max(0, initialStorageMm));
+  const p = Math.max(0, rainMm) + Math.max(0, irrigationMm);
+  const e = Math.max(0, demandMm);
+
+  const drainage = Math.max(0, s + p - c);
+  const accessible = s + p - drainage;
+  const actualEt = Math.min(e, accessible);
+  const endStorage = accessible - actualEt;
+  const unmet = e - actualEt;
+  const deltaS = endStorage - s;
+  const residual = deltaS - (p - drainage - actualEt);
+
+  return {
+    endStorageMm: endStorage,
+    drainageMm: drainage,
+    actualEtMm: actualEt,
+    unmetDemandMm: unmet,
+    residualMm: Math.abs(residual) < 1e-9 ? 0 : residual,
+  };
+}
+
+/**
+ * Stripped-down bucket model testing the order of operations and rainfall timing (Section H1).
+ * Q = max(0, S + P - C), B = S + P - Q, A = min(E, B), S' = B - A, U = E - A.
+ */
+export function timingBucketModel(
+  capacityMm: number,
+  initialStorageMm: number,
+  demandPerDayMm: number,
+  rainHistoryMm: number[],
+) {
+  let s = initialStorageMm;
+  const endStorage: number[] = [];
+  let totalDrainage = 0;
+  let totalUnmet = 0;
+  let totalActualEt = 0;
+  const totalRain = rainHistoryMm.reduce((a, b) => a + b, 0);
+
+  for (const p of rainHistoryMm) {
+    const res = dailySoilWaterStep(s, capacityMm, p, demandPerDayMm, 0);
+    endStorage.push(res.endStorageMm);
+    totalDrainage += res.drainageMm;
+    totalUnmet += res.unmetDemandMm;
+    totalActualEt += res.actualEtMm;
+    s = res.endStorageMm;
+  }
+
+  const conservationResidual = (initialStorageMm + totalRain) - (totalDrainage + totalActualEt + s);
+
+  return {
+    endStorage,
+    totalDrainageMm: totalDrainage,
+    totalUnmetDemandMm: totalUnmet,
+    totalActualEtMm: totalActualEt,
+    conservationResidualMm: Math.abs(conservationResidual) < 1e-9 ? 0 : conservationResidual,
+  };
+}
+
+/**
+ * Convert irrigation depth into a pumping decision (Section H2).
+ * V_gross = 10 * a * D / eta, h = V_gross / q.
+ */
+export function pumpingDecision(input: {
+  netDepthMm: number;
+  areaHa: number;
+  efficiency: number;
+  pumpRateM3H: number;
+  hoursAvailable?: number;
+}): {
+  grossVolumeM3: number;
+  requiredPumpHours: number;
+  maxNetDepthMm: number | null;
+  shortfallMm: number | null;
+} {
+  const { netDepthMm, areaHa, efficiency, pumpRateM3H, hoursAvailable } = input;
+  if (efficiency <= 0 || efficiency > 1) {
+    throw new Error("Delivery efficiency must be between 0 (exclusive) and 1 (inclusive).");
+  }
+  if (pumpRateM3H <= 0 || areaHa <= 0) {
+    throw new Error("Pump rate and area must be positive numbers.");
+  }
+
+  const grossVolumeM3 = (10 * areaHa * netDepthMm) / efficiency;
+  const requiredPumpHours = grossVolumeM3 / pumpRateM3H;
+
+  let maxNetDepthMm: number | null = null;
+  let shortfallMm: number | null = null;
+  if (hoursAvailable !== undefined) {
+    maxNetDepthMm = (hoursAvailable * pumpRateM3H * efficiency) / (10 * areaHa);
+    shortfallMm = Math.max(0, netDepthMm - maxNetDepthMm);
+  }
+
+  return {
+    grossVolumeM3,
+    requiredPumpHours,
+    maxNetDepthMm,
+    shortfallMm,
+  };
+}
+
+/**
+ * FAO-56 crop water stress coefficient Ks (Chapter 8).
+ * Dr <= RAW => Ks = 1, else Ks = (TAW - Dr) / (TAW - RAW), bounded to [0, 1].
+ */
+export function fao56StressCoefficient(tawMm: number, rawMm: number, depletionMm: number): number {
+  if (tawMm <= 0 || rawMm >= tawMm) return 0;
+  if (depletionMm <= rawMm) return 1;
+  const ks = (tawMm - depletionMm) / (tawMm - rawMm);
+  return Math.max(0, Math.min(1, ks));
+}
+
+/**
+ * Ponded water balance for irrigated paddy (Section 3 & B).
+ * Tracks bund ponding depth, bund spill/overflow, seepage & percolation, and crop evapotranspiration.
+ */
+export function paddyWaterBalance(input: {
+  initialPondMm: number;
+  maxBundMm: number;
+  rainMm: number;
+  irrigationMm: number;
+  etcMm: number;
+  seepagePercolationMmDay: number;
+}): {
+  endPondMm: number;
+  spillMm: number;
+  actualEtMm: number;
+  actualSeepagePercolationMm: number;
+  residualMm: number;
+} {
+  const { initialPondMm, maxBundMm, rainMm, irrigationMm, etcMm, seepagePercolationMmDay } = input;
+  const inflow = Math.max(0, rainMm) + Math.max(0, irrigationMm);
+  const pondBeforeLosses = Math.max(0, initialPondMm) + inflow;
+
+  const spill = Math.max(0, pondBeforeLosses - maxBundMm);
+  const retainedPond = pondBeforeLosses - spill;
+
+  const potentialLoss = Math.max(0, etcMm) + Math.max(0, seepagePercolationMmDay);
+  const actualTotalLoss = Math.min(retainedPond, potentialLoss);
+
+  // Divide actual loss proportionally between ET and SP if water is limiting
+  const etFraction = potentialLoss > 0 ? Math.max(0, etcMm) / potentialLoss : 0;
+  const actualEt = actualTotalLoss * etFraction;
+  const actualSP = actualTotalLoss * (1 - etFraction);
+
+  const endPond = retainedPond - actualTotalLoss;
+  const deltaPond = endPond - initialPondMm;
+  const residual = deltaPond - (inflow - spill - actualEt - actualSP);
+
+  return {
+    endPondMm: endPond,
+    spillMm: spill,
+    actualEtMm: actualEt,
+    actualSeepagePercolationMm: actualSP,
+    residualMm: Math.abs(residual) < 1e-9 ? 0 : residual,
+  };
+}
+
 export interface RootZoneInput {
   /** mm of water the soil holds per metre of soil, from a soil test or soil map the farmer trusts. */
   awcMmPerM: number | null;

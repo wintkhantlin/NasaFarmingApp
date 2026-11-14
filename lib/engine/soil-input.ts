@@ -17,6 +17,34 @@ export function bestObservation(obs: SoilObservation[] | undefined, property: So
     .sort((a, b) => METHOD_RANK[a.method] - METHOD_RANK[b.method] || b.date.localeCompare(a.date))[0];
 }
 
+export interface SoilLayerWater {
+  thetaFc: number; // field capacity volumetric fraction
+  thetaWp: number; // wilting point volumetric fraction
+  thicknessM: number; // thickness in metres
+}
+
+/**
+ * Calculates layered available water capacity (TAW) across depth horizons (Section D).
+ * TAW = 1000 * sum_i ((thetaFC,i - thetaWP,i) * thicknessWithinRootZoneInM).
+ */
+export function layeredWaterCapacity(layers: SoilLayerWater[], maxRootDepthM?: number): number {
+  let taw = 0;
+  let depthAcc = 0;
+  const maxDepth = maxRootDepthM ?? Number.POSITIVE_INFINITY;
+
+  for (const layer of layers) {
+    if (layer.thetaFc <= layer.thetaWp || layer.thicknessM <= 0) continue;
+    const remainingDepth = Math.max(0, maxDepth - depthAcc);
+    const effectiveThickness = Math.min(layer.thicknessM, remainingDepth);
+    if (effectiveThickness <= 0) break;
+
+    taw += 1000 * (layer.thetaFc - layer.thetaWp) * effectiveThickness;
+    depthAcc += effectiveThickness;
+  }
+
+  return taw;
+}
+
 const describe = (o: SoilObservation) => `${o.method.replace("-", " ")}, ${o.date}, ${o.depthCm[0]} to ${o.depthCm[1]} cm`;
 
 export function effectiveSoil(field: Field, profile: SoilProfile | null | undefined): EffectiveSoil {

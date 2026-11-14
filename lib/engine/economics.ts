@@ -23,9 +23,38 @@ export interface EconomicsAssessment {
   areaHa: number | null;
   cycleMarginMmk: [number, number] | null;
   unknownSlots: number;
+  /** Annualized margin per ha using exact occupied cycle days: margin * 365.2425 / occupiedCycleDays */
+  annualizedMarginMmkHa?: [number, number] | null;
+  occupiedCycleDays?: number;
 }
 
-export function economicsFor(rotation: Pick<Rotation, "slots" | "cycleYears">, economics: CropEconomics[] | undefined, areaHa: number | null): EconomicsAssessment {
+/**
+ * Annualize margin using exact occupied cycle days (margin * 365.2425 / actual occupied cycle days).
+ * Prevents whole-year integer rounding discontinuities (e.g. 547 days vs 548 days).
+ */
+export function annualizeMargin(
+  marginMmkHa: [number, number] | null,
+  occupiedCycleDays: number,
+): [number, number] | null {
+  if (!marginMmkHa || occupiedCycleDays <= 0) return null;
+  const factor = 365.2425 / occupiedCycleDays;
+  return [marginMmkHa[0] * factor, marginMmkHa[1] * factor];
+}
+
+/**
+ * Break-even price calculation: variable costs / saleable yield.
+ * Defined only for positive yield.
+ */
+export function breakEvenPrice(costMmkPerHa: number, yieldKgHa: number): number | null {
+  if (yieldKgHa <= 0) return null;
+  return costMmkPerHa / yieldKgHa;
+}
+
+export function economicsFor(
+  rotation: Pick<Rotation, "slots" | "cycleYears"> & { cycleDays?: number },
+  economics: CropEconomics[] | undefined,
+  areaHa: number | null,
+): EconomicsAssessment {
   const slots: SlotMargin[] = rotation.slots
     .filter((s) => s.kind !== "fallow")
     .map((s) => {
@@ -46,11 +75,17 @@ export function economicsFor(rotation: Pick<Rotation, "slots" | "cycleYears">, e
     slots.length > 0 && known.length === slots.length
       ? [known.reduce((a, s) => a + (s.marginMmkHa as [number, number])[0], 0), known.reduce((a, s) => a + (s.marginMmkHa as [number, number])[1], 0)]
       : null;
+
+  const occupiedCycleDays = rotation.cycleDays ?? rotation.cycleYears * 365;
+  const annualized = annualizeMargin(cycle, occupiedCycleDays);
+
   return {
     slots,
     cycleMarginMmkHa: cycle,
     areaHa,
     cycleMarginMmk: cycle && areaHa ? [cycle[0] * areaHa, cycle[1] * areaHa] : null,
     unknownSlots: slots.length - known.length,
+    annualizedMarginMmkHa: annualized,
+    occupiedCycleDays,
   };
 }
