@@ -1,6 +1,7 @@
 "use client";
 
 import { Droplets, Hand, Wind, CircleHelp } from "lucide-react";
+import MuiButton from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Drawer from "@mui/material/Drawer";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -77,7 +78,14 @@ export function RefinementDrawers({ draft, onChange }: { draft: PlanDraft; onCha
   return <section aria-label="Refine comparison" className="space-y-3">
     <h3 className="text-headline text-ink">Add what you know</h3>
     <div className="flex flex-wrap gap-2">{keys.slice(0, 3).map(key => <Chip key={key} clickable onClick={e => launch(key, e.currentTarget)} label={`${labels[key]}: ${draft.refinements[key].state === "unknown" ? "Not set" : draft.refinements[key].state}`} variant="outlined" sx={{ minHeight: 44 }} />)}</div>
-    <button type="button" className="min-h-11 text-label font-semibold text-field underline" onClick={() => setMore(!more)} aria-expanded={more}>More field details</button>
+    <MuiButton
+      variant="text"
+      onClick={() => setMore(!more)}
+      aria-expanded={more}
+      sx={{ minHeight: 44, textDecoration: "underline", color: "var(--color-field)", p: 0, justifyContent: "flex-start", fontWeight: 600 }}
+    >
+      More field details
+    </MuiButton>
     {more ? <div className="flex flex-wrap gap-2">{keys.slice(3).map(key => <Chip key={key} clickable onClick={e => launch(key, e.currentTarget)} label={`${labels[key]}: ${draft.refinements[key].state}`} variant="outlined" sx={{ minHeight: 44 }} />)}</div> : null}
     {previous ? <Button variant="quiet" onClick={() => { onChange({ ...previous, revision: draft.revision + 1 }); setPrevious(null); }}>Undo last change</Button> : null}
     <p className="text-body-sm text-ink-muted">Your answers stay in this browser. Regional examples remain examples; we do not know your full field conditions.</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import Dialog from "@mui/material/Dialog";
+import TextField from "@mui/material/TextField";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
@@ -39,13 +40,15 @@ export function LearnList({ sections }: { sections: Array<{ title: string; items
 
   return (
     <>
-      <input
+      <TextField
         type="search"
-        aria-label="Search Learn"
+        label="Search Learn"
         placeholder="Search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        className="min-h-tap w-full rounded-md border border-line bg-surface-sunken px-3 text-body text-ink"
+        size="small"
+        fullWidth
+        slotProps={{ htmlInput: { "aria-label": "Search Learn" } }}
       />
       {shown.length === 0 ? <p className="text-body text-ink-muted">No topics match &ldquo;{q}&rdquo;.</p> : null}
       {shown.map((s) => (

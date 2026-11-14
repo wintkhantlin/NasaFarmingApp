@@ -595,6 +595,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
             setSlots(newSlots);
             setCycleYears(newCycle);
             setSaveSuccess(true);
+            router.push(`/fields/${field.id}/compare`);
           }}
           onSwitchToAdvanced={() => setViewMode("advanced")}
         />

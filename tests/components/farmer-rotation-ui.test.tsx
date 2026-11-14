@@ -8,8 +8,9 @@ import { MoistureClockRibbon } from "@/components/field/moisture-clock-ribbon";
 import { FarmerGuidedFlow } from "@/components/field/farmer-guided-flow";
 import type { Field, Rotation } from "@/lib/types";
 
+const routerPush = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPush }),
 }));
 
 const mockField: Field = {
@@ -75,6 +76,7 @@ vi.mock("@/lib/store/fields-store", () => ({
 describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
   beforeEach(() => {
     cleanup();
+    routerPush.mockReset();
     storeState = {
       status: "ready",
       fields: [mockField],
@@ -161,6 +163,18 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
   });
 
   describe("Farmer Guided Flow 5-Step Journey", () => {
+    it("opens the comparison step only after the chosen plan is saved", async () => {
+      render(<RotationEditor fieldId={mockField.id} />);
+      fireEvent.click(screen.getByText(/Guided Farmer View/i));
+      fireEvent.click(screen.getByText(/Continue to Farm Conditions/i));
+      fireEvent.click(screen.getByText(/Continue to Priorities/i));
+      fireEvent.click(screen.getByText(/Compare Recommended Rotations/i));
+      fireEvent.click(screen.getByText(/Continue with/i));
+      fireEvent.click(screen.getByRole("button", { name: /Save this plan/i }));
+
+      await waitFor(() => expect(storeState.saveRotation).toHaveBeenCalled());
+      expect(routerPush).toHaveBeenCalledWith(`/fields/${mockField.id}/compare`);
+    });
     it("shows saving until persistence finishes and reports storage failure", async () => {
       let rejectSave!: (reason: Error) => void;
       const apply = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectSave = reject; }));

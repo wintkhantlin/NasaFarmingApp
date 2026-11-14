@@ -20,10 +20,16 @@ test("populated restore to field comparison and printable report", async ({ page
   await page.getByLabel("Choose a backup file").setInputFiles({ name: "populated.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ app: "nasa-farming-app", version: 3, exportedAt: stamp, fields: [field], rotations: [], planDraft: draft })) });
   await expect(page.getByRole("status")).toContainText("Restored 1 fields");
   await page.goto("/plan");
-  await page.getByLabel("Confirmed field in this region").selectOption(field.id);
+  await page.getByRole("combobox", { name: "Confirmed field in this region" }).click();
+  await page.getByRole("option", { name: field.name }).click();
   await page.getByRole("button", { name: "Save sequence and compare this field" }).click();
   await page.getByRole("link", { name: "Open field-informed comparison" }).click();
-  await expect(page.getByText(/historical replay/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Compare crop plans" })).toBeVisible();
+  await expect(page.getByText(/complete past years from 2016–2025/).first()).toBeVisible();
+  await expect(page.getByText("How we checked these choices")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Quick view" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText(/Evidence state:/)).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("compare-view.png"), fullPage: true });
   await page.goto(`/fields/${field.id}/report`);
   await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
   await page.emulateMedia({ media: "print" });

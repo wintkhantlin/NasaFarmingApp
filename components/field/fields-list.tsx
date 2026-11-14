@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import TextField from "@mui/material/TextField";
 import { FirstRun } from "@/components/home/first-run";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -142,13 +143,15 @@ export function FieldsList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <input
+      <TextField
         type="search"
-        aria-label="Search fields"
+        label="Search fields"
         placeholder="Search fields"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="min-h-tap w-full rounded-md border border-line bg-surface-sunken px-3 text-body text-ink"
+        size="small"
+        fullWidth
+        slotProps={{ htmlInput: { "aria-label": "Search fields" } }}
       />
       <p className="m-0 text-body-sm text-ink-muted">Resume a saved field below, or explore a regional example without creating a farm record.</p>
       {live.length === 0 ? (

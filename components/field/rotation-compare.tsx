@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActionBar } from "@/components/ui/action-bar";
 import { Icon } from "@/components/ui/icon";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { FIT_HAZARD, OptionDetail } from "@/components/field/option-detail";
@@ -19,8 +18,7 @@ import { buttonClass } from "@/components/ui/button";
 import { InfoGlyph } from "@/components/ui/icons";
 import { Disclosure } from "@/components/ui/disclosure";
 import { JudgmentNote } from "@/components/ui/judgment-note";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Recommendation } from "@/components/ui/recommendation";
+import { Panel } from "@/components/ui/panel";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +38,22 @@ const unknown = "Not known";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const fmt = (n: number | null | undefined, d = 0) => (n === null || n === undefined ? unknown : n.toFixed(d));
 const mmk = (n: number) => Math.round(n).toLocaleString();
+
+function plainSourceStatus(status: string | undefined): string {
+  if (status === "ok" || status === "available") return "available";
+  if (status === "pending") return "still loading";
+  if (status === "unconfigured") return "not connected";
+  if (status === "error" || status === "unavailable") return "not available";
+  return "not checked";
+}
+
+function farmerBadge(label: string): string {
+  if (label === "Lowest median rain shortfall") return "Smallest typical rain gap";
+  if (label === "Lowest nitrogen demand") return "Needs the least nitrogen";
+  if (label === "Most reliable in dry years") return "Handled more past dry seasons";
+  if (label === "Highest soil organic matter benefit") return "More soil-building benefit";
+  return label;
+}
 
 function placeName(region: string) {
   if (region === "ayeyarwady") return "Ayeyarwady";
@@ -107,58 +121,6 @@ function keySeasonCount(strip: ReturnType<typeof seasonStrip>) {
   return known === 0 ? unknown : `${stressedCount(strip)} of ${known}`;
 }
 
-interface RangeInsight {
-  label: string;
-  min: string;
-  max: string;
-  yours: string | null;
-}
-
-/** The measure where the alternatives spread widest, so the answer says something true when nothing is ranked. */
-function widestRange(options: EvaluatedOption[], now: EvaluatedOption): RangeInsight | null {
-  const build = (
-    label: string,
-    values: number[],
-    yours: number | null,
-    format: (n: number) => string,
-    floor: number,
-  ): RangeInsight | null => {
-    if (values.length < 2) return null;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    if (max - min < floor) return null;
-    return { label, min: format(min), max: format(max), yours: yours === null ? null : format(yours) };
-  };
-
-  const rain = build(
-    copy.compare.numbersRain,
-    options.map((o) => o.metrics["water-shortfall"]).filter((v): v is number => v !== null && v !== undefined),
-    now.metrics["water-shortfall"] ?? null,
-    (n) => `${Math.round(n)} mm`,
-    10,
-  );
-  if (rain) return rain;
-
-  const cover = build(
-    copy.compare.numbersCover,
-    options.map((o) => o.structure.coveredShare * 100),
-    now.structure.coveredShare * 100,
-    (n) => `${Math.round(n)}%`,
-    10,
-  );
-  if (cover) return cover;
-
-  const margins = options.map((o) => o.economics.cycleMarginMmkHa).filter((v): v is [number, number] => Boolean(v));
-  const mine = now.economics.cycleMarginMmkHa;
-  return build(
-    copy.compare.numbersMargin,
-    margins.map((v) => Math.round((v[0] + v[1]) / 2)),
-    mine ? Math.round((mine[0] + mine[1]) / 2) : null,
-    (n) => `${mmk(n)} MMK/ha`,
-    2_000,
-  );
-}
-
 export function RotationCompare({ fieldId }: { fieldId: string }) {
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
@@ -182,8 +144,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const analysis = useFieldAnalysis(field);
   const { engineData } = analysis;
 
-  const savedRotation = rotations[0];
-  const hasOwnRotation = !!savedRotation && savedRotation.slots.length > 0;
+  const savedPlan = rotations.find((rotation) => rotation.source === "strategy" && rotation.slots.length > 0);
+  const savedRotation = rotations.find((rotation) => rotation.source === "farmer" && rotation.slots.length > 0) ?? savedPlan;
+  const hasOwnRotation = savedRotation?.source === "farmer" && savedRotation.slots.length > 0;
 
   /**
    * When the farmer has not recorded their crops, the alternatives are still worth reading.
@@ -194,11 +157,11 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     () => ({ id: "no-rotation", fieldId, label: "", cycleYears: 1, slots: [], source: "farmer" }),
     [fieldId],
   );
-  const compareRotation = hasOwnRotation ? savedRotation : placeholderRotation;
+  const compareRotation = hasOwnRotation && savedRotation ? savedRotation : placeholderRotation;
 
   const effectiveEngineData = useMemo(() => (engineData ? applyScenario(engineData, testScenario) : null), [engineData, testScenario]);
 
-  const canCompare = Boolean(field?.locationConfirmed && hasOwnRotation && savedRotation?.source === "farmer");
+  const canCompare = Boolean(field?.locationConfirmed && hasOwnRotation);
   const baseComparison = useMemo(
     () => (engineData && canCompare ? compareRotations(engineData, compareRotation) : null),
     [engineData, compareRotation, canCompare],
@@ -285,22 +248,33 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   }
 
   if (!comparison || display.state === "stale" || display.state === "data-unavailable") {
+    const needsLocation = display.state === "field-incomplete" && !field.locationConfirmed;
+    const needsCurrentCrops = display.state === "field-incomplete" && field.locationConfirmed;
     return (
-      <Panel as="section" role="status" className="flex flex-col items-start gap-3 p-5">
+      <Panel as="section" role="status" className="flex flex-col items-start gap-4 p-5 sm:p-6">
         <h1 className="m-0 text-title text-ink">{display.headline}</h1>
         <p className="m-0 max-w-measure text-body text-ink-muted">{display.detail}</p>
+        {needsCurrentCrops ? (
+          <div className="flex max-w-measure flex-col gap-1 rounded-md bg-field-soft p-4 text-body-sm text-ink">
+            <strong>What to add next</strong>
+            <span>Choose the crops grown on this field and give the timing you remember. A month range or “not sure” is enough.</span>
+          </div>
+        ) : null}
         {display.gaps.length > 0 ? <ul className="m-0 list-disc space-y-2 pl-5 text-body-sm text-ink-muted">{display.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul> : null}
         {comparison && display.state === "data-unavailable" ? <>
           <Link href={`/fields/${field.id}/location`} className={buttonClass("secondary")}>Check field location</Link>
           <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Review crops and dates</Link>
           <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Review water and field details</Link>
-          <Link href="/plan" className={buttonClass("secondary")}>Return to regional examples</Link>
+          <Link href="/plan" className={buttonClass("secondary")}>See regional examples</Link>
         </> : null}
         {display.state === "field-incomplete" ? (
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Add my crop sequence</Link>
+          <Link href={needsLocation ? `/fields/${field.id}/location` : `/fields/${field.id}/rotation`} className={buttonClass("primary")}>
+            {needsLocation ? "Confirm field location" : "Tell us what grows here now"}
+          </Link>
         ) : display.state === "stale" ? null : (
-          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>Retry sources</button>
+          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>Try loading again</button>
         )}
+        {savedPlan && needsCurrentCrops ? <p className="m-0 text-body-sm text-ink-muted">Your saved plan stays in this browser while you add this information.</p> : null}
       </Panel>
     );
   }
@@ -313,9 +287,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     (a, b) => (rankOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rankOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
   );
   const displayOptions: EvaluatedOption[] = [comparison.current, ...orderedAlternatives];
-  const leadOption = orderedAlternatives.find((o) => o.fit !== "does-not-fit") ?? orderedAlternatives[0];
-  const bestOption = bestId ? displayOptions.find((o) => o.id === bestId) : undefined;
-  const range = hasOwnRotation && !bestOption && orderedAlternatives.length >= 2 ? widestRange(orderedAlternatives, comparison.current) : null;
   const place = placeName(comparison.region);
   const weatherLoading = analysis.phase === "loading";
   const weatherMissing = !weatherLoading && engineData?.power.status !== "ok";
@@ -339,7 +310,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const answerHeadline = display.headline;
   const answerReason = display.detail;
 
-  const answerOption = bestOption ?? (range ? undefined : leadOption);
 
   const row = (label: string, cell: (o: EvaluatedOption) => ReactNode) => ({ label, cell });
   const tableRows: Array<{ group: string; items: Array<ReturnType<typeof row>> }> = [
@@ -421,29 +391,30 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
 
       <WhatIfBanner scenario={testScenario} recorded={field.irrigation} onReset={() => setScenario(NO_SCENARIO)} />
 
-      <Recommendation
-        as="h2"
-        context={copy.compare.answerContext}
-        headline={answerHeadline}
-        reason={answerReason}
-        risks={
-          display.state === "comparable" && answerOption
-            ? [
-                { hazard: FIT_HAZARD[answerOption.fit], label: copy.compare.fitLabel[answerOption.fit] },
-                ...answerOption.badges.map((b) => ({ hazard: "healthy" as const, label: b })),
-              ]
-            : undefined
-        }
-      />
+      <section className="flex flex-col gap-3 border-b border-line pb-5" aria-label="Comparison summary">
+        <h2 className="m-0 text-headline text-ink">{answerHeadline}</h2>
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">{answerReason}</p>
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Change my crops</Link>
+          <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Water, budget & priorities</Link>
+        </div>
+      </section>
 
-      <Panel as="section" tone="plain" aria-label="Comparison evidence state" className="flex flex-col gap-3 p-4 sm:p-5">
-        <p className="m-0 text-label text-ink">Evidence state: {display.state.replaceAll("-", " ")}</p>
-        <p className="m-0 max-w-measure text-body-sm text-ink-muted">{display.replay?.completeYears ?? 0} of 10 complete years in the 2016–2025 historical replay. Historical evidence is not a next-season forecast.</p>
-        <p className="m-0 text-body-sm text-ink-muted">Sources: NASA POWER {display.sourceStatuses?.power}; IMERG {display.sourceStatuses?.imerg}; SMAP {display.sourceStatuses?.smap}; HLS {display.sourceStatuses?.hls}; SRTM {display.sourceStatuses?.srtm}.</p>
-        {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">Other sources are still being retrieved. The available evidence can be inspected now.</p> : null}
-        {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">Showing saved source data while refresh is unavailable.</p> : null}
-        {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Retry sources</button> : null}
-      </Panel>
+      <Disclosure title="How we checked these choices" hint={display.state === "comparable" ? "Ready" : "Some information is missing"}>
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+          We checked {display.replay?.completeYears ?? 0} complete past years from 2016–2025. This shows how the choices might have handled past weather; it does not predict next season.
+        </p>
+        <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
+          <li>Regional weather: {plainSourceStatus(display.sourceStatuses?.power)}</li>
+          <li>Detailed satellite rain: {plainSourceStatus(display.sourceStatuses?.imerg)}</li>
+          <li>Regional soil moisture: {plainSourceStatus(display.sourceStatuses?.smap)}</li>
+          <li>Clear crop-cover images: {plainSourceStatus(display.sourceStatuses?.hls)}</li>
+          <li>Land slope: {plainSourceStatus(display.sourceStatuses?.srtm)}</li>
+        </ul>
+        {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">More information is still loading. You can review what is ready now.</p> : null}
+        {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">You are seeing previously saved information because a refresh is not available.</p> : null}
+        {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Try loading again</button> : null}
+      </Disclosure>
 
       {hasOwnRotation && comparison.mcda.assumedPriorities ? (
         <p className="m-0 flex flex-wrap items-center gap-x-2 text-body-sm text-ink-muted">
@@ -549,10 +520,17 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
               ]}
             />
           </div>
-          <div className="grid items-start gap-x-4 gap-y-6 pt-3 lg:grid-cols-2 lg:[&>article:nth-child(2)]:border-0 lg:[&>article:nth-child(2)]:pt-0">
+          <div className="flex flex-col gap-3">
             {displayOptions.map((o) => (
-              <OptionRow
-                key={o.id}
+              <details key={o.id} className="group rounded-lg border border-line bg-surface-raised">
+                <summary className="min-h-tap cursor-pointer p-4 sm:p-5">
+                  <span className="ml-1 inline-flex max-w-full flex-col gap-1 align-top">
+                    <span className="text-body-sm text-ink-muted">{o.id === comparison.current.id ? "Your current crops" : "Another choice to discuss"}</span>
+                    <span className="text-headline font-semibold text-ink">{o.rotation.slots.map(slotName).join(" → ")}</span>
+                    <span className="text-body-sm text-ink-muted">{copy.compare.fitLabel[o.fit]} · Open to see benefits and cautions</span>
+                  </span>
+                </summary>
+                <OptionRow
                 option={o}
                 now={now}
                 limits={limitsById.get(o.id) ?? []}
@@ -565,6 +543,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                 display={display.options.find((item) => item.id === o.id)}
                 showComparativeMetrics={display.state === "comparable"}
               />
+              </details>
             ))}
           </div>
         </section>
@@ -583,7 +562,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                   </th>
                   {displayOptions.map((o) => (
                     <th key={o.id} scope="col" className={"p-4 align-top " + (o.id === bestId ? "border-t-4 border-t-field bg-field-soft/60" : "")}>
-                      <span className="block text-headline text-ink">{o.label}</span>
+                      <span className="block text-headline text-ink">{o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : o.label}</span>
                       <span className="mt-1 flex flex-wrap gap-1.5">
                         {o.id === comparison.current.id && hasOwnRotation ? <StatusTag tag="yours" /> : null}
                         {o.id === bestId ? <StatusTag tag="best-match" /> : null}
@@ -623,7 +602,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           </h2>
           {displayOptions.map((o, i) => (
             <div key={o.id} className="flex flex-col gap-3">
-              <h3 className="m-0 text-headline text-ink">{o.label}</h3>
+              <h3 className="m-0 text-headline text-ink">{o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : o.label}</h3>
               <OptionDetail option={o} rainyMonths={rainyMonths} fieldId={field.id} region={field.region} showCalls={i === 0} />
             </div>
           ))}
@@ -631,8 +610,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       ) : null}
 
       {comparison.region !== "unsupported" && (hasOwnRotation || comparison.mcda.status === "ranked") ? (
-        <Panel as="section" aria-labelledby="ranking" className="flex flex-col gap-3 p-4 sm:p-6">
-          <PanelHeader id="ranking" title={copy.compare.rankingTitle} />
+        <Disclosure title="How the choices were ordered" hint={comparison.mcda.status === "ranked" ? "Using what matters to you" : "No fair order yet"}>
           {comparison.mcda.status === "no-priorities" ? (
             <div className="flex flex-col items-start gap-2">
               <p className="m-0 max-w-measure text-body text-ink">{copy.compare.rankingNone}</p>
@@ -652,18 +630,17 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                       <span className="tabular grid min-h-7 min-w-10 place-items-center rounded-pill border border-line-strong px-2 font-mono text-source">
                         {copy.compare.rankPlace(r.originalPlace)}
                       </span>
-                      <span className="min-w-0 flex-1 text-label text-ink">{o?.label}</span>
+                      <span className="min-w-0 flex-1 text-label text-ink">{o?.id === comparison.current.id && hasOwnRotation ? "What you grow now" : o?.label}</span>
                       {r.originalPlace === 1 && display.tiedFirst ? <span className="text-source text-ink-muted">Close score; no clear first choice</span> : null}
-                      {o && o.badges.length > 0 ? <span className="w-full text-body-sm text-ink-muted">{o.badges.join(" · ")}</span> : null}
+                      {o && o.badges.length > 0 ? <span className="w-full text-body-sm text-ink-muted">{o.badges.map(farmerBadge).join(" · ")}</span> : null}
                     </li>
                   );
                 })}
               </ol>
             </>
           ) : null}
-          {comparison.mcda.status === "unresolved" ? <p className="m-0 max-w-measure text-body text-ink">{comparison.mcda.note}</p> : null}
-          <Disclosure title={copy.compare.howRanked}>
-              {comparison.sensitivity.some((s) => s.topLabel) ? (
+          {comparison.mcda.status === "unresolved" ? <p className="m-0 max-w-measure text-body text-ink">There is not enough matching information to put these choices in a fair order. Review each choice and the local checks instead.</p> : null}
+          {comparison.sensitivity.some((s) => s.topLabel) ? (
               <div className="flex flex-col gap-1">
                 <h3 className="m-0 text-label text-ink">{copy.compare.sensitivityTitle}</h3>
                 <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
@@ -730,8 +707,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
               {copy.compare.rankChange}
             </Link>
           </div>
-          </Disclosure>
-        </Panel>
+        </Disclosure>
       ) : null}
 
       {display.state === "comparable" && displayOptions.length > 0 ? (
@@ -743,7 +719,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         <Disclosure title={copy.compare.couldntCheck} hint={`(${comparison.dataGaps.length + comparison.rejected.length})`}>
           {analysis.retrieving ? <p className="m-0 text-body-sm text-ink-muted">{copy.compare.stillRetrieving}</p> : null}
           <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink">
-            {comparison.dataGaps.map((g) => (
+            {display.gaps.map((g) => (
               <li key={g}>{g}</li>
             ))}
             {comparison.rejected.map((r) => (
@@ -755,7 +731,8 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </Disclosure>
       ) : null}
 
-      <CheckLocally
+      <Disclosure title="Before planting: questions to check locally">
+        <CheckLocally
         cropNames={[
           ...new Set(
             displayOptions
@@ -764,23 +741,24 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
               .filter(Boolean),
           ),
         ]}
-      />
+        />
+      </Disclosure>
 
       <JudgmentNote compact />
 
-      <ActionBar>
-        <div className="flex w-full flex-wrap gap-2">
-          <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary")}>Keep mine</button>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Adjust</Link>
-          <button type="button" onClick={() => { setDepth("reasons"); document.getElementById("options-title")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={buttonClass("secondary")}>Why this?</button>
-          <Link href={`/fields/${field.id}/report`} className={buttonClass("secondary")}>Discuss with adviser</Link>
-        </div>
-        {keepingMine ? <p role="status" className="m-0 text-body-sm text-ink">Your recorded rotation remains your choice. You can adjust it later.</p> : null}
-        <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "flex-1", "lg")}>
-          {copy.compare.reportButton}
+      <div className="flex flex-col items-start gap-3 border-t border-line pt-5 print:hidden">
+        <h2 className="m-0 text-headline text-ink">Choose your next step</h2>
+        <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
+          Open farmer summary
           <Icon name="next" />
         </Link>
-      </ActionBar>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary")}>Keep my current crops</button>
+          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Edit crops and dates</Link>
+          <button type="button" onClick={() => { setDepth("reasons"); document.getElementById("options-title")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={buttonClass("secondary")}>See why</button>
+        </div>
+        {keepingMine ? <p role="status" className="m-0 text-body-sm text-ink">Your current crops are unchanged. You can return and edit them later.</p> : null}
+      </div>
     </>
   );
 }
@@ -818,31 +796,31 @@ function OptionRow({
     <article
       aria-labelledby={`option-${o.id}`}
       className={
-        "relative flex min-w-0 flex-col gap-4 rounded-lg border bg-surface-raised p-4 sm:p-5 " +
+        "relative flex min-w-0 flex-col gap-4 border-t bg-surface-raised p-4 sm:p-5 " +
         (best ? "border-2 border-field bg-field-soft/40 pt-6" : "border-line")
       }
     >
       {best ? (
         <span className="absolute -top-3 left-4 inline-flex min-h-6 items-center gap-1 rounded-pill bg-field px-3 text-source font-medium text-on-field">
           <span aria-hidden>✓</span>
-          Best match
+          Best match for what matters to you
         </span>
       ) : null}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 id={`option-${o.id}`} className="m-0 min-w-0 text-headline text-ink">
-            {o.label}
+            {isYours ? "What you grow now" : o.label}
           </h3>
           {isYours ? <StatusTag tag="yours" /> : null}
           {fail ? <StatusTag tag="limit-fail" /> : null}
-          {place && !best ? <span className="text-source text-ink-muted">{copy.compare.rankPlace(place)} on your priorities</span> : null}
+          {place && !best ? <span className="text-source text-ink-muted">{copy.compare.rankPlace(place)} for what matters to you</span> : null}
         </div>
         <p className="m-0 max-w-measure text-body text-ink-muted">{isYours ? copy.compare.yoursNote : o.reason}</p>
         <div className="flex flex-wrap gap-2">
           <RiskChip hazard={FIT_HAZARD[o.fit]}>{copy.compare.fitLabel[o.fit]}</RiskChip>
           {o.badges.map((b) => (
             <RiskChip key={b} hazard="healthy">
-              {b}
+              {farmerBadge(b)}
             </RiskChip>
           ))}
         </div>
@@ -851,17 +829,19 @@ function OptionRow({
 
       {display ? (
         <dl className="m-0 flex flex-col gap-2 border-t border-line pt-3 text-body-sm">
-          <div><dt className="font-medium text-ink">Trade-off</dt><dd className="m-0 text-ink-muted">{display.tradeOff}</dd></div>
-          <div><dt className="font-medium text-ink">Assumption</dt><dd className="m-0 text-ink-muted">{display.assumption}</dd></div>
-          <div><dt className="font-medium text-ink">Unknown</dt><dd className="m-0 text-ink-muted">{display.unknown}</dd></div>
-          <div><dt className="font-medium text-ink">Check locally</dt><dd className="m-0 text-ink-muted">{display.localCheck}</dd></div>
-          <div><dt className="font-medium text-ink">Source and status</dt><dd className="m-0 text-ink-muted">{display.sources.length ? `${display.sources[0].lineage} (${display.sources[0].status})` : "No source indicator attached to this option."}</dd></div>
+          <div><dt className="font-medium text-ink">Main caution</dt><dd className="m-0 text-ink-muted">{display.tradeOff}</dd></div>
+          <div><dt className="font-medium text-ink">Check before choosing</dt><dd className="m-0 text-ink-muted">{display.localCheck}</dd></div>
+          {depth !== "answer" ? <>
+            <div><dt className="font-medium text-ink">What we assumed</dt><dd className="m-0 text-ink-muted">{display.assumption}</dd></div>
+            <div><dt className="font-medium text-ink">What we still do not know</dt><dd className="m-0 text-ink-muted">{display.unknown}</dd></div>
+          </> : null}
+          {depth === "evidence" ? <div><dt className="font-medium text-ink">Information used</dt><dd className="m-0 text-ink-muted">{display.sources.length ? `${display.sources[0].product}: ${plainSourceStatus(display.sources[0].status)}` : "No source is attached to this choice."}</dd></div> : null}
         </dl>
       ) : null}
 
-      {display?.sources.length ? (
+      {depth === "evidence" && display?.sources.length ? (
         <details className="text-body-sm text-ink-muted">
-          <summary className="min-h-tap cursor-pointer text-label text-field">All source details ({display.sources.length})</summary>
+          <summary className="min-h-tap cursor-pointer text-label text-field">See all information sources ({display.sources.length})</summary>
           <ul className="m-0 flex list-disc flex-col gap-2 pl-5">
             {display.sources.map((s, i) => <li key={`${s.product}-${i}`}>{s.claim}: {s.lineage}. Status: {s.status}{s.missingReason ? `; missing: ${s.missingReason}` : ""}{s.sourceUrl ? <> · <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-field underline">Source</a></> : null}</li>)}
           </ul>
@@ -877,7 +857,7 @@ function OptionRow({
       ) : null}
 
       {showComparativeMetrics ? <dl className="m-0 grid grid-cols-2 gap-2">
-        {figures.map((f) => (
+        {figures.slice(0, depth === "answer" ? 2 : figures.length).map((f) => (
           <div key={f.label} className="flex min-w-0 flex-col gap-0.5 rounded-md bg-surface p-3">
             <dt className="text-body-sm text-ink-muted">{f.label}</dt>
             <dd className="tabular m-0 text-label text-ink">{f.value}</dd>

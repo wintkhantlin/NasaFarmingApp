@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import { Button } from "@/components/ui/button";
 import { adaptPlanToFieldSlot } from "@/lib/plan/refinement-adapter";
 import type { PlanDraft } from "@/lib/store/plan-draft";
@@ -47,10 +49,22 @@ export function PlanHandoff({ draft }: { draft: PlanDraft }) {
   return <section aria-labelledby="handoff-title" className="flex flex-col gap-3 rounded-md border border-line p-4">
     <h3 id="handoff-title" className="text-headline">Compare for a confirmed field</h3>
     <p className="text-body-sm">Select the field where this sequence was grown. Your regional examples and full Plan draft stay available. Saving replaces that field’s Plan sequence and applies your selected goal as its sole priority.</p>
-    <label htmlFor="handoff-field">Confirmed field in this region</label>
-    <select id="handoff-field" className="min-h-tap border border-line p-2" value={fieldId} onChange={e => setFieldId(e.target.value)}>
-      <option value="">Choose a field</option>{eligible.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-    </select>
+    <TextField
+      select
+      id="handoff-field"
+      label="Confirmed field in this region"
+      value={fieldId}
+      onChange={(e) => setFieldId(e.target.value)}
+      size="small"
+      fullWidth
+    >
+      <MenuItem value="">Choose a field</MenuItem>
+      {eligible.map((f) => (
+        <MenuItem key={f.id} value={f.id}>
+          {f.name}
+        </MenuItem>
+      ))}
+    </TextField>
     <Link href="/fields/new" className="text-field underline">Add or confirm a field; your Plan draft stays saved</Link>
     {adapted.state !== "ready" ? <p role="status">{adapted.state}: {adapted.reasons.join(" ")}</p> : null}
     {extraCrops ? <p role="status">needs-input: previous, following or winter crops need their own dates. Review the full sequence in the field editor; no dates will be inferred.</p> : null}

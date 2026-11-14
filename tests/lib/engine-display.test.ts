@@ -33,6 +33,14 @@ describe("typed engine display adapter", () => {
     expect(adaptComparison(input({ field: { ...field, locationConfirmed: false } })).state).toBe("field-incomplete");
   });
 
+  test("a saved example plan gets a friendly next step without becoming field history", () => {
+    const view = adaptComparison(input({ rotation: { ...mine, source: "strategy" }, comparison: null }));
+    expect(view.state).toBe("field-incomplete");
+    expect(view.headline).toBe("Your plan is saved");
+    expect(view.detail).toContain("do not need to guess exact dates");
+    expect(view.options).toHaveLength(0);
+  });
+
   test("stale edits hide old options before they can be acted on", () => {
     const view = adaptComparison(input({ inputRevision: "r2" }));
     expect(view.state).toBe("stale");
@@ -53,25 +61,38 @@ describe("typed engine display adapter", () => {
 
   test("unsupported location names the region boundary even when weather is complete", () => {
     const view = adaptComparison(input({ comparison: { ...result, region: "unsupported", alternatives: [], rejected: [], shortfall: "Outside Ayeyarwady, Magway and Shan State." } }));
-    expect(view.headline).toBe("This field location resolves outside Myanmar");
-    expect(view.detail).toContain("saved field location resolves outside");
+    expect(view.headline).toBe("This field appears to be outside Myanmar");
+    expect(view.detail).toContain("Check the saved field location");
     expect(view.gaps).toContain("Outside Ayeyarwady, Magway and Shan State.");
   });
 
   test("weather-complete exclusion explains crop checks rather than implying missing weather", () => {
     const alternatives = result.alternatives.map(o => ({ ...o, fit: "does-not-fit" as const, noFitReason: "Two crops overlap by 12 days." }));
     const view = adaptComparison(input({ comparison: { ...result, alternatives } }));
-    expect(view.headline).toBe("Too few eligible crop options to compare");
-    expect(view.detail).toContain("Weather coverage is available");
+    expect(view.headline).toBe("Not enough crop choices to compare");
+    expect(view.detail).toContain("The weather information is ready");
     expect(view.gaps.some(g => g.includes("Two crops overlap by 12 days."))).toBe(true);
     expect(view.options.filter(o => o.kind === "alternative")).toHaveLength(0);
+  });
+
+  test("source gaps use plain farmer-facing explanations", () => {
+    const view = adaptComparison(input());
+    expect(view.gaps).toContain("Detailed satellite rain data is not available. We used NASA POWER regional rain estimates instead.");
+    expect(view.gaps).toContain("Regional soil-moisture information is not available, so the soil's starting moisture is unknown.");
+    expect(view.gaps.join(" ")).not.toContain("SRTM terrain");
+  });
+
+  test("option cautions explain model limits in farmer-facing words", () => {
+    const view = adaptComparison(input());
+    expect(view.options[0].tradeOff).not.toContain("species-level starting values");
+    expect(view.options[0].tradeOff).toContain("general crop information");
   });
 
   test("missing first-priority evidence stays unresolved, never zero", () => {
     const comparison = { ...result, current: { ...result.current, metrics: { ...result.current.metrics, "water-shortfall": null } }, mcda: { ...result.mcda, status: "unresolved" as const, ranking: [], note: "First-priority evidence missing." } };
     const view = adaptComparison(input({ comparison }));
     expect(view.state).toBe("unresolved");
-    expect(view.detail).toContain("First-priority evidence missing");
+    expect(view.detail).toContain("Information for your main priority is missing");
     expect(view.options[0].engine.metrics["water-shortfall"]).toBeNull();
     expect(view.options[0].engine.metrics["water-shortfall"]).not.toBe(0);
   });
@@ -94,8 +115,8 @@ describe("typed engine display adapter", () => {
   test("historical replay and source lineage come from the engine result", () => {
     const view = adaptComparison(input());
     expect(view.replay).toEqual(result.baseline);
-    expect(view.detail).toContain("2016–2025 historical replay");
-    expect(view.detail).toContain("not a next-season forecast");
+    expect(view.detail).toContain("complete past years from 2016–2025");
+    expect(view.detail).toContain("does not predict next season");
     expect(view.sourceStatuses?.power).toBe(data.power.status);
     const source = view.options[0].sources[0];
     const indicator = result.current.evidence[0].indicator;

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import TextField from "@mui/material/TextField";
 import { CropCalendar } from "@/components/field/crop-calendar";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -82,14 +83,14 @@ export function YourCallMarker({
           <p className="text-source text-ink font-medium">
             Add what you see on your land (saved to your adviser report):
           </p>
-          <div className="flex gap-2">
-            <input
-              aria-label="Local field observation for adviser report"
-              type="text"
+          <div className="flex gap-2 items-center">
+            <TextField
+              slotProps={{ htmlInput: { "aria-label": "Local field observation for adviser report" } }}
               value={disagreeText}
               onChange={(e) => setDisagreeText(e.target.value)}
               placeholder="e.g. Canal water is available here until February"
-              className="min-h-tap flex-1 rounded-sm border border-line-strong bg-surface-sunken px-2 text-body-sm text-ink"
+              size="small"
+              className="flex-1"
             />
             <Button variant="primary" onClick={handleSaveDisagreement} disabled={!disagreeText.trim()}>
               {saved ? "Saved" : "Save note"}
