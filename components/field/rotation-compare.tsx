@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Icon } from "@/components/ui/icon";
 import { FieldPageHeader } from "@/components/field/field-page-header";
@@ -10,8 +10,9 @@ import { StatusTag } from "@/components/ui/status";
 import { LimitSummary } from "@/components/field/limit-checks";
 import { CheckLocally } from "@/components/field/check-locally";
 import { SeasonStrip } from "@/components/field/season-strip";
-import { WhatIfBody, type WhatIfRow } from "@/components/field/what-if";
-import { applyScenario, ASSUMED_IRRIGATION_MM, NO_SCENARIO, isNeutral, type Scenario } from "@/lib/engine/scenario";
+import { WhatIf, WhatIfBanner } from "@/components/field/what-if";
+import { applyScenario, NO_SCENARIO, isNeutral, type Scenario } from "@/lib/engine/scenario";
+import { whatIfResult } from "@/lib/engine/what-if";
 import { knownCount, seasonStrip, stressedCount } from "@/lib/engine/strip";
 import { openQuickQuestions } from "@/lib/engine/questions";
 import { checkLimits, type LimitCheck } from "@/lib/engine/limits";
@@ -33,7 +34,7 @@ import { BASELINE } from "@/lib/engine/data";
 import { CRITERIA } from "@/lib/engine/mcda";
 import { formatSpan, slotName } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
-import type { Field, Irrigation, Rotation } from "@/lib/types";
+import type { Field, Rotation } from "@/lib/types";
 
 const unknown = "Not known";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -166,7 +167,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const loadRotations = useFieldsStore((s) => s.loadRotations);
   const [depth, setDepth] = useState<"answer" | "reasons" | "evidence">("answer");
   const [scenario, setScenario] = useState<Scenario>(NO_SCENARIO);
-  const [whatIfIrrigation, setWhatIfIrrigation] = useState<Irrigation | null>(null);
+  /** Sliders stay responsive while the options catch up on the same past seasons. */
+  const testScenario = useDeferredValue(scenario);
+  const testPending = testScenario !== scenario;
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -192,23 +195,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   );
   const compareRotation = hasOwnRotation ? savedRotation : placeholderRotation;
 
-  const effectiveEngineData = useMemo(() => {
-    if (!engineData) return null;
-    const base = applyScenario(engineData, scenario);
-    if (whatIfIrrigation === null) return base;
-    const clonedField = {
-      ...engineData.field,
-      irrigation: whatIfIrrigation,
-      constraints: {
-        ...engineData.field.constraints,
-        irrigation: {
-          access: whatIfIrrigation,
-          amountMm: engineData.field.constraints?.irrigation?.amountMm ?? ASSUMED_IRRIGATION_MM[whatIfIrrigation === "supplemental" ? "supplemental" : "full"],
-        },
-      },
-    };
-    return { ...base, field: clonedField };
-  }, [engineData, whatIfIrrigation, scenario]);
+  const effectiveEngineData = useMemo(() => (engineData ? applyScenario(engineData, testScenario) : null), [engineData, testScenario]);
 
   const baseComparison = useMemo(
     () => (engineData ? compareRotations(engineData, compareRotation) : null),
@@ -217,6 +204,10 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const comparison = useMemo(
     () => (effectiveEngineData ? compareRotations(effectiveEngineData, compareRotation) : null),
     [effectiveEngineData, compareRotation],
+  );
+  const whatIf = useMemo(
+    () => (baseComparison && comparison && !isNeutral(testScenario) ? whatIfResult(baseComparison, comparison, { includeCurrent: hasOwnRotation }) : null),
+    [baseComparison, comparison, testScenario, hasOwnRotation],
   );
 
   const shapedByChips = useMemo(() => {
@@ -321,12 +312,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   );
   const yearsOf = (o: EvaluatedOption) => [...new Set(o.slots.flatMap((e) => e.water?.seasons.map((x) => x.year) ?? []))].sort();
   const stripOf = (o: EvaluatedOption) => seasonStrip(o, yearsOf(o));
-  const baseById = new Map((baseComparison ? [baseComparison.current, ...baseComparison.alternatives] : []).map((o) => [o.id, o]));
-  const whatIfRows: WhatIfRow[] = displayOptions.map((o) => {
-    const after = stripOf(o);
-    const b = baseById.get(o.id);
-    return { id: o.id, label: o.label, before: b ? stressedCount(stripOf(b)) : 0, after: stressedCount(after), known: knownCount(after) };
-  });
   const rankedById = new Map(comparison.mcda.ranking.map((r, i) => [r.rotationId, { ...r, place: i + 1 }]));
 
   const pastSeasons = Math.max(comparison.baseline.completeYears, BASELINE.endYear - BASELINE.startYear + 1);
@@ -444,6 +429,8 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   return (
     <>
       <FieldPageHeader title={copy.compare.title} summary={summary} />
+
+      <WhatIfBanner scenario={testScenario} recorded={field.irrigation} onReset={() => setScenario(NO_SCENARIO)} />
 
       <Recommendation
         as="h2"
@@ -758,49 +745,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       ) : null}
 
       {displayOptions.length > 0 ? (
-        <Disclosure title={copy.compare.whatIfTitle}>
-          {!isNeutral(scenario) || whatIfIrrigation !== null ? (
-            <button
-              type="button"
-              onClick={() => {
-                setScenario(NO_SCENARIO);
-                setWhatIfIrrigation(null);
-              }}
-              className="min-h-tap cursor-pointer self-start border-0 bg-transparent p-0 text-label text-field underline hover:text-ink"
-            >
-              Reset test
-            </button>
-          ) : null}
-          {!isNeutral(scenario) ? <StatusTag tag="hypothetical" className="self-start" /> : null}
-          <div className="flex flex-col gap-2">
-            <span className="text-label text-ink">{copy.compare.waterSupplyLabel}</span>
-            <div className="flex flex-wrap gap-2">
-              {(["none", "supplemental", "full"] as const).map((mode) => {
-                const isCurrent = (whatIfIrrigation ?? field.irrigation) === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    aria-pressed={isCurrent && whatIfIrrigation === mode}
-                    onClick={() => setWhatIfIrrigation(mode === field.irrigation ? null : mode)}
-                    className={
-                      "min-h-tap cursor-pointer rounded-pill px-3 py-1.5 text-label font-medium transition-colors " +
-                      (isCurrent ? "bg-field text-on-field" : "border border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink")
-                    }
-                  >
-                    {copy.irrigation[mode]}
-                  </button>
-                );
-              })}
-            </div>
-            <p className={"m-0 text-body-sm " + (whatIfIrrigation !== null ? "font-medium text-drought" : "text-ink-muted")}>
-              {whatIfIrrigation !== null
-                ? copy.compare.irrigationTest(copy.irrigation[whatIfIrrigation])
-                : copy.compare.irrigationCurrent(copy.irrigation[field.irrigation])}
-            </p>
-          </div>
-          <WhatIfBody scenario={scenario} onChange={setScenario} rows={whatIfRows} />
-        </Disclosure>
+        <WhatIf scenario={scenario} onChange={setScenario} result={whatIf} pending={testPending} recorded={field.irrigation} />
       ) : null}
 
       {comparison.region !== "unsupported" &&

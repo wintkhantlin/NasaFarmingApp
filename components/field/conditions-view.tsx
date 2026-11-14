@@ -21,7 +21,6 @@ import { TrendsView } from "@/components/field/trends-view";
 import { SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
-import { downloadCsv, generateWeatherCsv } from "@/lib/download";
 import { compareRotations } from "@/lib/engine/compare";
 import { monthlyNormals } from "@/lib/engine/climate";
 import { BASELINE } from "@/lib/engine/data";
@@ -389,21 +388,6 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           </Panel>
 
           <ActionBar>
-            {data.weather ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                icon="download"
-                onClick={() => {
-                  const csv = generateWeatherCsv(field.name, data.weather!);
-                  const slug = field.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-                  downloadCsv(`${slug}-weather-observations.csv`, csv);
-                }}
-              >
-                Weather CSV
-              </Button>
-            ) : null}
             <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "flex-1", "lg")}>
               {copy.conditions.compareButton}
               <Icon name="next" />

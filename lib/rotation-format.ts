@@ -45,3 +45,32 @@ export function yearFraction(iso: string): number {
   const end = Date.UTC(y + 1, 0, 1);
   return (Date.UTC(y, m - 1, d) - start) / (end - start);
 }
+
+/** Number of calendar days from ISO date `from` to `to`. Positive when to > from. */
+export function daysBetween(from: string, to: string): number {
+  const d1 = Date.parse(from);
+  const d2 = Date.parse(to);
+  if (Number.isNaN(d1) || Number.isNaN(d2)) return 0;
+  return Math.round((d2 - d1) / 86_400_000);
+}
+
+/** Adds `days` days to an ISO YYYY-MM-DD date and returns a new YYYY-MM-DD string. */
+export function addDaysToIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().slice(0, 10);
+}
+
+/** Left and width (0 to 1) of [from, to] inside calendar year `year`, or null when it does not touch it. */
+export function segmentYear(year: number, from: string, to: string): { left: number; width: number } | null {
+  const y0 = Date.UTC(year, 0, 1) / 86_400_000;
+  const y1 = Date.UTC(year + 1, 0, 1) / 86_400_000;
+  const dFrom = Date.parse(from) / 86_400_000;
+  const dTo = Date.parse(to) / 86_400_000;
+  if (Number.isNaN(dFrom) || Number.isNaN(dTo)) return null;
+  const a = Math.max(dFrom, y0);
+  const b = Math.min(dTo + 1, y1);
+  if (b <= a) return null;
+  return { left: (a - y0) / (y1 - y0), width: (b - a) / (y1 - y0) };
+}

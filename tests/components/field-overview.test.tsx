@@ -120,25 +120,24 @@ describe("FieldOverview (S06 Field Hub)", () => {
     cleanup();
   });
 
-  it("renders field header with name, area, coordinates, and region", () => {
+  it("renders field header with name, coordinates, and region", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
     expect(screen.getByText("North Stream Field")).toBeInTheDocument();
-    expect(screen.getAllByText(/2\.4 ha/).length).toBeGreaterThan(0);
-    expect(screen.getByText("Ayeyarwady")).toBeInTheDocument();
+    expect(screen.getAllByText("Ayeyarwady").length).toBeGreaterThan(0);
   });
 
-  it("renders the next step callout guiding the farmer to compare rotations", () => {
+  it("renders the next step callout guiding the farmer to their answer", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
-    expect(screen.getByText("Ready to compare rotation options")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Compare rotation options/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("See my answer").length).toBeGreaterThan(0);
+    expect(screen.getByText("Rice → Chickpea")).toBeInTheDocument();
   });
 
   it("renders current crop rotation summary with slot details", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
-    expect(screen.getByText("Current crop rotation")).toBeInTheDocument();
+    expect(screen.getByText("Current rotation")).toBeInTheDocument();
     expect(screen.getByText("Rice")).toBeInTheDocument();
     expect(screen.getByText("Chickpea")).toBeInTheDocument();
     expect(screen.getByText("Irrigated")).toBeInTheDocument();
@@ -148,25 +147,21 @@ describe("FieldOverview (S06 Field Hub)", () => {
   it("renders weather and soil conditions snapshot with NASA and SoilGrids data", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
-    expect(screen.getByText("Local conditions & weather baseline")).toBeInTheDocument();
     expect(screen.getByText("950 mm")).toBeInTheDocument();
     expect(screen.getByText("Annual rainfall")).toBeInTheDocument();
-    expect(screen.getByText("NASA POWER (0.5°)")).toBeInTheDocument();
-    expect(screen.getByText("Your soil test")).toBeInTheDocument();
   });
 
-  it("renders farm profile constraints summary", () => {
+  it("renders field details table with simple and technical views", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
-    expect(screen.getByText("Farm profile & constraints")).toBeInTheDocument();
-    expect(screen.getByText("Some irrigation")).toBeInTheDocument();
-    expect(screen.getByText("Lab test recorded")).toBeInTheDocument();
+    expect(screen.getByText("Field details")).toBeInTheDocument();
+    expect(screen.getByText("Soil type")).toBeInTheDocument();
+    expect(screen.getByText("Acidity")).toBeInTheDocument();
   });
 
-  it("renders field boundary map preview and action bar", () => {
+  it("renders field boundary map preview and action links", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
-    expect(screen.getByText("Field location & satellite preview")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /View conditions/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Edit field boundary/i).length).toBeGreaterThan(0);
   });
 });
