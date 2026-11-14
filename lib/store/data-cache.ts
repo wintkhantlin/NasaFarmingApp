@@ -1,5 +1,9 @@
 import { get, set } from "idb-keyval";
 import type { SoilProfile } from "../soil/soilgrids";
+import type { DailyWeather } from "../nasa/power";
+import type { ImergDay } from "../nasa/imerg";
+import type { PowerInfo } from "../engine/data";
+import type { HlsData, RemoteState, SmapData, SrtmData } from "../server/remote-sensing";
 
 /** What `/api/field/:id/conditions` returns. Missing sources leave their fields undefined. */
 export interface ConditionsData {
@@ -21,6 +25,18 @@ export interface ConditionsData {
   rootWetnessPct?: number;
   drySpellsCount?: number;
   hotDaysCount?: number;
+  /** Full POWER daily history (UTC days). The engine reads this; the monthly arrays above are for the charts. */
+  weather?: DailyWeather | null;
+  power?: PowerInfo;
+  imerg?: {
+    status: "unconfigured" | "pending" | "ok" | "unavailable";
+    expected: number;
+    covered: number;
+    partialDays: number;
+    granules: number;
+    days: ImergDay[];
+    error: string | null;
+  };
   sources: Array<{
     dataset: string;
     resolution?: string;
@@ -30,7 +46,7 @@ export interface ConditionsData {
 
 const CONDITIONS_CACHE_PREFIX = "conditions_cache:";
 /** Bump when the shape or units of ConditionsData change, so old caches are refetched. */
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 export async function getCachedConditions(fieldId: string): Promise<ConditionsData | null> {
   if (typeof window === "undefined") return null;
@@ -57,5 +73,35 @@ export function isStale(fetchedAt: string, maxAgeHours = 48): boolean {
     return ageMs > maxAgeHours * 3600 * 1000;
   } catch {
     return false;
+  }
+}
+
+/** AppEEARS results for one field (regional moisture, imagery, terrain). */
+export interface RemoteData {
+  fieldId: string;
+  checkedAt: string;
+  smap: RemoteState<SmapData>;
+  hls: RemoteState<HlsData>;
+  srtm: RemoteState<SrtmData>;
+}
+
+const REMOTE_CACHE_PREFIX = "remote_cache:";
+
+export async function getCachedRemote(fieldId: string): Promise<RemoteData | null> {
+  if (typeof window === "undefined") return null;
+  try {
+    const data = await get<RemoteData & { v?: number }>(`${REMOTE_CACHE_PREFIX}${fieldId}`);
+    return data && data.v === CACHE_VERSION ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedRemote(fieldId: string, data: RemoteData): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    await set(`${REMOTE_CACHE_PREFIX}${fieldId}`, { ...data, v: CACHE_VERSION });
+  } catch {
+    // non-fatal
   }
 }

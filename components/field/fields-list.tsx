@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { FirstRun } from "@/components/home/first-run";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, PinGlyph } from "@/components/ui/icons";
+import { ChevronRightGlyph, DownloadGlyph, PinGlyph } from "@/components/ui/icons";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
+import { downloadJson } from "@/lib/download";
 import { formatPoint } from "@/lib/geo/format";
 import { staticMapUrl } from "@/lib/geo/static-map";
 import { sequenceText } from "@/lib/rotation-format";
@@ -21,15 +22,16 @@ import type { Field, Rotation } from "@/lib/types";
 function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }) {
   const states = deriveStepStates(field, rotations);
   const hasRotation = states.rotation === "done";
-  const stepsDone = Object.values(states).filter((s) => s === "done").length;
+  const stepList = Object.values(states);
+  const stepsDone = stepList.filter((s) => s === "done").length;
   const next = hasRotation ? "Compare rotation options" : "Record what you grow now";
   const nextHref = hasRotation ? `/fields/${field.id}/compare` : `/fields/${field.id}/rotation`;
 
   return (
     <li className="min-w-0">
       <article className="group relative flex h-full flex-col overflow-hidden rounded-md border border-line bg-surface-raised transition-colors hover:border-line-strong">
-        <div className="relative aspect-[2/1] w-full bg-surface-sunken">
-          {MAPBOX_TOKEN ? (
+        {MAPBOX_TOKEN ? (
+          <div className="relative aspect-[2/1] w-full bg-surface-sunken">
             <Image
               src={staticMapUrl(field.geometry, MAPBOX_TOKEN, 480, 240)}
               alt=""
@@ -39,12 +41,8 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
               sizes="(min-width: 640px) 50vw, 100vw"
               className="object-cover"
             />
-          ) : (
-            <div className="grid size-full place-items-center text-ink-muted">
-              <PinGlyph width={28} height={28} />
-            </div>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         <div className="flex flex-1 flex-col gap-3 p-4">
           <div className="flex items-start justify-between gap-3">
@@ -57,8 +55,8 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
                 {field.name}
               </Link>
             </h3>
-            <RiskChip hazard={hasRotation ? "healthy" : "drought"} className="shrink-0">
-              {hasRotation ? "Rotation recorded" : "Needs rotation"}
+            <RiskChip hazard={hasRotation ? "field" : "neutral"} className="shrink-0">
+              {hasRotation ? "Rotation recorded" : "Needs your input"}
             </RiskChip>
           </div>
 
@@ -87,10 +85,10 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
           <div className="mt-auto flex flex-col gap-2 border-t border-line pt-3">
             <div
               role="img"
-              aria-label={`${stepsDone} of 4 steps done`}
-              className="grid grid-cols-4 gap-1"
+              aria-label={`${stepsDone} of ${stepList.length} steps done`}
+              className={cn("grid gap-1", stepList.length === 5 ? "grid-cols-5" : "grid-cols-4")}
             >
-              {Object.values(states).map((s, i) => (
+              {stepList.map((s, i) => (
                 <span key={i} className={cn("h-1 rounded-pill", s === "done" ? "bg-field" : "bg-line")} />
               ))}
             </div>
@@ -115,6 +113,8 @@ export function FieldsList() {
   const fields = useFieldsStore((s) => s.fields);
   const rotations = useFieldsStore((s) => s.rotations);
   const load = useFieldsStore((s) => s.load);
+  const exportBackup = useFieldsStore((s) => s.exportBackup);
+  const importBackup = useFieldsStore((s) => s.importBackup);
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -143,10 +143,51 @@ export function FieldsList() {
   if (fields.length === 0) return <FirstRun />;
 
   return (
-    <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-      {fields.map((f) => (
-        <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-6">
+      <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+        {fields.map((f) => (
+          <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} />
+        ))}
+      </ul>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4 text-body-sm text-ink-muted">
+        <p className="m-0">Your fields and crop data are saved privately in this browser.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={async () => {
+              const backup = await exportBackup();
+              const dateStr = new Date().toISOString().slice(0, 10);
+              downloadJson(`farm-fields-backup-${dateStr}.json`, backup);
+            }}
+            className="min-h-tap text-label"
+          >
+            <DownloadGlyph />
+            Export farm backup (JSON)
+          </Button>
+          <label className={buttonClass("secondary", "cursor-pointer min-h-tap text-label")}>
+            <span>Restore backup</span>
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const text = await file.text();
+                  const json = JSON.parse(text);
+                  const res = await importBackup(json);
+                  alert(`Restored ${res.fields} fields and ${res.rotations} rotations.`);
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Could not import backup.");
+                }
+              }}
+            />
+          </label>
+        </div>
+      </div>
+    </div>
   );
 }

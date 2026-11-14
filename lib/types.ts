@@ -1,3 +1,5 @@
+import type { DerivedIndicator } from "./evidence/indicator";
+
 /**
  * Domain model for the rotation planner. Plain TypeScript types for now;
  * runtime validation (zod) is added when the dependency is installed.
@@ -33,6 +35,59 @@ export interface SoilOverride {
   testedOn?: string;
 }
 
+export type RegionId = "ayeyarwady" | "magway" | "shan";
+export type PriorityId = "water" | "soil" | "income" | "forage" | "lower-inputs";
+
+export type SoilProperty =
+  | "ph"
+  | "texture"
+  | "drainage"
+  | "salinity"
+  | "organic-carbon"
+  | "available-water-capacity"
+  | "root-depth"
+  | "nitrogen";
+
+/** One soil measurement with where it came from. Remote estimates never become one of these. */
+export interface SoilObservation {
+  id: string;
+  property: SoilProperty;
+  value: number | string;
+  units: string;
+  depthCm: [from: number, to: number];
+  /** ISO date the sample was taken or the value was recorded. */
+  date: string;
+  method: "laboratory" | "field-kit" | "soil-map" | "farmer-estimate";
+  source: string;
+}
+
+export interface FarmConstraints {
+  irrigation?: { access: Irrigation; amountMm?: number };
+  equipment?: Array<"hand-tools" | "animal-traction" | "two-wheel-tractor" | "tractor" | "seeder" | "harvester">;
+  labour?: "low" | "medium" | "high";
+  marketAccess?: "poor" | "fair" | "good";
+  preferredCropIds?: string[];
+  excludedCropIds?: string[];
+  /** Earliest and latest dates (MM-DD) the farmer can plant. */
+  plantingWindow?: { from: string; to: string };
+}
+
+export interface FarmerPriorities {
+  /** Most important first. */
+  order: PriorityId[];
+  /** 0 to 1 per priority. Normalised to sum 1 when ranked. */
+  weights: Partial<Record<PriorityId, number>>;
+}
+
+export interface CropEconomics {
+  cropId: string;
+  /** Local ranges, entered by the farmer or from a cited local source. */
+  yieldKgHa?: [low: number, high: number];
+  priceMmkPerKg?: [low: number, high: number];
+  costMmkPerHa?: [low: number, high: number];
+  source: string;
+}
+
 export interface Field {
   id: string;
   name: string;
@@ -44,6 +99,16 @@ export interface Field {
   samplePoints: LngLat[];
   irrigation: Irrigation;
   soilOverride?: SoilOverride;
+  /** Dated, sourced soil measurements. `soilOverride` stays as the simple summary. */
+  soilObservations?: SoilObservation[];
+  /** Region the location resolved to, saved so a later boundary change is visible. */
+  region?: RegionId | "unsupported";
+  /** The farmer confirmed that this point or outline is their field. */
+  locationConfirmed?: boolean;
+  confirmedAt?: string;
+  constraints?: FarmConstraints;
+  priorities?: FarmerPriorities;
+  economics?: CropEconomics[];
   localNotes?: string;
   createdAt: string;
   updatedAt: string;
@@ -90,8 +155,75 @@ export type FunctionalGroup =
   | "fibre"
   | "cover";
 
+/** Where a threshold or parameter comes from. Every rule in the library carries one. */
+export type RuleScope = "ecocrop-reference" | "fao56" | "local-validated" | "analyst-assumption";
+
+export interface Sourced<T> {
+  value: T;
+  ref: string;
+  url?: string;
+  scope: RuleScope;
+}
+
+export type StageId = "ini" | "dev" | "mid" | "late";
+
+export interface CropStage {
+  id: StageId;
+  label: string;
+  kc: Sourced<number>;
+  /** Air temperature above which this stage is stressed, °C. */
+  heatC?: Sourced<number>;
+  /** Air temperature below which this stage is stressed, °C. */
+  coldC?: Sourced<number>;
+  droughtSensitive: boolean;
+  waterloggingSensitive: boolean;
+}
+
+export interface RegionalCalendar {
+  /** Usual sowing window as MM-DD, inclusive. May cross the new year. */
+  sowWindow: [from: string, to: string];
+  durationDays: [min: number, max: number];
+  ref: string;
+  scope: RuleScope;
+}
+
+/** Pest and disease relationship used by the rotation check. */
+export interface RotationRule {
+  /** Another host family or crop id this crop should not directly follow. */
+  avoidAfterFamilies: string[];
+  reason: string;
+  ref: string;
+  scope: RuleScope;
+}
+
+/** Library entries that carry sourced, stage-level rules for the supported Myanmar regions. */
+export interface CropProfile {
+  /** False until a local agronomist or grower has checked the entry for a named variety. */
+  varietyValidated: boolean;
+  /** Species/variety note, e.g. "species-level reference, no variety chosen". */
+  note: string;
+  stages: CropStage[];
+  /** ECOCROP annual rainfall range. Broad ecology only: never compared with one season's rain. */
+  ecologyAnnualRainMm: Sourced<[number, number]>;
+  /** ECOCROP temperature as sourced values, for the suitability check. */
+  tempC: { optMin: Sourced<number>; optMax: Sourced<number>; absMin: Sourced<number>; absMax: Sourced<number> };
+  ph: { optMin: Sourced<number>; optMax: Sourced<number>; absMin: Sourced<number>; absMax: Sourced<number> };
+  nFixKgHa?: Sourced<[number, number]>;
+  /** % nitrogen in dry grain and in dry residue. */
+  grainNPct?: Sourced<number>;
+  residueNPct?: Sourced<number>;
+  rotationRules: RotationRule[];
+  forage?: { use: "none" | "residue-fodder" | "green-manure" | "forage"; note: string; ref: string; scope: RuleScope };
+  regionalCalendars: Partial<Record<RegionId, RegionalCalendar>>;
+}
+
+export type CropScope = "myanmar" | "reference-only";
+
 export interface Crop {
   id: string;
+  /** `reference-only` crops stay selectable in the rotation editor but are never used in strategies. */
+  scope: CropScope;
+  profile?: CropProfile;
   names: { common: string; local: string[]; scientific: string };
   family: string;
   group: FunctionalGroup;
@@ -132,26 +264,12 @@ export interface Crop {
   sources: Array<{ field: string; ref: string }>;
 }
 
-export type Confidence = "high" | "medium" | "low";
-
-export interface DataSourceRef {
-  dataset: string;
-  resolution: string;
-  /** Free text, e.g. "1981 to 2024" or "12 Nov pass". */
-  dates: string;
-}
-
-/** One claim the app makes, with the number and source behind it. */
+/** One claim the app makes, with the indicator that backs it. */
 export interface Evidence {
   id: string;
   claim: string;
-  metric: string;
-  value: number | string;
-  unit?: string;
   comparedTo?: string;
-  years?: number;
-  source: DataSourceRef;
-  confidence: Confidence;
+  indicator: DerivedIndicator;
 }
 
 export interface Risk {
@@ -163,3 +281,5 @@ export interface Risk {
   action: string;
   relatedEvidence: string[];
 }
+
+export type { Backup } from "./schemas/field";

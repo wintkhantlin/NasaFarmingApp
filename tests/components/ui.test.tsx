@@ -64,10 +64,11 @@ describe("UI Kit Components (Field Almanac)", () => {
     expect(screen.getByText("Drought resilience")).toBeInTheDocument();
   });
 
-  it("Stepper displays 4 steps with their respective states", () => {
+  it("Stepper displays 5 steps with their respective states", () => {
     const states: Record<StepId, StepState> = {
       location: "done",
       rotation: "needs-input",
+      profile: "not-started",
       conditions: "not-started",
       compare: "not-started",
     };
@@ -80,6 +81,7 @@ describe("UI Kit Components (Field Almanac)", () => {
     );
     expect(screen.getByText("Location")).toBeInTheDocument();
     expect(screen.getByText("Your rotation")).toBeInTheDocument();
+    expect(screen.getByText("Your farm")).toBeInTheDocument();
     expect(screen.getByText("Conditions")).toBeInTheDocument();
     expect(screen.getByText("Compare")).toBeInTheDocument();
     expect(screen.getByText("Done")).toBeInTheDocument();

@@ -42,9 +42,9 @@ export function Segmented<T extends string>({
         aria-labelledby={labelId}
         className="grid min-w-0 grid-flow-col auto-cols-fr rounded-md border border-line-strong bg-surface-raised p-0.5"
         sx={{
-          border: "1px solid #8c8676",
-          borderRadius: "10px",
-          backgroundColor: "#fbfaf6",
+          border: "1px solid var(--color-line-strong, #8c8676)",
+          borderRadius: "var(--radius-md, 10px)",
+          backgroundColor: "var(--color-surface-raised, #fbfaf6)",
           padding: "2px",
           display: "grid",
           gridAutoFlow: "column",
@@ -58,17 +58,21 @@ export function Segmented<T extends string>({
             fontSize: "0.875rem",
             fontWeight: 500,
             textTransform: "none",
-            color: "#1f1d17",
+            color: "var(--color-ink, #1f1d17)",
+            transition: "all 120ms ease",
+            "&:active": {
+              transform: "scale(0.98)",
+            },
             "&.Mui-selected": {
-              backgroundColor: "#2e5e3a",
-              color: "#fbfaf6",
+              backgroundColor: "var(--color-field, #2e5e3a)",
+              color: "var(--color-on-field, #fbfaf6)",
               "&:hover": {
-                backgroundColor: "#2e5e3a",
+                backgroundColor: "var(--color-field, #2e5e3a)",
                 filter: "brightness(1.05)",
               },
             },
             "&:hover": {
-              backgroundColor: "#e9e6da",
+              backgroundColor: "var(--color-surface-sunken, #e9e6da)",
             },
           },
         }}

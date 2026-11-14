@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { createRepository, ValidationError, type NewField, type Repository } from "./repository";
 import { indexedDbStorage } from "./storage";
-import type { Field, Rotation } from "../types";
+import type { Backup, Field, Rotation } from "../types";
 import type { StepId, StepState } from "@/components/ui/stepper";
 
 let repo: Repository | undefined;
@@ -26,6 +26,8 @@ interface FieldsState {
   remove: (id: string) => Promise<void>;
   loadRotations: (fieldId: string) => Promise<Rotation[]>;
   saveRotation: (rotation: Rotation) => Promise<Rotation>;
+  exportBackup: () => Promise<Backup>;
+  importBackup: (json: unknown) => Promise<{ fields: number; rotations: number }>;
 }
 
 const messageOf = (e: unknown) =>
@@ -102,6 +104,16 @@ export const useFieldsStore = create<FieldsState>()((set, get) => ({
     });
     return saved;
   },
+
+  async exportBackup() {
+    return getRepository().exportAll();
+  },
+
+  async importBackup(json: unknown) {
+    const result = await getRepository().importAll(json);
+    await get().load();
+    return result;
+  },
 }));
 
 export const EMPTY_ROTATIONS: Rotation[] = [];
@@ -112,22 +124,21 @@ export function useFieldRotations(fieldId: string): Rotation[] {
   return rotations ?? EMPTY_ROTATIONS;
 }
 
-/** Derives the 4-step state for a field from the actual store data. */
+/** Derives the step state for a field from the actual store data. */
 export function deriveStepStates(field: Field | undefined, fieldRotations: Rotation[] | undefined): Record<StepId, StepState> {
   if (!field) {
-    return {
-      location: "not-started",
-      rotation: "not-started",
-      conditions: "not-started",
-      compare: "not-started",
-    };
+    return { location: "not-started", rotation: "not-started", profile: "not-started", conditions: "not-started", compare: "not-started" };
   }
 
-  const hasRotation = fieldRotations && fieldRotations.length > 0 && fieldRotations[0].slots.length > 0;
+  const hasRotation = Boolean(fieldRotations && fieldRotations.length > 0 && fieldRotations[0].slots.length > 0);
+  const hasPriorities = (field.priorities?.order.length ?? 0) > 0;
 
   return {
-    location: "done",
+    // a location is only "done" once the farmer has said it is their field
+    location: field.locationConfirmed ? "done" : "needs-input",
     rotation: hasRotation ? "done" : "needs-input",
+    // priorities are optional, so this step never blocks the others
+    profile: hasPriorities ? "done" : hasRotation ? "needs-input" : "not-started",
     conditions: hasRotation ? "done" : "not-started",
     compare: hasRotation ? "done" : "not-started",
   };

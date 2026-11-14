@@ -1,5 +1,14 @@
 import { z } from "zod";
-import type { Field, Rotation, RotationSlot, SoilOverride } from "../types";
+import type {
+  CropEconomics,
+  FarmConstraints,
+  FarmerPriorities,
+  Field,
+  Rotation,
+  RotationSlot,
+  SoilObservation,
+  SoilOverride,
+} from "../types";
 
 const lngLat = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 
@@ -36,6 +45,47 @@ export const soilOverrideSchema: z.ZodType<SoilOverride> = z.object({
   testedOn: isoDate.optional(),
 });
 
+const irrigationSchema = z.enum(["none", "supplemental", "full"]);
+const priorityIdSchema = z.enum(["water", "soil", "income", "forage", "lower-inputs"]);
+const monthDay = z.string().regex(/^\d{2}-\d{2}$/, "Use a date like 06-15.");
+
+export const soilObservationSchema: z.ZodType<SoilObservation> = z.object({
+  id: z.string().min(1),
+  property: z.enum(["ph", "texture", "drainage", "salinity", "organic-carbon", "available-water-capacity", "root-depth", "nitrogen"]),
+  value: z.union([z.number(), z.string().min(1)]),
+  units: z.string().max(20),
+  depthCm: z.tuple([z.number().min(0), z.number().min(0)]),
+  date: isoDate,
+  method: z.enum(["laboratory", "field-kit", "soil-map", "farmer-estimate"]),
+  source: z.string().trim().min(1, "Say where this value came from.").max(120),
+});
+
+export const constraintsSchema: z.ZodType<FarmConstraints> = z.object({
+  irrigation: z.object({ access: irrigationSchema, amountMm: z.number().min(0).max(5000).optional() }).optional(),
+  equipment: z
+    .array(z.enum(["hand-tools", "animal-traction", "two-wheel-tractor", "tractor", "seeder", "harvester"]))
+    .optional(),
+  labour: z.enum(["low", "medium", "high"]).optional(),
+  marketAccess: z.enum(["poor", "fair", "good"]).optional(),
+  preferredCropIds: z.array(z.string()).optional(),
+  excludedCropIds: z.array(z.string()).optional(),
+  plantingWindow: z.object({ from: monthDay, to: monthDay }).optional(),
+});
+
+export const prioritiesSchema: z.ZodType<FarmerPriorities> = z.object({
+  order: z.array(priorityIdSchema).max(5),
+  weights: z.partialRecord(priorityIdSchema, z.number().min(0).max(1)),
+});
+
+const range = z.tuple([z.number().min(0), z.number().min(0)]);
+export const economicsSchema: z.ZodType<CropEconomics> = z.object({
+  cropId: z.string().min(1),
+  yieldKgHa: range.optional(),
+  priceMmkPerKg: range.optional(),
+  costMmkPerHa: range.optional(),
+  source: z.string().trim().min(1, "Say where these numbers came from.").max(120),
+});
+
 export const fieldSchema: z.ZodType<Field> = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1, "Give the field a name.").max(80),
@@ -45,6 +95,13 @@ export const fieldSchema: z.ZodType<Field> = z.object({
   samplePoints: z.array(lngLat).min(1).max(5),
   irrigation: z.enum(["none", "supplemental", "full"]),
   soilOverride: soilOverrideSchema.optional(),
+  soilObservations: z.array(soilObservationSchema).max(100).optional(),
+  region: z.enum(["ayeyarwady", "magway", "shan", "unsupported"]).optional(),
+  locationConfirmed: z.boolean().optional(),
+  confirmedAt: isoDateTime.optional(),
+  constraints: constraintsSchema.optional(),
+  priorities: prioritiesSchema.optional(),
+  economics: z.array(economicsSchema).max(40).optional(),
   localNotes: z.string().max(2000).optional(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
@@ -88,7 +145,8 @@ export const rotationSchema: z.ZodType<Rotation> = z.object({
 /** What export writes and import reads, so a field can go to an adviser. */
 export const backupSchema = z.object({
   app: z.literal("nasa-farming-app"),
-  version: z.literal(1),
+  /** 1 is the original format. 2 adds region, confirmation, constraints, priorities, soil observations and economics. */
+  version: z.union([z.literal(1), z.literal(2)]),
   exportedAt: isoDateTime,
   fields: z.array(fieldSchema),
   rotations: z.array(rotationSchema),

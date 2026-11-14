@@ -90,7 +90,7 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
           ...(cropUse
             ? [
                 { swatch: <span className="inline-block h-0 w-4 shrink-0 border-t-2 border-dashed border-ink" />, label: "Crop water use (estimate)" },
-                { swatch: <span className={cn(swatchBox, "bg-drought-soft")} />, label: "Rain falls short" },
+                { swatch: <span className={cn(swatchBox, "bg-drought-soft border border-dashed border-drought")} />, label: "Shortfall (water gap)" },
               ]
             : []),
         ]}
@@ -109,7 +109,16 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
               ))}
               {rain.map((r, i) => (
                 <g key={MONTHS[i]} transform={`translate(${i * band},0)`}>
-                  {short[i] ? <rect width={band} height={innerH} className="fill-drought-soft" /> : null}
+                  {short[i] && cropUse ? (
+                    <rect
+                      x={band * 0.2}
+                      width={band * 0.6}
+                      y={y(cropUse[i])}
+                      height={Math.max(y(r) - y(cropUse[i]), 0)}
+                      rx={2}
+                      className="fill-drought-soft stroke-drought/60 stroke-1 stroke-dashed"
+                    />
+                  ) : null}
                   <rect
                     x={band * 0.2}
                     width={band * 0.6}

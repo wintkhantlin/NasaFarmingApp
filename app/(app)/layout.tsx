@@ -15,7 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-line bg-surface-raised print:hidden">
+      <header className="sticky top-0 z-30 bg-surface-raised shadow-xs print:hidden">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:h-16 sm:px-6">
           <Link
             href="/"
@@ -37,7 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-line bg-surface-raised print:hidden">
+      <footer className="bg-surface-raised print:hidden">
         <p className="mx-auto w-full max-w-6xl px-4 py-4 text-body-sm text-ink-muted sm:px-6">
           {copy.home.storedLocally}
         </p>

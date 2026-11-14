@@ -3,10 +3,10 @@ import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
 import { CheckGlyph, ClockGlyph } from "./icons";
 
-export type StepId = "location" | "rotation" | "conditions" | "compare";
+export type StepId = "location" | "rotation" | "profile" | "conditions" | "compare";
 export type StepState = "done" | "needs-input" | "loading" | "not-started";
 
-const ORDER: StepId[] = ["location", "rotation", "conditions", "compare"];
+const ORDER: StepId[] = ["location", "rotation", "profile", "conditions", "compare"];
 
 const STATE_WORDS: Record<StepState, string> = {
   done: copy.stepState.done,
@@ -18,6 +18,7 @@ const STATE_WORDS: Record<StepState, string> = {
 const HREF: Record<StepId, (id: string) => string> = {
   location: (id) => `/fields/${id}`,
   rotation: (id) => `/fields/${id}/rotation`,
+  profile: (id) => `/fields/${id}/profile`,
   conditions: (id) => `/fields/${id}/conditions`,
   compare: (id) => `/fields/${id}/compare`,
 };
@@ -32,13 +33,13 @@ export interface StepperProps {
 }
 
 /**
- * The four steps of a field and where each one stands. One list that reads as
+ * The five steps of a field and where each one stands. One list that reads as
  * a progress strip on phones and as a left rail from the lg breakpoint.
  */
 export function Stepper({ fieldId, current, states, available, className }: StepperProps) {
   return (
     <nav aria-label="Steps for this field" className={className}>
-      <ol className="grid grid-cols-4 gap-1.5 lg:grid-cols-1 lg:gap-1">
+      <ol className="grid grid-cols-5 gap-1.5 lg:grid-cols-1 lg:gap-1">
         {ORDER.map((id, i) => {
           const isCurrent = id === current;
           const isAvailable = available ? available[id] : true;

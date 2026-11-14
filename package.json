@@ -21,6 +21,7 @@
     "d3-scale": "^4.0.3",
     "d3-shape": "^3.2.1",
     "date-fns": "^4.4.0",
+    "geotiff": "^3.0.5",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^1.72.0",
     "mapbox-gl": "^3.35.0",

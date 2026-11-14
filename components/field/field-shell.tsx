@@ -10,13 +10,14 @@ import { deriveStepStates, useFieldRotations, useFieldsStore } from "@/lib/store
 function stepFromPath(pathname: string, fieldId: string): StepId {
   const rest = pathname.replace(`/fields/${fieldId}`, "").replace(/^\//, "");
   if (rest.startsWith("rotation")) return "rotation";
+  if (rest.startsWith("profile")) return "profile";
   if (rest.startsWith("conditions")) return "conditions";
   if (rest.startsWith("compare") || rest.startsWith("report")) return "compare";
   return "location";
 }
 
 /**
- * The workspace around one field: a breadcrumb, then the four steps (a strip
+ * The workspace around one field: a breadcrumb, then the five steps (a strip
  * above the screen on phones, a rail beside it from lg), then the screen.
  * Each screen supplies only its own title and content.
  */

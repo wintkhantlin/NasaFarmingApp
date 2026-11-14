@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import type { Hazard } from "./icons";
 import { Panel } from "./panel";
-import { RiskChip } from "./risk-chip";
+import { RiskChip, type ChipTone } from "./risk-chip";
 import { SourceLine, type SourceLineProps } from "./source-line";
 
 export interface RecommendationProps {
@@ -12,7 +11,7 @@ export interface RecommendationProps {
   headline: string;
   /** One or two sentences naming the evidence. */
   reason?: string;
-  risks?: Array<{ hazard: Hazard; label: string }>;
+  risks?: Array<{ hazard: ChipTone; label: string }>;
   source?: SourceLineProps;
   /** Actions. At most one primary button. */
   children?: ReactNode;

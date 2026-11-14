@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { fetchPowerClimatology } from "@/lib/nasa/power";
-import { fetchSoilGrids } from "@/lib/soil/soilgrids";
-import { hargreavesEt0 } from "@/lib/engine/et0";
-
-const DAYS_IN_MONTH = [31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-/** Day of year at the middle of each month, for the radiation term of ET0. */
-const MID_MONTH_DOY = [15, 46, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
+import { monthlyNormals, toDailyRecords } from "@/lib/engine/climate";
+import { BASELINE } from "@/lib/engine/data";
+import { dailyEt0 } from "@/lib/engine/water";
+import { imergBackfill } from "@/lib/server/imerg-backfill";
+import { loadSoil } from "@/lib/server/soil";
+import { loadWeather } from "@/lib/server/weather";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Long-term conditions around a field: NASA POWER climatology and ISRIC
- * SoilGrids. A source that fails is reported as missing, never filled with
- * made-up numbers, so the screen can say what it doesn't know.
+ * Long-term conditions around a field: NASA POWER daily history (UTC days, eight parameters), IMERG
+ * daily rainfall for the field's 0.1 degree cell when an Earthdata token is set, and ISRIC SoilGrids.
+ * A source that fails is reported as missing, never filled with made-up numbers, so the screen can
+ * say what it doesn't know.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ fieldId: string }> },
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ fieldId: string }> }) {
   const { fieldId } = await params;
   const { searchParams } = new URL(request.url);
   const lng = parseFloat(searchParams.get("lng") ?? "");
@@ -27,60 +24,76 @@ export async function GET(
     return NextResponse.json({ error: "Missing or invalid coordinates" }, { status: 400 });
   }
 
-  const [climateResult, soilResult] = await Promise.allSettled([
-    fetchPowerClimatology(
-      lat,
-      lng,
-      ["T2M", "T2M_MAX", "T2M_MIN", "PRECTOTCORR", "ALLSKY_SFC_SW_DWN", "GWETROOT"],
-      { signal: AbortSignal.timeout(10_000) },
-    ),
-    fetchSoilGrids(lat, lng, { signal: AbortSignal.timeout(12_000) }),
+  const [weatherResult, soilResult] = await Promise.all([
+    loadWeather(lat, lng),
+    loadSoil(lat, lng),
   ]);
+  const weather = weatherResult.weather;
+  const soil = soilResult.soil;
+  if (soilResult.error) console.warn("SoilGrids fetch failed:", soilResult.error);
+  if (weatherResult.error) console.warn("NASA POWER fetch failed:", weatherResult.error);
 
-  const climatology = climateResult.status === "fulfilled" ? climateResult.value : null;
-  const soil = soilResult.status === "fulfilled" ? soilResult.value : null;
-  if (climateResult.status === "rejected") console.warn("NASA POWER fetch failed:", climateResult.reason);
-  if (soilResult.status === "rejected") console.warn("SoilGrids fetch failed:", soilResult.reason);
+  const imerg = await imergBackfill(lat, lng, { start: `${BASELINE.startYear}-01-01`, end: `${BASELINE.endYear}-12-31` });
 
-  // POWER climatology reports rainfall as a mean rate in mm per day.
-  const rainPerDay = climatology?.months.PRECTOTCORR;
-  const monthlyRainMm = rainPerDay?.map((mmDay, i) => Math.round(mmDay * DAYS_IN_MONTH[i]));
-  const annualRainMm = monthlyRainMm?.reduce((a, b) => a + b, 0);
-
-  const monthlyTmaxC = climatology?.months.T2M_MAX?.map(round1);
-  const monthlyTminC = climatology?.months.T2M_MIN?.map(round1);
-  const monthlyEt0Mm =
-    monthlyTmaxC && monthlyTminC
-      ? monthlyTmaxC.map((tmax, i) =>
-          Math.round(hargreavesEt0(lat, MID_MONTH_DOY[i], tmax, monthlyTminC[i]) * DAYS_IN_MONTH[i]),
-        )
-      : undefined;
-
-  const rootWetness = climatology?.annual.GWETROOT;
+  // monthly summary of the baseline years, for the charts on the Conditions screen
+  let monthly: Record<string, number[] | undefined> = {};
+  let annualRainMm: number | undefined;
+  if (weather) {
+    const records = toDailyRecords(weather).filter((r) => r.year >= BASELINE.startYear && r.year <= BASELINE.endYear);
+    const normals = monthlyNormals(records);
+    const et0 = dailyEt0(records, weather.latitude, weather.elevationM ?? 0);
+    const et0ByMonth = Array.from({ length: 12 }, () => 0);
+    const years = new Set(records.map((r) => r.year)).size || 1;
+    for (const d of et0) if (d.mm !== null) et0ByMonth[Number(d.date.slice(5, 7)) - 1] += d.mm / years;
+    monthly = {
+      monthlyRainMm: normals.map((n) => Math.round(n.rainMm)),
+      monthlyTmaxC: normals.map((n) => round1(n.tmaxC)),
+      monthlyTminC: normals.map((n) => round1(n.tminC)),
+      monthlyEt0Mm: et0ByMonth.map(Math.round),
+    };
+    annualRainMm = (monthly.monthlyRainMm as number[]).reduce((a, b) => a + b, 0);
+  }
 
   return NextResponse.json({
     fieldId,
     fetchedAt: new Date().toISOString(),
-    climateAvailable: Boolean(monthlyRainMm),
+    climateAvailable: Boolean(weather),
     soilAvailable: Boolean(soil),
     annualRainMm,
-    monthlyRainMm,
-    monthlyTmaxC,
-    monthlyTminC,
-    monthlyEt0Mm,
-    rootWetnessPct: typeof rootWetness === "number" ? Math.round(rootWetness * 100) : undefined,
+    ...monthly,
     soil,
+    weather,
+    power: {
+      status: weather ? "ok" : "unavailable",
+      version: weather?.meta.apiVersion ?? null,
+      fillValue: weather?.meta.fillValue ?? -999,
+      timeStandard: weather?.meta.timeStandard ?? null,
+      sources: weather?.meta.sources ?? [],
+      retrievedAt: weatherResult.retrievedAt,
+      start: weather?.dates[0] ?? null,
+      end: weather?.dates[weather.dates.length - 1] ?? null,
+      elevationM: weather?.elevationM ?? null,
+      units: weather?.meta.units ?? {},
+    },
+    imerg: {
+      status: imerg.status,
+      expected: imerg.expected,
+      covered: imerg.covered,
+      partialDays: imerg.partialDays,
+      granules: imerg.granules,
+      days: imerg.days,
+      error: imerg.error,
+    },
     sources: [
       {
         dataset: "NASA POWER",
-        resolution: "0.5° (MERRA-2, bias-corrected)",
-        dates: "long-term monthly means",
+        resolution: "about 0.5° x 0.625° (MERRA-2, CERES), daily, UTC days",
+        dates: `${BASELINE.startYear} to ${BASELINE.endYear}`,
       },
-      {
-        dataset: "ISRIC SoilGrids v2",
-        resolution: "250 m",
-        dates: "0 to 30 cm",
-      },
+      ...(imerg.status === "ok" || imerg.status === "pending"
+        ? [{ dataset: "GPM IMERG Final daily V07", resolution: "0.1°", dates: `${imerg.covered} of ${imerg.expected} days retrieved` }]
+        : []),
+      { dataset: "ISRIC SoilGrids v2", resolution: "250 m", dates: "0 to 30 cm" },
     ],
   });
 }

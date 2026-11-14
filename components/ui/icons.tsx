@@ -97,10 +97,23 @@ export function InfoGlyph(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ThermometerGlyph(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Glyph {...props}>
+      <path d="M9.5 7.5V3a1.5 1.5 0 0 0-3 0v4.5a3 3 0 1 0 3 0Z" />
+      <path d="M8 4.5v3.5" />
+    </Glyph>
+  );
+}
+
 export function UpArrowGlyph(props: SVGProps<SVGSVGElement>) {
   return <Glyph d="M8 13V3M4 7l4-4 4 4" strokeWidth={1.8} {...props} />;
 }
 
 export function DownArrowGlyph(props: SVGProps<SVGSVGElement>) {
   return <Glyph d="M8 3v10M4 9l4 4 4-4" strokeWidth={1.8} {...props} />;
+}
+
+export function DownloadGlyph(props: SVGProps<SVGSVGElement>) {
+  return <Glyph d="M8 2.5v8.5M4.5 7.5L8 11l3.5-3.5M2.5 13.5h11" strokeWidth={1.8} {...props} />;
 }

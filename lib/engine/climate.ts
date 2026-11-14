@@ -14,6 +14,14 @@ export interface DailyRecord {
   rainMm: number | null;
   et0Mm: number | null;
   rootWetness: number | null; // 0 to 1
+  /** Daily mean relative humidity at 2 m, %. POWER RH2M. */
+  rhPct?: number | null;
+  /** Wind speed at 2 m, m/s. POWER WS2M. */
+  wind2?: number | null;
+  /** Incoming shortwave radiation, MJ/m2/day. Not net radiation. POWER ALLSKY_SFC_SW_DWN. */
+  swMj?: number | null;
+  /** Surface pressure, kPa. POWER PS. */
+  psKpa?: number | null;
 }
 
 export function toDailyRecords(w: DailyWeather): DailyRecord[] {
@@ -35,6 +43,10 @@ export function toDailyRecords(w: DailyWeather): DailyRecord[] {
       rainMm: s.PRECTOTCORR?.[i] ?? null,
       et0Mm: tmax !== null && tmin !== null ? hargreavesEt0(w.latitude, doy, tmax, tmin) : null,
       rootWetness: s.GWETROOT?.[i] ?? null,
+      rhPct: s.RH2M?.[i] ?? null,
+      wind2: s.WS2M?.[i] ?? null,
+      swMj: s.ALLSKY_SFC_SW_DWN?.[i] ?? null,
+      psKpa: s.PS?.[i] ?? null,
     };
   });
 }

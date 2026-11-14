@@ -1,6 +1,6 @@
-import type { Crop, TextureClass } from "../types";
+import type { Crop, TextureClass } from "../../types";
 
-const ALL_TEXTURES: TextureClass[] = [
+export const ALL_TEXTURES: TextureClass[] = [
   "clay",
   "silty clay",
   "sandy clay",
@@ -15,7 +15,7 @@ const ALL_TEXTURES: TextureClass[] = [
   "sand",
 ];
 
-const LOAM_SANDY_TEXTURES: TextureClass[] = [
+export const LOAM_SANDY_TEXTURES: TextureClass[] = [
   "clay loam",
   "sandy clay loam",
   "loam",
@@ -24,101 +24,11 @@ const LOAM_SANDY_TEXTURES: TextureClass[] = [
   "loamy sand",
 ];
 
-export const CROPS: Crop[] = [
-  {
-    id: "maize",
-    names: { common: "Maize (Corn)", local: ["Corn", "Mahangu"], scientific: "Zea mays" },
-    family: "Poaceae",
-    group: "cereal",
-    cycleDays: { min: 90, typ: 120, max: 150 },
-    gdd: { baseC: 10, toMaturity: 1400 },
-    temp: { absMinC: 8, optMinC: 18, optMaxC: 32, absMaxC: 38, frostKill: true, heatFloweringC: 35 },
-    water: {
-      seasonMm: { min: 450, opt: 650, max: 900 },
-      droughtTolerance: 2,
-      waterloggingTolerance: 2,
-    },
-    kc: { ini: 0.3, mid: 1.2, end: 0.5 },
-    stageFractions: { ini: 0.15, dev: 0.3, mid: 0.35, late: 0.2 },
-    rootDepthM: 1.2,
-    soil: {
-      phMin: 5.5,
-      phOpt: [6.0, 7.2],
-      phMax: 8.0,
-      textures: ALL_TEXTURES,
-      salinityTolerance: 2,
-      drainage: ["moderate", "good"],
-    },
-    nDemandKgHa: 160,
-    residue: { tHa: 7.5, cnRatio: 60 },
-    pestGroups: ["stem-borer", "armyworm", "rootworm"],
-    diseaseGroups: ["foliar-blight", "rust", "smut"],
-    sources: [{ field: "FAO-56", ref: "Crop water guidelines Table 12" }],
-  },
-  {
-    id: "soybean",
-    names: { common: "Soybean", local: ["Soya"], scientific: "Glycine max" },
-    family: "Fabaceae",
-    group: "legume",
-    cycleDays: { min: 95, typ: 125, max: 140 },
-    gdd: { baseC: 10, toMaturity: 1250 },
-    temp: { absMinC: 7, optMinC: 20, optMaxC: 30, absMaxC: 36, frostKill: true, heatFloweringC: 34 },
-    water: {
-      seasonMm: { min: 400, opt: 550, max: 750 },
-      droughtTolerance: 3,
-      waterloggingTolerance: 2,
-    },
-    kc: { ini: 0.3, mid: 1.15, end: 0.5 },
-    stageFractions: { ini: 0.15, dev: 0.25, mid: 0.4, late: 0.2 },
-    rootDepthM: 1.0,
-    soil: {
-      phMin: 5.8,
-      phOpt: [6.2, 7.0],
-      phMax: 7.8,
-      textures: ALL_TEXTURES,
-      salinityTolerance: 2,
-      drainage: ["moderate", "good"],
-    },
-    nFixKgHa: 80,
-    nDemandKgHa: 60,
-    residue: { tHa: 3.5, cnRatio: 30 },
-    pestGroups: ["stink-bug", "aphids"],
-    diseaseGroups: ["sudden-death", "rust", "white-mold"],
-    sources: [{ field: "FAO-56", ref: "Crop water guidelines Table 12" }],
-  },
-  {
-    id: "groundnut",
-    names: { common: "Groundnut (Peanut)", local: ["Peanut", "Mani"], scientific: "Arachis hypogaea" },
-    family: "Fabaceae",
-    group: "legume",
-    cycleDays: { min: 90, typ: 120, max: 140 },
-    gdd: { baseC: 13, toMaturity: 1350 },
-    temp: { absMinC: 10, optMinC: 22, optMaxC: 32, absMaxC: 38, frostKill: true, heatFloweringC: 36 },
-    water: {
-      seasonMm: { min: 350, opt: 500, max: 700 },
-      droughtTolerance: 4,
-      waterloggingTolerance: 1,
-    },
-    kc: { ini: 0.4, mid: 1.15, end: 0.6 },
-    stageFractions: { ini: 0.2, dev: 0.3, mid: 0.35, late: 0.15 },
-    rootDepthM: 0.9,
-    soil: {
-      phMin: 5.3,
-      phOpt: [6.0, 6.8],
-      phMax: 7.5,
-      textures: LOAM_SANDY_TEXTURES,
-      salinityTolerance: 2,
-      drainage: ["good", "excessive"],
-    },
-    nFixKgHa: 60,
-    nDemandKgHa: 40,
-    residue: { tHa: 2.8, cnRatio: 25 },
-    pestGroups: ["thrips", "aphid", "leafminer"],
-    diseaseGroups: ["leaf-spot", "rosette-virus", "aflatoxin"],
-    sources: [{ field: "ICRISAT", ref: "Groundnut physiology and drought guide" }],
-  },
+/** US-oriented and other reference crops. Selectable in the editor, never used to build strategies. */
+export const REFERENCE_CROPS: Crop[] = [
   {
     id: "wheat",
+    scope: "reference-only",
     names: { common: "Wheat (Winter / Spring)", local: ["Trigo", "Gandum"], scientific: "Triticum aestivum" },
     family: "Poaceae",
     group: "cereal",
@@ -149,6 +59,7 @@ export const CROPS: Crop[] = [
   },
   {
     id: "sorghum",
+    scope: "reference-only",
     names: { common: "Sorghum", local: ["Milo", "Jowar"], scientific: "Sorghum bicolor" },
     family: "Poaceae",
     group: "cereal",
@@ -179,6 +90,7 @@ export const CROPS: Crop[] = [
   },
   {
     id: "cowpea",
+    scope: "reference-only",
     names: { common: "Cowpea", local: ["Black-eyed pea", "Niebe"], scientific: "Vigna unguiculata" },
     family: "Fabaceae",
     group: "legume",
@@ -211,6 +123,7 @@ export const CROPS: Crop[] = [
   },
   {
     id: "crimson-clover",
+    scope: "reference-only",
     names: { common: "Crimson Clover (Cover Crop)", local: ["Clover"], scientific: "Trifolium incarnatum" },
     family: "Fabaceae",
     group: "cover",
@@ -242,26 +155,3 @@ export const CROPS: Crop[] = [
     sources: [{ field: "SARE", ref: "Managing Cover Crops Profitably 3rd Ed" }],
   },
 ];
-
-export function getCropById(id: string): Crop | undefined {
-  return CROPS.find((c) => c.id === id);
-}
-
-export function getDefaultTypicalDates(cropId: string, baseYear = new Date().getFullYear()): { plantDate: string; harvestDate: string } {
-  const crop = getCropById(cropId);
-  const cycleDays = crop ? crop.cycleDays.typ : 120;
-
-  // Default summer crop season (mid-May to mid-September) or winter crop
-  const isWinter = cropId === "wheat" || cropId === "crimson-clover";
-  const startMonth = isWinter ? 10 : 5; // Oct or May
-  const startDay = 15;
-
-  const plant = new Date(baseYear, startMonth - 1, startDay);
-  const harvest = new Date(plant.getTime() + cycleDays * 24 * 60 * 60 * 1000);
-
-  const format = (d: Date) => d.toISOString().split("T")[0];
-  return {
-    plantDate: format(plant),
-    harvestDate: format(harvest),
-  };
-}

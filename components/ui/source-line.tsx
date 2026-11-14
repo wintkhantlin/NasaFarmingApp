@@ -27,7 +27,7 @@ export function SourceLine({ dataset, resolution, dates, stale, detail, classNam
           <span>{p}</span>
         </span>
       ))}
-      {stale ? <span className="font-semibold text-drought">Older than usual</span> : null}
+      {stale ? <span className="font-sans font-medium text-drought">Older than usual</span> : null}
     </div>
   );
 

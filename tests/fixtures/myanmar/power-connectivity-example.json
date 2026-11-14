@@ -1,0 +1,106 @@
+{
+  "note": "API connectivity example near Magway; this is not a verified farm and must not be a default farm location.",
+  "url": "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M%2CT2M_MAX%2CT2M_MIN%2CRH2M%2CWS2M%2CALLSKY_SFC_SW_DWN%2CPRECTOTCORR%2CPS&community=AG&longitude=94.95&latitude=20.15&start=20250101&end=20250102&format=JSON&time-standard=UTC",
+  "response": {
+    "type": "Feature",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [
+        94.95,
+        20.15,
+        166.35
+      ]
+    },
+    "properties": {
+      "parameter": {
+        "T2M": {
+          "20250101": 24.06,
+          "20250102": 24.52
+        },
+        "T2M_MAX": {
+          "20250101": 32.84,
+          "20250102": 32.65
+        },
+        "T2M_MIN": {
+          "20250101": 15.97,
+          "20250102": 16.29
+        },
+        "RH2M": {
+          "20250101": 47.72,
+          "20250102": 45.45
+        },
+        "WS2M": {
+          "20250101": 0.86,
+          "20250102": 0.75
+        },
+        "ALLSKY_SFC_SW_DWN": {
+          "20250101": 17.6,
+          "20250102": 16.3
+        },
+        "PRECTOTCORR": {
+          "20250101": 0.0,
+          "20250102": 0.0
+        },
+        "PS": {
+          "20250101": 99.23,
+          "20250102": 99.31
+        }
+      }
+    },
+    "header": {
+      "title": "NASA/POWER Source Native Resolution Daily Data",
+      "api": {
+        "version": "v2.10.3",
+        "name": "POWER Daily API"
+      },
+      "sources": [
+        "MERRA2",
+        "SYN1DEG",
+        "POWER"
+      ],
+      "fill_value": -999.0,
+      "time_standard": "UTC",
+      "start": "20250101",
+      "end": "20250102"
+    },
+    "messages": [],
+    "parameters": {
+      "T2M": {
+        "units": "C",
+        "longname": "Temperature at 2 Meters"
+      },
+      "T2M_MAX": {
+        "units": "C",
+        "longname": "Temperature at 2 Meters Maximum"
+      },
+      "T2M_MIN": {
+        "units": "C",
+        "longname": "Temperature at 2 Meters Minimum"
+      },
+      "RH2M": {
+        "units": "%",
+        "longname": "Relative Humidity at 2 Meters"
+      },
+      "WS2M": {
+        "units": "m/s",
+        "longname": "Wind Speed at 2 Meters"
+      },
+      "ALLSKY_SFC_SW_DWN": {
+        "units": "MJ/m^2/day",
+        "longname": "All Sky Surface Shortwave Downward Irradiance"
+      },
+      "PRECTOTCORR": {
+        "units": "mm/day",
+        "longname": "Precipitation Corrected"
+      },
+      "PS": {
+        "units": "kPa",
+        "longname": "Surface Pressure"
+      }
+    },
+    "times": {
+      "data": 0.986,
+      "process": 0.01
+    }
+  }
+}

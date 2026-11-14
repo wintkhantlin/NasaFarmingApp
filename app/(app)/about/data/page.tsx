@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CheckGlyph, ClockGlyph, CrossGlyph } from "@/components/ui/icons";
+import { CheckGlyph, ClockGlyph } from "@/components/ui/icons";
 import { Panel } from "@/components/ui/panel";
 import { SourceLine } from "@/components/ui/source-line";
 import { cn } from "@/lib/cn";
@@ -7,7 +7,7 @@ import { copy } from "@/lib/copy/en";
 
 export const metadata: Metadata = { title: "About the data" };
 
-type Status = "Working" | "Not checked live" | "Not connected";
+type Status = "Working" | "Needs Earthdata login";
 
 const SOURCES: Array<{
   name: string;
@@ -17,46 +17,66 @@ const SOURCES: Array<{
   note: string;
 }> = [
   {
-    name: "Weather and soil wetness",
-    gives: "Temperature, rain, sunshine, wind, humidity and root-zone wetness, daily.",
-    detail: { dataset: "NASA POWER", resolution: "about 0.5°", dates: "1981 to today" },
+    name: "Weather",
+    gives: "Air temperature (mean, highest, lowest), humidity, wind, sunshine energy, rain and air pressure, daily.",
+    detail: { dataset: "NASA POWER daily point API", resolution: "about 0.5° x 0.625°", dates: "2016 to 2025, UTC days" },
     status: "Working",
-    note: "Rainfall here is the MERRA-2 bias-corrected series, not satellite rainfall.",
+    note: "Days are UTC days, not Myanmar local days. A missing value is missing, never zero rain. Rainfall here is the MERRA-2 bias-corrected series until satellite rainfall is connected.",
   },
   {
     name: "Soil properties",
     gives: "Clay, sand, silt, acidity, organic carbon and more, to 30 cm.",
     detail: { dataset: "ISRIC SoilGrids v2 (not NASA)", resolution: "250 m", dates: "modelled map" },
     status: "Working",
-    note: "Some places, such as towns and water, have no value. Enter a soil test if you have one.",
-  },
-  {
-    name: "Soil moisture from satellite",
-    gives: "How wet the ground was in each past season.",
-    detail: { dataset: "NASA SMAP", resolution: "9 km", dates: "2015 to today" },
-    status: "Not checked live",
-    note: "Needs a NASA Earthdata login. A 9 km pixel is larger than most fields.",
-  },
-  {
-    name: "Crop greenness",
-    gives: "When crops grew on and around your field in past years.",
-    detail: { dataset: "MODIS vegetation index", resolution: "250 m", dates: "2000 to today" },
-    status: "Not checked live",
-    note: "Needs a NASA Earthdata login.",
+    note: "Some places, such as towns and water, have no value. A soil test you enter always replaces it.",
   },
   {
     name: "Satellite rainfall",
-    gives: "Rain measured from space.",
-    detail: { dataset: "GPM IMERG", resolution: "0.1°", dates: "2000 to today" },
-    status: "Not connected",
-    note: "NASA retired the simple point service this app planned to use. It will return once access is set up.",
+    gives: "Daily rain estimated from satellites, used as the main rainfall once it covers the whole record.",
+    detail: { dataset: "GPM IMERG Final daily V07", resolution: "0.1°", dates: "2016 to 2025" },
+    status: "Needs Earthdata login",
+    note: "The search for files works. Reading values needs an Earthdata token on the server, and the first live read has not been run yet. Days with fewer than 48 half-hour inputs are flagged partial.",
+  },
+  {
+    name: "Soil moisture from satellite",
+    gives: "How wet the surface and the top metre of soil were, as regional context.",
+    detail: { dataset: "SMAP L4 (SPL4SMGP v008)", resolution: "9 km, three-hourly", dates: "through 2025" },
+    status: "Needs Earthdata login",
+    note: "A 9 km model value, larger than most fields. It never overrides a measurement from your field. Data from May to July 2026 has a notice and is left out.",
+  },
+  {
+    name: "Field vegetation",
+    gives: "How green the field was on clear days, with cloud, shadow, snow and water removed.",
+    detail: { dataset: "HLSL30 (Harmonized Landsat Sentinel-2)", resolution: "30 m", dates: "available clear days" },
+    status: "Needs Earthdata login",
+    note: "Greenness is not bare soil, and cloudy days are gaps, not zero.",
+  },
+  {
+    name: "Terrain",
+    gives: "Ground height, and from it the slope of the field.",
+    detail: { dataset: "SRTMGL1", resolution: "about 30 m", dates: "February 2000" },
+    status: "Needs Earthdata login",
+    note: "Slope needs neighbouring cells, so a single pin has none. Slope is not soil loss.",
+  },
+  {
+    name: "Regional vegetation history (optional)",
+    gives: "16-day greenness over 250 m cells, for regional context.",
+    detail: { dataset: "MOD13Q1 v061", resolution: "250 m", dates: "16-day composites" },
+    status: "Needs Earthdata login",
+    note: "Only used if it adds to the 30 m view. Mixed land cover can hide small fields.",
+  },
+  {
+    name: "Surface temperature and water use (optional)",
+    gives: "Land-surface temperature and modelled water use on dates the satellite passed over.",
+    detail: { dataset: "ECOSTRESS LSTE and JET", resolution: "about 70 m", dates: "available passes" },
+    status: "Needs Earthdata login",
+    note: "Surface temperature is not air temperature, and water use is in W/m², not mm.",
   },
 ];
 
 const STATUS_ICON = {
   Working: <CheckGlyph className="text-healthy" />,
-  "Not checked live": <ClockGlyph className="text-drought" />,
-  "Not connected": <CrossGlyph className="text-ink-muted" />,
+  "Needs Earthdata login": <ClockGlyph className="text-drought" />,
 } satisfies Record<Status, React.ReactNode>;
 
 export default function AboutDataPage() {
@@ -102,6 +122,42 @@ export default function AboutDataPage() {
       </ul>
 
       <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
+
+      <section aria-labelledby="gloss" className="flex flex-col gap-3">
+        <h2 id="gloss" className="text-headline text-ink">
+          {copy.glossary.title}
+        </h2>
+        <dl className="m-0 grid gap-4 md:grid-cols-2">
+          {copy.glossary.items.map((g) => (
+            <Panel as="div" key={g.term} className="flex flex-col gap-1 p-4">
+              <dt className="text-label text-ink">{g.term}</dt>
+              <dd className="m-0 text-body-sm text-ink-muted">{g.body}</dd>
+            </Panel>
+          ))}
+        </dl>
+      </section>
+
+      <section aria-labelledby="ground" className="flex flex-col gap-3">
+        <h2 id="ground" className="text-headline text-ink">
+          {copy.glossary.satelliteVsGround.title}
+        </h2>
+        <dl className="m-0 grid gap-4 md:grid-cols-2">
+          {copy.glossary.satelliteVsGround.items.map((g) => (
+            <Panel as="div" key={g.term} className="flex flex-col gap-1 p-4">
+              <dt className="text-label text-ink">{g.term}</dt>
+              <dd className="m-0 text-body-sm text-ink-muted">{g.body}</dd>
+            </Panel>
+          ))}
+        </dl>
+      </section>
+
+      <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+        Region boundaries for Ayeyarwady, Magway and Shan State: geoBoundaries gbOpen (2019), CC BY 4.0, simplified. They decide which crop rules apply and are not a legal boundary. Crop values are listed with their sources on the{" "}
+        <a href="/about/crops" className="text-field underline">
+          crop library page
+        </a>
+        .
+      </p>
     </>
   );
 }

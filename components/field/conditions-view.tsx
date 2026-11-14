@@ -5,20 +5,25 @@ import { useEffect, useMemo, useState } from "react";
 import { MONTHS, RainWaterChart, TemperatureChart } from "@/components/ui/charts";
 import { buttonClass, Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, InfoGlyph } from "@/components/ui/icons";
+import { ChevronRightGlyph, DownloadGlyph, InfoGlyph, ThermometerGlyph } from "@/components/ui/icons";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Reading } from "@/components/ui/reading";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SourceLine } from "@/components/ui/source-line";
+import { CropCalendar } from "@/components/field/crop-calendar";
+import { SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
+import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
+import { downloadCsv, generateWeatherCsv } from "@/lib/download";
+import { compareRotations } from "@/lib/engine/compare";
+import { monthlyNormals } from "@/lib/engine/climate";
+import { BASELINE } from "@/lib/engine/data";
 import { getCropById } from "@/lib/data/crops";
 import { shortSlotName } from "@/lib/rotation-format";
-import { getCachedConditions, isStale, setCachedConditions, type ConditionsData } from "@/lib/store/data-cache";
+import { isStale } from "@/lib/store/data-cache";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
-
-type Phase = "loading" | "ready" | "failed";
 
 const argMax = (a: number[]) => a.indexOf(Math.max(...a));
 const argMin = (a: number[]) => a.indexOf(Math.min(...a));
@@ -51,10 +56,6 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
   const load = useFieldsStore((s) => s.load);
   const loadRotations = useFieldsStore((s) => s.loadRotations);
 
-  const [data, setData] = useState<ConditionsData | null>(null);
-  const [phase, setPhase] = useState<Phase>("loading");
-  const [showingCache, setShowingCache] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   const [cropChoice, setCropChoice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,51 +66,28 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
     if (fieldId) void loadRotations(fieldId);
   }, [fieldId, loadRotations]);
 
-  const id = field?.id;
-  const lng = field?.centroid[0];
-  const lat = field?.centroid[1];
+  // one shared loader for conditions (POWER, IMERG, SoilGrids) and the AppEEARS jobs
+  const analysis = useFieldAnalysis(field);
+  const { phase, showingCache, engineData } = analysis;
+  const data = analysis.conditions;
+  const setAttempt = (updater: (n: number) => number) => {
+    void updater;
+    analysis.retry();
+  };
 
-  useEffect(() => {
-    if (!id || lng === undefined || lat === undefined) return;
-    let mounted = true;
-
-    async function run() {
-      setPhase("loading");
-      setShowingCache(false);
-      const cached = await getCachedConditions(id!);
-      if (cached && mounted) {
-        setData(cached);
-        // Fresh enough: no need to ask again
-        if (!isStale(cached.fetchedAt, 6)) {
-          setPhase("ready");
-          return;
-        }
-      }
-      try {
-        const res = await fetch(`/api/field/${id}/conditions?lng=${lng}&lat=${lat}`);
-        if (!res.ok) throw new Error(`Conditions answered ${res.status}`);
-        const json = (await res.json()) as ConditionsData;
-        if (!mounted) return;
-        if (!json.climateAvailable && !json.soilAvailable) throw new Error("No source answered");
-        setData(json);
-        setPhase("ready");
-        void setCachedConditions(id!, json);
-      } catch {
-        if (!mounted) return;
-        if (cached) {
-          setShowingCache(true);
-          setPhase("ready");
-        } else {
-          setPhase("failed");
-        }
-      }
-    }
-
-    void run();
-    return () => {
-      mounted = false;
-    };
-  }, [id, lng, lat, attempt]);
+  const comparison = useMemo(
+    () => (field && engineData && rotations[0]?.slots.length ? compareRotations(engineData, rotations[0]) : null),
+    [field, engineData, rotations],
+  );
+  const rainyMonths = useMemo(
+    () =>
+      engineData?.records.length
+        ? monthlyNormals(engineData.records.filter((r) => r.year >= BASELINE.startYear && r.year <= BASELINE.endYear))
+            .filter((n) => n.rainMm >= 100)
+            .map((n) => n.month)
+        : [],
+    [engineData],
+  );
 
   // The crops of the farmer's rotation. Ranges on this screen are for one of them.
   const rotationCrops = useMemo(() => {
@@ -169,9 +147,11 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
         ? "Soil information is below. Temperature and crop water use could not be read."
         : "Your saved crops and soil below still apply. Try again in a moment.";
 
-  const effectivePh = field.soilOverride?.ph ?? soil?.ph ?? null;
-  const effectiveSoc = field.soilOverride?.ocPct ? field.soilOverride.ocPct * 10 : (soil?.socGKg ?? null);
-  const texture = field.soilOverride?.texture ?? soil?.texture ?? null;
+  const es = engineData?.soil;
+  const effectivePh = es?.ph?.value ?? null;
+  const effectiveSoc = es?.organicCarbonGKg?.value ?? null;
+  const texture = es?.texture?.value ?? null;
+  const fromFarmer = (x: { from: string } | null | undefined) => x?.from === "farmer";
   const textureFits = crop && texture ? crop.soil.textures.includes(texture) : null;
   const phBand = crop?.soil.phOpt;
 
@@ -186,11 +166,39 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
       </div>
 
       {phase === "loading" ? (
-        <div role="status" aria-label={copy.conditions.loadingData} className="flex flex-col gap-4">
-          <Skeleton className="h-40" />
-          <Skeleton className="h-72" />
-          <p className="text-body-sm text-ink-muted">{copy.conditions.loadingData}</p>
-        </div>
+        <Panel as="div" role="status" aria-label={copy.conditions.loadingData} className="flex flex-col gap-4 p-5 sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-headline text-ink">Gathering satellite and climate data for this field</h2>
+            <p className="text-body-sm text-ink-muted">Reading historical conditions from NASA and global soil surveys.</p>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            <li className="flex items-center gap-3 rounded-md bg-surface p-3 text-body-sm text-ink">
+              <span className="tabular grid size-6 shrink-0 place-items-center rounded-pill border border-line-strong font-mono text-source text-ink-muted">1</span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="font-medium">NASA POWER Weather & Climate (0.5°)</span>
+                <span className="text-source text-ink-muted">Reading 40 years of temperature, solar radiation and rain (usually 2–4 seconds)</span>
+              </div>
+              <Skeleton className="h-5 w-16 shrink-0" />
+            </li>
+            <li className="flex items-center gap-3 rounded-md bg-surface p-3 text-body-sm text-ink">
+              <span className="tabular grid size-6 shrink-0 place-items-center rounded-pill border border-line-strong font-mono text-source text-ink-muted">2</span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="font-medium">ISRIC SoilGrids Profile (250 m)</span>
+                <span className="text-source text-ink-muted">Reading soil texture, pH, carbon and drainage (usually 1–3 seconds)</span>
+              </div>
+              <Skeleton className="h-5 w-16 shrink-0" />
+            </li>
+            <li className="flex items-center gap-3 rounded-md bg-surface p-3 text-body-sm text-ink">
+              <span className="tabular grid size-6 shrink-0 place-items-center rounded-pill border border-line-strong font-mono text-source text-ink-muted">3</span>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="font-medium">GPM IMERG & SMAP Satellite Detail (0.1° / 9 km)</span>
+                <span className="text-source text-ink-muted">High-resolution rainfall history and root-zone moisture (about 2–3 minutes)</span>
+              </div>
+              <Skeleton className="h-5 w-20 shrink-0" />
+            </li>
+          </ul>
+          <p className="m-0 text-source text-ink-muted">Partial results will appear as each source answers.</p>
+        </Panel>
       ) : null}
 
       {phase === "failed" ? (
@@ -230,17 +238,21 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                 <RiskChip hazard="heat">
                   Hottest: highs near {Math.round(tmax[hottest])} °C in {MONTHS[hottest]}
                 </RiskChip>
-                <RiskChip hazard={tmin[coldest] <= 3 ? "frost" : "healthy"}>
-                  {tmin[coldest] <= 3
-                    ? `Frost possible: nights near ${Math.round(tmin[coldest])} °C in ${MONTHS[coldest]}`
-                    : `Coldest nights near ${Math.round(tmin[coldest])} °C in ${MONTHS[coldest]}`}
-                </RiskChip>
+                {tmin[coldest] <= 3 ? (
+                  <RiskChip hazard="frost">
+                    Frost possible: nights near {Math.round(tmin[coldest])} °C in {MONTHS[coldest]}
+                  </RiskChip>
+                ) : (
+                  <RiskChip hazard="neutral" icon={<ThermometerGlyph className="shrink-0" />}>
+                    Coldest nights near {Math.round(tmin[coldest])} °C in {MONTHS[coldest]}
+                  </RiskChip>
+                )}
               </div>
             ) : null}
             <SourceLine
               dataset={copy.data.sourceNasaPower}
-              resolution="0.5°, about 50 km"
-              dates="long-term monthly means"
+              resolution="about 0.5° x 0.625°, 50 km"
+              dates="2016 to 2025, daily values averaged by month"
               stale={stale}
               detail={copy.conditions.cellResolutionNote}
               className="border-t border-line pt-3"
@@ -265,13 +277,20 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             ) : (
               <p className="text-body text-ink-muted">NASA POWER didn&apos;t answer, so there is no rainfall chart yet.</p>
             )}
-            <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm text-ink-muted">
+            <div className="flex flex-col gap-1 border-t border-line pt-3 text-body-sm text-ink-muted">
               <p className="m-0 text-ink">
-                <span className="font-medium">Satellite rainfall (GPM IMERG):</span> not connected yet
+                <span className="font-medium">Satellite rainfall (GPM IMERG):</span>{" "}
+                {data.imerg?.status === "ok"
+                  ? "retrieved for the whole record"
+                  : data.imerg?.status === "pending"
+                    ? copy.conditions.imergProgress(data.imerg.covered, data.imerg.expected)
+                    : data.imerg?.status === "unavailable"
+                      ? "not available right now"
+                      : "not connected on this server"}
               </p>
               <p className="m-0">{copy.data.rainfallNote}</p>
             </div>
-            <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="long-term monthly means" />
+            <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="2016 to 2025, daily values averaged by month" />
           </Panel>
 
           {/* Heat and frost */}
@@ -288,12 +307,33 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                 These are monthly averages. A single cold night or hot afternoon can go past them, so check local frost
                 dates before planting.
               </p>
-              <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="long-term monthly means" />
+              <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="2016 to 2025, daily values averaged by month" />
             </Panel>
           ) : null}
 
+          {comparison ? <VulnerabilityPanel comparison={comparison} /> : null}
+          {comparison ? <WaterUsePanel comparison={comparison} /> : null}
+
+          {comparison ? (
+            <Panel as="section" aria-labelledby="calendar" className="flex flex-col gap-4 p-4 sm:p-6">
+              <PanelHeader id="calendar" title={copy.calendar.title} description={copy.calendar.lead} />
+              <CropCalendar option={comparison.current} rainyMonths={rainyMonths} />
+              {comparison.current.lowCover.length > 0 ? (
+                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
+                  {comparison.current.lowCover.map((g) => (
+                    <li key={g.gap.from}>
+                      {g.gap.from.slice(5)} to {g.gap.to.slice(5)}: {g.text}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Panel>
+          ) : null}
+
+          <SourceStatusPanel conditions={data} remote={analysis.remote} />
+
           {/* Soil */}
-          <section aria-labelledby="soil" className="flex flex-col gap-4">
+          <Panel as="section" aria-labelledby="soil" className="flex flex-col gap-4 p-4 sm:p-6">
             <PanelHeader id="soil" title={copy.conditions.soilTitle} description={copy.conditions.soilDescription} />
 
             {effectivePh === null && effectiveSoc === null && !texture ? (
@@ -301,7 +341,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                 <p className="m-0 text-body text-ink">No soil map data here.</p>
                 <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.conditions.soilNullWarning}</p>
                 <div>
-                  <Link href={`/fields/${field.id}/location`} className={buttonClass("secondary")}>
+                  <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
                     Add a soil test
                   </Link>
                 </div>
@@ -325,8 +365,8 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                         : undefined
                     }
                     source={{
-                      dataset: field.soilOverride?.ph ? "Your soil test" : soil?.source.dataset ?? "ISRIC SoilGrids v2",
-                      resolution: field.soilOverride?.ph ? "this field" : "250 m",
+                      dataset: fromFarmer(es?.ph) ? "Your soil value" : soil?.source.dataset ?? "ISRIC SoilGrids v2",
+                      resolution: fromFarmer(es?.ph) ? es?.ph?.note ?? "this field" : "250 m",
                       dates: "0 to 30 cm",
                     }}
                   />
@@ -338,8 +378,8 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     unit="g/kg"
                     scale={[0, 50]}
                     source={{
-                      dataset: field.soilOverride?.ocPct ? "Your soil test" : soil?.source.dataset ?? "ISRIC SoilGrids v2",
-                      resolution: field.soilOverride?.ocPct ? "this field" : "250 m",
+                      dataset: fromFarmer(es?.organicCarbonGKg) ? "Your soil value" : soil?.source.dataset ?? "ISRIC SoilGrids v2",
+                      resolution: fromFarmer(es?.organicCarbonGKg) ? es?.organicCarbonGKg?.note ?? "this field" : "250 m",
                       dates: "0 to 30 cm",
                     }}
                   />
@@ -370,19 +410,36 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             ) : null}
 
             <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-              {field.soilOverride ? copy.conditions.soilOverrideActive : "Soil values come from a 250 m world map, not from this field. A soil test, if you have one, is more accurate."}{" "}
+              {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : "Soil values come from a 250 m world map, not from this field. A soil test, if you have one, is more accurate."}{" "}
               {copy.data.sourceSoilGrids}.
             </p>
-          </section>
+          </Panel>
 
           <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-raised px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
             <Link href={`/fields/${field.id}/rotation`} className="inline-flex min-h-tap items-center text-label text-ink-muted hover:underline">
               Back to your rotation
             </Link>
-            <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "max-sm:flex-1")}>
-              {copy.conditions.compareButton}
-              <ChevronRightGlyph />
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              {data.weather ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const csv = generateWeatherCsv(field.name, data.weather!);
+                    const slug = field.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                    downloadCsv(`${slug}-weather-observations.csv`, csv);
+                  }}
+                  className="min-h-tap"
+                >
+                  <DownloadGlyph />
+                  Download weather CSV
+                </Button>
+              ) : null}
+              <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "max-sm:flex-1")}>
+                {copy.conditions.compareButton}
+                <ChevronRightGlyph />
+              </Link>
+            </div>
           </div>
         </>
       ) : null}

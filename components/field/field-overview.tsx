@@ -15,7 +15,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRightGlyph } from "@/components/ui/icons";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
+import { REGIONS, regionName } from "@/lib/data/regions";
 import { formatPoint } from "@/lib/geo/format";
 import { staticMapUrl } from "@/lib/geo/static-map";
 import { formatSpan, plural, slotName } from "@/lib/rotation-format";
@@ -29,10 +31,12 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const load = useFieldsStore((s) => s.load);
   const loadRotations = useFieldsStore((s) => s.loadRotations);
   const remove = useFieldsStore((s) => s.remove);
+  const update = useFieldsStore((s) => s.update);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -69,10 +73,20 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
   const details: Array<[string, string]> = [
     ["Location", formatPoint(field.centroid)],
+    ["Region", regionName(field.region)],
     ["Area", field.areaHa === null ? copy.home.pinOnly : copy.home.area(field.areaHa)],
     ["Water", copy.irrigation[field.irrigation]],
     ["Soil", field.soilOverride?.texture ? `${field.soilOverride.texture}, from your soil test` : "From the regional soil map"],
   ];
+
+  const confirmLocation = async () => {
+    setConfirming(true);
+    try {
+      await update(field.id, { locationConfirmed: true });
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   const handleRemoveConfirm = async () => {
     setRemoving(true);
@@ -96,6 +110,38 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
           Edit location and soil
         </Link>
       </div>
+
+      {field.region === "unsupported" ? (
+        <Panel as="section" tone="plain" aria-labelledby="region-title" className="flex flex-col gap-2 p-4 sm:p-5">
+          <h2 id="region-title" className="text-headline text-ink">
+            {copy.region.unsupportedTitle}
+          </h2>
+          <p className="m-0 max-w-measure text-body text-ink-muted">{copy.region.unsupportedBody}</p>
+        </Panel>
+      ) : field.region ? (
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+          {copy.region.detected(REGIONS[field.region].name)} {REGIONS[field.region].focus}.
+        </p>
+      ) : null}
+
+      {!field.locationConfirmed ? (
+        <Panel as="section" tone="plain" aria-labelledby="confirm-title" className="flex flex-col gap-3 p-4 sm:p-5">
+          <h2 id="confirm-title" className="text-headline text-ink">
+            {copy.region.confirmTitle}
+          </h2>
+          <p className="m-0 max-w-measure text-body text-ink-muted">{copy.region.confirmBody}</p>
+          <div>
+            <Button variant="primary" onClick={confirmLocation} disabled={confirming} className="max-sm:w-full">
+              {copy.region.confirmButton}
+            </Button>
+          </div>
+          <p className="m-0 text-body-sm text-ink-muted">{copy.region.regionNote}</p>
+        </Panel>
+      ) : field.confirmedAt ? (
+        <p className="m-0 text-body-sm text-ink-muted">
+          {copy.region.confirmed(new Date(field.confirmedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }))} {copy.region.moveNote}
+        </p>
+      ) : null}
 
       {/* The answer first: what to do next. */}
       <Panel as="section" tone="field" radius="lg" aria-labelledby="next-step" className="flex flex-col gap-4 p-5 sm:p-6">
@@ -129,6 +175,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                 Check conditions
                 <ChevronRightGlyph />
               </Link>
+              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary", "max-sm:w-full")}>
+                Your farm details
+              </Link>
               <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary", "max-sm:w-full")}>
                 Edit rotation
               </Link>
@@ -153,7 +202,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
       </Panel>
 
       {/* The evidence second: where the field is and what is known about it. */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className={cn("grid gap-4", MAPBOX_TOKEN ? "xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" : "w-full")}>
         {MAPBOX_TOKEN ? (
           <figure className="m-0 overflow-hidden rounded-md border border-line bg-surface-sunken">
             <Image
@@ -170,13 +219,16 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
         <Panel as="section" aria-labelledby="field-details" className="flex flex-col gap-4 p-4 sm:p-5">
           <PanelHeader id="field-details" title={copy.overview.aboutField} />
-          <dl className="m-0 flex flex-col divide-y divide-line">
-            {details.map(([term, value]) => (
-              <div key={term} className="flex min-w-0 flex-col gap-0.5 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6 xl:flex-col xl:items-start xl:gap-0.5">
-                <dt className="text-body-sm text-ink-muted">{term}</dt>
-                <dd className="tabular m-0 break-words font-mono text-data text-ink sm:text-right xl:text-left">{value}</dd>
-              </div>
-            ))}
+          <dl className={cn("m-0 flex flex-col divide-y divide-line", !MAPBOX_TOKEN && "sm:grid sm:grid-cols-2 sm:gap-x-8 sm:divide-y-0")}>
+            {details.map(([term, value]) => {
+              const isCoordOrNum = term === "Location" || (term === "Area" && field.areaHa !== null);
+              return (
+                <div key={term} className={cn("flex min-w-0 flex-col gap-0.5 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6", MAPBOX_TOKEN ? "xl:flex-col xl:items-start xl:gap-0.5" : "border-b border-line sm:border-0")}>
+                  <dt className="text-body-sm text-ink-muted">{term}</dt>
+                  <dd className={cn("m-0 break-words text-data text-ink sm:text-right", isCoordOrNum ? "tabular font-mono" : "font-sans", MAPBOX_TOKEN ? "xl:text-left" : "")}>{value}</dd>
+                </div>
+              );
+            })}
           </dl>
         </Panel>
       </div>

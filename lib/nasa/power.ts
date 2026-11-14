@@ -3,20 +3,30 @@
  * Daily point data for the AG community, plus monthly climatology.
  */
 
+import { fetchWithRetry } from "../network/fetch-with-retry";
+
+/**
+ * The eight parameters in the 14 Nov 2026 data handoff. Units returned by the API:
+ * T2M* in C, RH2M in %, WS2M in m/s, ALLSKY_SFC_SW_DWN in MJ/m^2/day, PRECTOTCORR in mm/day, PS in kPa.
+ */
 export const POWER_DAILY_PARAMS = [
   "T2M",
   "T2M_MAX",
   "T2M_MIN",
-  "PRECTOTCORR",
   "RH2M",
-  "ALLSKY_SFC_SW_DWN",
   "WS2M",
-  "GWETTOP",
-  "GWETROOT",
-  "GWETPROF",
+  "ALLSKY_SFC_SW_DWN",
+  "PRECTOTCORR",
+  "PS",
 ] as const;
 
-export type PowerParam = (typeof POWER_DAILY_PARAMS)[number];
+/** Extra modelled wetness fields. Still readable if present, but not requested by default. */
+export const POWER_WETNESS_PARAMS = ["GWETTOP", "GWETROOT", "GWETPROF"] as const;
+
+export type PowerParam = (typeof POWER_DAILY_PARAMS)[number] | (typeof POWER_WETNESS_PARAMS)[number];
+
+/** Daily indexing standard. UTC matches IMERG's UTC days; it is not the Myanmar local day. */
+export type PowerTimeStandard = "UTC" | "LST";
 
 export interface DailyWeather {
   latitude: number;
@@ -27,6 +37,17 @@ export interface DailyWeather {
   /** One value per date; null where POWER has no data (its -999 fill value). */
   series: Partial<Record<PowerParam, Array<number | null>>>;
   source: { dataset: string; resolution: string; version: string | null };
+  /** What the response said about itself. Kept so provenance never relies on this file's assumptions. */
+  meta: {
+    fillValue: number;
+    timeStandard: string | null;
+    /** Source models named in the header, e.g. MERRA2, SYN1DEG, POWER. */
+    sources: string[];
+    units: Partial<Record<string, string>>;
+    apiVersion: string | null;
+    start: string | null;
+    end: string | null;
+  };
 }
 
 export interface Climatology {
@@ -53,6 +74,8 @@ export interface PowerDailyRequest {
   /** YYYYMMDD */
   end: string;
   parameters?: readonly PowerParam[];
+  /** Defaults to UTC so daily values line up with IMERG. */
+  timeStandard?: PowerTimeStandard;
 }
 
 export function powerDailyUrl(req: PowerDailyRequest): string {
@@ -66,6 +89,7 @@ export function powerDailyUrl(req: PowerDailyRequest): string {
     start: req.start,
     end: req.end,
     format: "JSON",
+    "time-standard": req.timeStandard ?? "UTC",
   });
   return `${BASE}/daily/point?${q.toString()}`;
 }
@@ -120,6 +144,11 @@ export function parsePowerDaily(json: unknown): DailyWeather {
   }
 
   const api = isObj(header.api) ? header.api : {};
+  const unitsBlock = isObj(root.parameters) ? root.parameters : {};
+  const units: Record<string, string> = {};
+  for (const [name, info] of Object.entries(unitsBlock)) {
+    if (isObj(info) && typeof info.units === "string") units[name] = info.units;
+  }
   return {
     longitude: typeof coords[0] === "number" ? coords[0] : Number.NaN,
     latitude: typeof coords[1] === "number" ? coords[1] : Number.NaN,
@@ -130,6 +159,15 @@ export function parsePowerDaily(json: unknown): DailyWeather {
       dataset: "NASA POWER",
       resolution: "about 0.5° (MERRA-2 and CERES)",
       version: typeof api.version === "string" ? api.version : null,
+    },
+    meta: {
+      fillValue: fill,
+      timeStandard: typeof header.time_standard === "string" ? header.time_standard : null,
+      sources: Array.isArray(header.sources) ? header.sources.filter((x): x is string => typeof x === "string") : [],
+      units,
+      apiVersion: typeof api.version === "string" ? api.version : null,
+      start: typeof header.start === "string" ? header.start : null,
+      end: typeof header.end === "string" ? header.end : null,
     },
   };
 }
@@ -154,7 +192,12 @@ export interface FetchOptions {
 }
 
 async function getJson(url: string, opts: FetchOptions): Promise<unknown> {
-  const res = await (opts.fetch ?? fetch)(url, { signal: opts.signal, headers: { accept: "application/json" } });
+  const res = await fetchWithRetry(
+    url,
+    { signal: opts.signal, headers: { accept: "application/json" } },
+    { signal: opts.signal, maxRetries: 3, initialDelayMs: 500, maxDelayMs: 4000 },
+    opts.fetch ?? fetch,
+  );
   if (!res.ok) throw new PowerError(`NASA POWER answered ${res.status}.`);
   return res.json();
 }

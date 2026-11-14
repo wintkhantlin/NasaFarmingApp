@@ -11,6 +11,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
+import { checkRegion, REGIONS } from "@/lib/data/regions";
 import { parseCoordinate } from "@/lib/geo/format";
 import { searchPlaces, type Place } from "@/lib/geo/geocode";
 import { acresFromHa, areaHa, centroid, isSelfIntersecting } from "@/lib/geo/shapes";
@@ -79,12 +80,14 @@ export function LocationPicker({ field }: { field?: Field }) {
 
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmedField, setConfirmedField] = useState(false);
 
   const ring = geometry?.type === "Polygon" ? geometry.coordinates[0] : null;
   const crosses = ring ? isSelfIntersecting(ring) : false;
   const ha = geometry ? areaHa(geometry) : null;
   const activeHint = TOOLS.find((t) => t.id === tool)?.hint;
   const canContinue = Boolean(geometry) && !crosses;
+  const regionCheck = geometry ? checkRegion(geometry, centroid(geometry)) : null;
 
   // On a phone the bottom bar sits over the map. Publish its height so the Mapbox
   // logo, attribution and zoom buttons stay visible just above it (see globals.css).
@@ -188,12 +191,13 @@ export function LocationPicker({ field }: { field?: Field }) {
     if (!name.trim()) return setSaveError(copy.validation.nameRequired);
     if (!geometry) return setSaveError("Mark your field first: drop a pin, draw a box or trace the outline.");
     if (crosses) return setSaveError(copy.validation.outlineCrosses);
+    if (!confirmedField) return setSaveError(copy.region.confirmBody);
     setSaving(true);
     setSaveError(null);
     try {
       const saved = field
-        ? await update(field.id, { name, geometry, irrigation })
-        : await add({ name, geometry, irrigation });
+        ? await update(field.id, { name, geometry, irrigation, locationConfirmed: true })
+        : await add({ name, geometry, irrigation, locationConfirmed: true });
       router.push(`/fields/${saved.id}`);
     } catch (err) {
       setSaving(false);
@@ -235,7 +239,7 @@ export function LocationPicker({ field }: { field?: Field }) {
             onGeometryChange={onGeometry}
           />
         ) : (
-          <div className="flex size-full flex-col items-center justify-center gap-2 p-6 text-center">
+          <div className="flex size-full flex-col items-center justify-center gap-2 p-6 text-center lg:pl-[28rem]">
             <h2 className="text-title text-ink">The map isn&apos;t set up yet</h2>
             <p className="max-w-measure text-body text-ink-muted">
               {MAPBOX_TOKEN_PROBLEM === "secret"
@@ -342,8 +346,8 @@ export function LocationPicker({ field }: { field?: Field }) {
           <details open={!hasMap || undefined} className="rounded-md">
             <summary className="min-h-tap cursor-pointer content-center px-2 text-label text-ink">Enter coordinates instead</summary>
             <div className="flex flex-col gap-3 p-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                <div className="flex min-w-0 flex-col gap-1">
                   <label htmlFor={`${id}-lat`} className="text-label text-ink">
                     Latitude
                   </label>
@@ -353,11 +357,11 @@ export function LocationPicker({ field }: { field?: Field }) {
                     onChange={(e) => setLat(e.target.value)}
                     inputMode="decimal"
                     autoComplete="off"
-                    placeholder="42.03"
-                    className={`${inputClass} tabular font-mono`}
+                    placeholder="e.g. 20.15"
+                    className={`${inputClass} min-w-0 w-full tabular font-mono`}
                   />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex min-w-0 flex-col gap-1">
                   <label htmlFor={`${id}-lon`} className="text-label text-ink">
                     Longitude
                   </label>
@@ -367,8 +371,8 @@ export function LocationPicker({ field }: { field?: Field }) {
                     onChange={(e) => setLon(e.target.value)}
                     inputMode="decimal"
                     autoComplete="off"
-                    placeholder="-93.62"
-                    className={`${inputClass} tabular font-mono`}
+                    placeholder="e.g. 94.95"
+                    className={`${inputClass} min-w-0 w-full tabular font-mono`}
                   />
                 </div>
               </div>
@@ -474,11 +478,36 @@ export function LocationPicker({ field }: { field?: Field }) {
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="off"
                   autoFocus
-                  placeholder="North plot"
+                  placeholder="e.g. South plot"
                   className={inputClass}
                 />
               </div>
               <Segmented legend="Water for your crops" value={irrigation} onChange={setIrrigation} options={IRRIGATION_OPTIONS} />
+              {regionCheck ? (
+                <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
+                  {regionCheck.region === "unsupported" ? (
+                    <>
+                      <p className="m-0 text-label text-ink">{copy.region.unsupportedTitle}</p>
+                      <p className="m-0 text-ink-muted">{copy.region.unsupportedBody}</p>
+                    </>
+                  ) : (
+                    <p className="m-0 text-ink">{copy.region.detected(REGIONS[regionCheck.region].name)}</p>
+                  )}
+                  {regionCheck.straddlesBoundary ? <p className="m-0 text-ink-muted">{copy.region.straddles}</p> : null}
+                </div>
+              ) : null}
+              <label className="flex min-h-tap items-start gap-3 text-body text-ink">
+                <input
+                  type="checkbox"
+                  checked={confirmedField}
+                  onChange={(e) => setConfirmedField(e.target.checked)}
+                  className="mt-1 size-5 accent-[var(--color-field)]"
+                />
+                <span>
+                  <span className="block text-label">{copy.region.confirmButton}</span>
+                  <span className="block text-body-sm text-ink-muted">{copy.region.confirmBody}</span>
+                </span>
+              </label>
               {saveError ? (
                 <p role="alert" className="text-body text-heat">
                   {saveError}

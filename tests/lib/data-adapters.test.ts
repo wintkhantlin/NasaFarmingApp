@@ -18,7 +18,12 @@ describe("NASA POWER", () => {
     expect(url).toContain("community=AG");
     expect(url).toContain("latitude=42.0300");
     expect(url).toContain("PRECTOTCORR");
-    expect(url).toContain("GWETROOT");
+    expect(url).toContain("time-standard=UTC");
+    // the handoff's eight parameters, and not the wetness fields
+    for (const p of ["T2M", "T2M_MAX", "T2M_MIN", "RH2M", "WS2M", "ALLSKY_SFC_SW_DWN", "PRECTOTCORR", "PS"]) {
+      expect(url).toContain(p);
+    }
+    expect(url).not.toContain("GWETROOT");
   });
 
   test("parses the ten-day sample into ISO dates and series", () => {

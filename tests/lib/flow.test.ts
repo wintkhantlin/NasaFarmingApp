@@ -11,6 +11,7 @@ describe("Flow step states", () => {
     centroid: [-93.65, 42.03],
     samplePoints: [[-93.65, 42.03]],
     irrigation: "none",
+    locationConfirmed: true,
     createdAt: "2026-11-14T00:00:00Z",
     updatedAt: "2026-11-14T00:00:00Z",
   };
@@ -19,8 +20,19 @@ describe("Flow step states", () => {
     const states = deriveStepStates(mockField, []);
     expect(states.location).toBe("done");
     expect(states.rotation).toBe("needs-input");
+    expect(states.profile).toBe("not-started");
     expect(states.conditions).toBe("not-started");
     expect(states.compare).toBe("not-started");
+  });
+
+  it("a location the farmer has not confirmed still needs input", () => {
+    const states = deriveStepStates({ ...mockField, locationConfirmed: false }, []);
+    expect(states.location).toBe("needs-input");
+  });
+
+  it("the Your farm step is done once priorities are set, and never blocks the others", () => {
+    const withPriorities: Field = { ...mockField, priorities: { order: ["water"], weights: {} } };
+    expect(deriveStepStates(withPriorities, []).profile).toBe("done");
   });
 
   it("flips rotation, conditions, and compare to done/ready once rotation has slots", () => {

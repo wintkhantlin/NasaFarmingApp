@@ -17,12 +17,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
 import { CROPS, getCropById, getDefaultTypicalDates } from "@/lib/data/crops";
+import { REGIONS } from "@/lib/data/regions";
 import { formatSpan, plural, shortSlotName, slotName, yearFraction } from "@/lib/rotation-format";
 import { rotationSchema, rotationSlotSchema } from "@/lib/schemas/rotation";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
 import type { DateConfidence, Rotation, RotationSlot } from "@/lib/types";
 
-const MONTH_INITIALS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * One lane per year of the cycle, a month axis, and each crop as a bar from
@@ -37,8 +38,8 @@ function RotationRibbon({ slots, cycleYears }: { slots: RotationSlot[]; cycleYea
     <div className="hidden flex-col gap-2 rounded-md border border-line bg-surface-sunken p-4 md:flex" aria-hidden="true">
       <div className="grid grid-cols-[3.5rem_repeat(12,minmax(0,1fr))] text-source text-ink-muted">
         <span />
-        {MONTH_INITIALS.map((m, i) => (
-          <span key={i} className="text-center">
+        {MONTH_NAMES.map((m, i) => (
+          <span key={i} className="text-center font-sans">
             {m}
           </span>
         ))}
@@ -47,10 +48,10 @@ function RotationRibbon({ slots, cycleYears }: { slots: RotationSlot[]; cycleYea
         <div key={year} className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center">
           <span className="tabular font-mono text-source text-ink-muted">{year}</span>
           <div className="relative h-10 rounded-sm bg-surface-raised">
-            {/* month gridlines */}
-            <div className="absolute inset-0 grid grid-cols-12">
-              {MONTH_INITIALS.map((_, i) => (
-                <span key={i} className={cn("border-line", i > 0 && "border-l")} />
+            {/* faint month gridlines without heavy cell borders */}
+            <div className="pointer-events-none absolute inset-0 grid grid-cols-12">
+              {MONTH_NAMES.map((_, i) => (
+                <span key={i} className={cn("border-line/40", i > 0 && "border-l")} />
               ))}
             </div>
             {slots
@@ -64,10 +65,10 @@ function RotationRibbon({ slots, cycleYears }: { slots: RotationSlot[]; cycleYea
                   <span
                     key={s.id}
                     className={cn(
-                      "absolute inset-y-1 flex min-w-0 items-center overflow-hidden rounded-sm border px-2 text-body-sm",
+                      "absolute inset-y-1 flex min-w-0 items-center overflow-hidden rounded-sm px-2 text-body-sm transition-all",
                       fallow
-                        ? "border-dashed border-line-strong bg-surface-sunken text-ink-muted"
-                        : "border-field bg-field-soft text-ink",
+                        ? "border-dashed border border-line-strong bg-surface-sunken text-ink-muted"
+                        : "border-2 border-field bg-field-soft font-medium text-ink shadow-xs",
                     )}
                     style={{ left: `${start * 100}%`, width: `${Math.max(end - start, 0.06) * 100}%` }}
                   >
@@ -108,12 +109,15 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         setCycleYears(loaded[0].cycleYears);
         setSlots(loaded[0].slots);
       } else {
-        const defaultDates = getDefaultTypicalDates("maize");
+        // start from the first crop the team lists for this field's region, with its usual sowing window
+        const startRegion = useFieldsStore.getState().fields.find((f) => f.id === fieldId)?.region;
+        const startCrop = startRegion && startRegion !== "unsupported" ? REGIONS[startRegion].candidateCropIds[0] : "maize";
+        const defaultDates = getDefaultTypicalDates(startCrop, new Date().getFullYear(), startRegion && startRegion !== "unsupported" ? startRegion : undefined);
         setSlots([
           {
             id: crypto.randomUUID(),
             kind: "crop",
-            cropId: "maize",
+            cropId: startCrop,
             plantDate: defaultDates.plantDate,
             harvestDate: defaultDates.harvestDate,
             dateConfidence: "typical",
@@ -157,13 +161,15 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
   const handleAddSlot = () => {
     markChanged();
     const nextYear = new Date().getFullYear() + Math.min(slots.length, cycleYears - 1);
-    const defaultDates = getDefaultTypicalDates("soybean", nextYear);
+    const nextRegion = field.region && field.region !== "unsupported" ? field.region : undefined;
+    const nextCropId = nextRegion ? (REGIONS[nextRegion].candidateCropIds[1] ?? REGIONS[nextRegion].candidateCropIds[0]) : "soybean";
+    const defaultDates = getDefaultTypicalDates(nextCropId, nextYear, nextRegion);
     setSlots([
       ...slots,
       {
         id: crypto.randomUUID(),
         kind: "crop",
-        cropId: "soybean",
+        cropId: nextCropId,
         plantDate: defaultDates.plantDate,
         harvestDate: defaultDates.harvestDate,
         dateConfidence: "typical",
@@ -192,7 +198,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     }
     // A new crop brings its usual dates, in the year the slot already sits in.
     const year = parseInt(slot.plantDate.slice(0, 4), 10) || new Date().getFullYear();
-    const dates = getDefaultTypicalDates(value, year);
+    const dates = getDefaultTypicalDates(value, year, field?.region && field.region !== "unsupported" ? field.region : undefined);
     handleUpdateSlot(slot.id, {
       kind: getCropById(value)?.group === "cover" ? "cover" : "crop",
       cropId: value,
@@ -329,11 +335,18 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                       <MenuItem value="" disabled>
                         {copy.rotation.selectCropPrompt}
                       </MenuItem>
-                      {CROPS.map((c) => (
-                        <MenuItem key={c.id} value={c.id}>
-                          {c.names.common} ({c.family})
-                        </MenuItem>
-                      ))}
+                      {CROPS.map((c) => {
+                        const local = c.names.local?.[0] ? ` · ${c.names.local[0]}` : "";
+                        const ref = c.scope === "reference-only" ? " (reference only)" : "";
+                        return (
+                          <MenuItem key={c.id} value={c.id}>
+                            <span className="flex items-baseline gap-1.5">
+                              <span>{c.names.common}{local}{ref}</span>
+                              <span className="text-source text-ink-muted">({c.family})</span>
+                            </span>
+                          </MenuItem>
+                        );
+                      })}
                       <MenuItem value="fallow">{copy.rotation.fallowOption}</MenuItem>
                     </TextField>
 

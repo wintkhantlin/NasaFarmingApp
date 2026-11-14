@@ -8,6 +8,7 @@
  */
 
 import type { TextureClass } from "../types";
+import { fetchWithRetry } from "../network/fetch-with-retry";
 
 export const SOIL_PROPERTIES = ["clay", "sand", "silt", "phh2o", "soc", "cec", "bdod", "nitrogen"] as const;
 export type SoilProperty = (typeof SOIL_PROPERTIES)[number];
@@ -123,10 +124,15 @@ export async function fetchSoilGrids(
   lon: number,
   opts: { fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): Promise<SoilProfile | null> {
-  const res = await (opts.fetch ?? fetch)(soilGridsUrl(lat, lon), {
-    signal: opts.signal ?? AbortSignal.timeout(25_000),
-    headers: { accept: "application/json" },
-  });
+  const res = await fetchWithRetry(
+    soilGridsUrl(lat, lon),
+    {
+      headers: { accept: "application/json" },
+      signal: opts.signal ?? AbortSignal.timeout(25_000),
+    },
+    { signal: opts.signal, maxRetries: 2, initialDelayMs: 400 },
+    opts.fetch ?? fetch,
+  );
   if (!res.ok) throw new Error(`SoilGrids answered ${res.status}.`);
   return parseSoilGrids(await res.json());
 }
