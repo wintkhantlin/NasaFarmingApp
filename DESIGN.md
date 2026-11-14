@@ -80,7 +80,7 @@ Tailwind classes are `text-<name>`; size, line height, weight and tracking come 
 | `reading` | Geist Mono | 28 / 32, -0.01em | 500 | A measured value, unit attached |
 | `data` | Geist Mono | 15 / 20 | 500 | Amounts and times in rows |
 | `source` | Geist Mono | 12 / 16 | 400 | Dataset · resolution · pass date |
-| `overline` | Geist Mono | 11 / 14, 0.08em | 500 | Uppercase context above a headline |
+| `overline` | Geist | 13 / 18 | 500 | Small context above a headline, in sentence case and `ink-muted` (no tracked capitals) |
 
 Mono styles add the `tabular` utility so digits line up.
 

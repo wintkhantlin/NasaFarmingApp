@@ -78,32 +78,66 @@ The UI uses the plain name and keeps the dataset in the source line. This is the
 | Farmer's question | UI name | NASA source | Shown as |
 | --- | --- | --- | --- |
 | Do I need to irrigate? | Soil moisture | `SMAP L3/L4 · 9 km · daily` | Chart with crop band, map layer |
-| Is it going to rain enough? | Rainfall | `GPM IMERG · 0.1° · half-hourly` | 7-day bars, running total vs normal |
+| Is it going to rain enough? | Rainfall | `NASA POWER (MERRA-2, bias-corrected) · 0.5° · daily`; GPM IMERG (0.1°) once Earthdata access is set up | Seasonal totals, years compared with normal |
 | Is my crop healthy? | Crop health | `MODIS / VIIRS NDVI · 250–500 m · 8–16 day` | Field compared with its own past seasons |
 | Will heat or frost hurt it? | Heat and frost | `MODIS LST · 1 km · daily` | Alert chips with a time window |
 | Is this season unusual? | Season so far | `NASA POWER · agroclimatology` | Growing degree days vs 20-year average |
 
 A 9 km soil-moisture cell is larger than most smallholder fields. Say "around your field" and show uncertainty instead of implying a per-plot reading.
 
-## Today Screen Concept
+## Product Flow: Rotation Planner
 
-From top to bottom:
-1. **One answer in display type.** If several fields need action, the most urgent one leads and the rest go in the list below.
-2. **A "why" line** in plain words that names the evidence ("Soil moisture has been below the maize range for 3 days, and less than 4 mm of rain is expected before Sunday").
-3. **Risk chip** with icon, time window and field ("Frost likely Sat 2–6 am · Field 3"). Never shown by colour alone.
-4. **One primary action** that turns the advice into a task ("Add to plan").
-5. **7-day rain strip**, kept small because it supports the headline.
-6. **Other fields** as a short list with status and timing.
-7. **Source and pass date** in mono type (`SMAP · GPM IMERG · 12 Nov pass`).
+The brief defines the product as a **rotation planner**: choose a field, record the current rotation, then compare it with at least two alternatives. This replaces the daily-advice tabs (Today, Map, Plan, Fields) that an earlier version of this study proposed. The findings above still apply; they now shape the screens below.
+
+```
+Home (your fields)
+ └─ Field ──┬─ 1 Location        pin, box or polygon on a map; satellite resolution boxes
+            ├─ 2 Your rotation   ribbon (tablet, desktop) or numbered list (phone)
+            ├─ 3 Conditions      climate, water, soil, satellite history
+            ├─ 4 Compare         current rotation vs at least two alternatives
+            │    └─ Option       fit, soil health, resilience, why, what we don't know
+            └─ Report            one-page summary to take to an adviser
+About the data                   datasets, resolution, methods, limits
+```
+
+A stepper shows steps 1 to 4 with their state (done, needs input, data loading). People can jump between steps; results recompute and keep earlier inputs.
+
+### How each finding is used
+
+| Finding | Where it lands |
+| --- | --- |
+| 1. Lead with a sentence | Each option opens with a `Recommendation`: "Try maize then groundnut, with cowpea as cover", then the reason, then the evidence. |
+| 2. Layers in a sheet with a legend | The map step: base map thumbnails, resolution boxes toggled in a sheet, each with a one-line "what this satellite sees". |
+| 3. Consequence and likelihood | Risks read "what could go wrong, how often, what to check", e.g. "Marginal: not enough rain in 6 of 10 years without irrigation". |
+| 4. Chart with a target band | Water-need and soil readings show the crop's comfortable band, with an in-range verdict in words. |
+| 5. Dated task list | The rotation input: numbered slots with date range and "exact / about / usual time" confidence. |
+| 6. Permissions with something in return | Location is about the field, so a manual pin works with no GPS permission. |
+
+### Screens
+
+- **Home:** list of fields with step status. Empty state: "Drop a pin on your first field".
+- **Location:** map with search, "use my location" and lat/lon entry. Three draw tools: pin, box, field outline. A toggle shows the 250 m, 9 km and 0.1 degree data cells around the field, captioned "What each satellite sees around your field". A save sheet asks for name and irrigation access (none, some, full) and an optional soil test.
+- **Your rotation:** on tablet and desktop, a ribbon with one row per year of the cycle and a month axis starting at the local season start. Crop blocks are dragged and resized; gaps show as bare soil. On phone, a numbered list: "1. Maize, 15 Jun to 10 Oct" with "Add next crop". Picking a crop pre-fills typical dates. A satellite greenness line under the ribbon flags dates that don't match what the satellite saw.
+- **Conditions:** a plain-language summary of the rainy seasons, frost and heat, dry spells; monthly rain against crop water use; soil readings with bands; a "what grows well here" grid; a place for the farmer's own information.
+- **Compare:** a table on desktop (your rotation, then each alternative, row groups for fit, soil health, water and weather, unknowns); on phone, one tab per option with "Compare with now". No single winner badge: labels are factual ("Most reliable in dry years", "Biggest soil benefit").
+- **Option:** the recommendation, a year-by-year strip showing how the rotation would have done in each past year, soil-health benefits and trade-offs against the current rotation, the evidence list, and "Unknowns and things to check".
+- **Report:** a printable one-page summary of the rotations, key evidence and questions to ask locally.
+
+### Persistent framing
+
+Every comparison screen carries: "Suggestions to discuss, not instructions. You know your land. Check these with your extension officer or adviser."
+
+### States
+
+Design for: location denied, no search result, a field smaller than a data cell, no soil map data at the point, satellite data still loading ("Satellite detail on its way, about 3 minutes"), a data source down, offline with cached results ("Data from 12 Nov"), no feasible alternative for a strategy ("Not a fit here because...").
 
 ## Information Architecture
 
-- **Today:** what to do now, across all fields. Lead recommendation, active alerts, rain this week.
-- **Map:** where it's happening. Base map thumbnails, one data layer at a time, legend sheet with source.
-- **Plan:** when to do it. Today / This week / Later, amounts and reasons, mark done, set reminder.
-- **Fields:** how each field is doing. Per-field charts, season compared with past years, crop and planting date.
+- **Fields (Home):** every saved field and where it is in the flow.
+- **Field steps:** Location, Your rotation, Conditions, Compare. Report and Option pages hang off Compare.
+- **About the data:** datasets, resolution, methods and what is missing.
 
-Settings, offline data and account sit behind the profile icon. Alerts do not get a tab because they appear on Today and as notifications.
+Settings, export and import of field data, and offline storage sit behind the profile icon. There are no accounts in the first version.
 
 ## Principles From The Study
 
@@ -118,6 +152,6 @@ Settings, offline data and account sit behind the profile icon. Alerts do not ge
 
 - Interview five to eight growers and two advisers to confirm the personas, crops and translation-table questions.
 - Test the DESIGN.md tokens outdoors on a phone at full brightness.
-- Prototype Today, the layer sheet and the alert chip, then run a five-person test: "Should you irrigate this week? How sure are you?"
+- Prototype the rotation ribbon, the comparison table and an option page, then run a five-person test: "Which rotation would you try? What would you check first?"
 - Decide how to show uncertainty for coarse grids before anyone treats a reading as per-plot.
 - Design offline, loading and stale-data states early.
