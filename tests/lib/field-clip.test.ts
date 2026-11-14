@@ -8,10 +8,13 @@ import type { FieldGeometry, LngLat } from "../../lib/types";
  */
 const TILE = { minX: 690_000, maxY: 2_230_020, width: 1000, height: 1000, res: 30 };
 let geoKeys: Record<string, unknown> = { GTModelTypeGeoKey: 1, ProjectedCSTypeGeoKey: 32646 };
+/** 4x4 row-major ModelTransformation, as geotiff returns it; undefined = a plain north-up grid (scale and tiepoint). */
+let modelTransformation: number[] | undefined;
 
 vi.mock("geotiff", () => ({
   fromUrl: async () => ({
     getImage: async () => ({
+      fileDirectory: { hasTag: (t: string) => t === "ModelTransformation" && modelTransformation !== undefined, getValue: () => modelTransformation },
       getGeoKeys: () => geoKeys,
       getBoundingBox: () => [TILE.minX, TILE.maxY - TILE.height * TILE.res, TILE.minX + TILE.width * TILE.res, TILE.maxY],
       getWidth: () => TILE.width,
@@ -104,6 +107,22 @@ describe("readCogWindow clips to the field", () => {
     expect(w.inside[w.width - 1]).toBe(false);
     // The bottom-left corner pixel is inside the L.
     expect(w.inside[(w.height - 2) * w.width + 1]).toBe(true);
+  });
+
+  test("a rotated or sheared grid is refused instead of putting the field on the wrong pixels", async () => {
+    // 30 m pixels, rotated 10 degrees: the off-diagonal terms of the transform are not zero
+    const a = 30 * Math.cos(Math.PI / 18);
+    const b = -30 * Math.sin(Math.PI / 18);
+    modelTransformation = [a, b, 0, TILE.minX, -b, -a, 0, TILE.maxY, 0, 0, 0, 0, 0, 0, 0, 1];
+    try {
+      await expect(readCogWindow("https://example.test/red.tif", field)).rejects.toThrow(/rotated or sheared/);
+      // the same tile described with a north-up ModelTransformation is accepted
+      modelTransformation = [30, 0, 0, TILE.minX, 0, -30, 0, TILE.maxY, 0, 0, 0, 0, 0, 0, 0, 1];
+      const w = await readCogWindow("https://example.test/red.tif", field);
+      expect(w.width).toBeGreaterThan(0);
+    } finally {
+      modelTransformation = undefined;
+    }
   });
 
   test("a field off the tile returns no pixels", async () => {

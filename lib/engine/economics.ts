@@ -23,14 +23,17 @@ export interface EconomicsAssessment {
   areaHa: number | null;
   cycleMarginMmk: [number, number] | null;
   unknownSlots: number;
-  /** Annualized margin per ha using exact occupied cycle days: margin * 365.2425 / occupiedCycleDays */
+  /** Annualized margin per ha over the whole repeating cycle: margin * 365.2425 / occupiedCycleDays. */
   annualizedMarginMmkHa?: [number, number] | null;
   occupiedCycleDays?: number;
 }
 
 /**
- * Annualize margin using exact occupied cycle days (margin * 365.2425 / actual occupied cycle days).
- * Prevents whole-year integer rounding discontinuities (e.g. 547 days vs 548 days).
+ * Annualize a whole-cycle margin: margin * 365.2425 / cycle days. The cycle runs from the first planting to the
+ * next planting of the first crop, so fallow and idle days between crops are INCLUDED; dividing by the days a
+ * crop was in the field would credit the farmer with income for idle land. The name `occupiedCycleDays` is
+ * historical: the field is "occupied" by the rotation for the whole cycle.
+ * Using exact days prevents whole-year integer rounding discontinuities (e.g. 547 days vs 548 days).
  */
 export function annualizeMargin(
   marginMmkHa: [number, number] | null,

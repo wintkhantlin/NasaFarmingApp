@@ -7,7 +7,8 @@ import { cacheKey, serverCache, type ServerCache } from "./cache";
 /**
  * Per-cell IMERG daily backfill. Each call fetches at most `batch` missing days (so a request stays
  * short), stores them per cell and year, and reports how much of the period is covered. The engine
- * uses IMERG only once coverage is high enough; until then rainfall is NASA POWER and says so.
+ * uses IMERG only once coverage is high enough; until then rainfall is NASA POWER and says so. Days that the
+ * archive does not publish are never fetched and are not waited for.
  */
 
 export interface ImergProgress {
@@ -46,6 +47,8 @@ export async function imergBackfill(
 
   const missing = dates.filter((d) => !stored.has(d));
   let granules: ImergGranule[] = [];
+  /** Days the archive actually lists, once discovery has succeeded. Null until then. */
+  let published: Set<string> | null = null;
   let error: string | null = null;
   if (missing.length > 0) {
     try {
@@ -54,6 +57,7 @@ export async function imergBackfill(
       granules = cachedG ?? (await discoverGranules({ start: `${period.start}T00:00:00Z`, end: `${period.end}T23:59:59Z` }, { fetch: opts.fetch }));
       if (!cachedG) await cache.set(gKey, granules, 60 * 60 * 12);
       const byDate = new Map(granules.map((g) => [g.date, g]));
+      published = new Set(byDate.keys());
       const todo = missing.map((d) => byDate.get(d)).filter((g): g is ImergGranule => Boolean(g)).slice(0, opts.batch ?? 40);
       const results = await pool(todo, opts.concurrency ?? 6, (g) => fetchImergCell(g, lat, lng, { fetch: opts.fetch, env }));
       let ok = 0;
@@ -76,7 +80,9 @@ export async function imergBackfill(
   const days = [...stored.values()].sort((a, b) => a.date.localeCompare(b.date));
   const covered = days.filter((d) => d.precipMm !== null).length;
   return {
-    status: dates.every((d) => stored.has(d)) ? "ok" : "pending",
+    // A day the archive does not list (Final V07 stops in September 2025) can never be fetched, so it must not keep
+    // the job pending for ever. It stays out of `covered`, and `expected` is unchanged, so the shortfall is shown.
+    status: dates.every((d) => stored.has(d) || (published !== null && !published.has(d))) ? "ok" : "pending",
     days,
     expected: dates.length,
     covered,

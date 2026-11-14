@@ -375,6 +375,13 @@ export async function readCogWindow(
   const { fromUrl } = await import("geotiff");
   const tiff = await fromUrl(signedUrl);
   const image = await tiff.getImage();
+  // The pixel-to-map mapping below is the unrotated affine (b = d = 0). A rotated or sheared grid would put the
+  // field on the wrong pixels without any error, so it is refused. Landsat, HLS and MODIS COGs are north-up.
+  const dir = image.fileDirectory;
+  const transform = dir.hasTag("ModelTransformation") ? (dir.getValue("ModelTransformation") as ArrayLike<number> | null) : null;
+  if (transform && (Math.abs(transform[1]) > 1e-12 || Math.abs(transform[4]) > 1e-12)) {
+    throw new Error("Unsupported raster geometry: rotated or sheared grid. Only north-up rasters are read.");
+  }
   const project = projectorFor(image.getGeoKeys() as Record<string, unknown>);
   const rings = fieldRings(geometry).map((ring) => ring.map(project));
   const [imgMinX, imgMinY, imgMaxX, imgMaxY] = image.getBoundingBox();

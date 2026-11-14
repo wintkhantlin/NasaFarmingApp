@@ -13,7 +13,7 @@ import {
 import { organicMatterPct, saxtonRawls } from "../../lib/soil/pedotransfer";
 import { parseSoilGrids, usdaTexture, type SoilProfile } from "../../lib/soil/soilgrids";
 import { effectiveSoil } from "../../lib/engine/soil-input";
-import { anchorUtility, criterionUtility, CRITERIA, minimaxRegret, rankRotations, relativeUtility } from "../../lib/engine/mcda";
+import { anchorUtility, criterionUtility, CRITERIA, minimaxRegret, rankRotations, relativeUtility, switchingPoint } from "../../lib/engine/mcda";
 import { gddStageWindows, replayWindows } from "../../lib/engine/season";
 import type { DailyRecord } from "../../lib/engine/climate";
 import { areaWeightedCoverage, MIN_VALID_COVERAGE, summariseHls } from "../../lib/nasa/derive/ndvi";
@@ -499,5 +499,32 @@ describe("Phase 4: minimum clear-area gate", () => {
     expect(fringe.validPixels).toBe(2); // the count is still reported honestly
     expect(edge.ndviMedian).toBeCloseTo((0.4 - 0.05) / (0.4 + 0.05), 12);
     expect(full.ndviMedian).toBeCloseTo((0.4 - 0.05) / (0.4 + 0.05), 12);
+  });
+});
+
+describe("Section 8.4: pairwise switching weight", () => {
+  // S(A) = w uA1 + (1 - w) uA2 and S(B) likewise; setting S(A) = S(B) gives
+  //   w* = (uB2 - uA2) / ((uA1 - uB1) - (uA2 - uB2)).
+  // An earlier whitepaper printed the numerator with the opposite sign. The code always used the correct one.
+  test("A wins only on criterion 1 and B only on criterion 2: the options swap at w = 0.5", () => {
+    const w = switchingPoint({ u1: 1, u2: 0 }, { u1: 0, u2: 1 });
+    expect(w).toBeCloseTo(0.5, 12);
+    // the mis-signed formula would have returned -0.5 here and so reported "no switching point"
+    const wrongSign = -(1 - 0) / ((1 - 0) - (0 - 1));
+    expect(wrongSign).toBeCloseTo(-0.5, 12);
+  });
+
+  test("at the returned weight the two scores are equal, and either side prefers a different option", () => {
+    const A = { u1: 0.8, u2: 0.4 };
+    const B = { u1: 0.4, u2: 0.7 };
+    const w = switchingPoint(A, B)!;
+    const score = (u: { u1: number; u2: number }, weight: number) => weight * u.u1 + (1 - weight) * u.u2;
+    expect(score(A, w)).toBeCloseTo(score(B, w), 12);
+    expect(score(A, w + 0.1)).toBeGreaterThan(score(B, w + 0.1)); // more weight on criterion 1 favours A
+    expect(score(A, w - 0.1)).toBeLessThan(score(B, w - 0.1));
+  });
+
+  test("an option that is better on both criteria never switches", () => {
+    expect(switchingPoint({ u1: 0.9, u2: 0.9 }, { u1: 0.2, u2: 0.3 })).toBeNull();
   });
 });
