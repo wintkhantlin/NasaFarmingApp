@@ -166,7 +166,7 @@ describe("suitability: unknown is not a pass", () => {
 
   test("the farmer's value wins over the soil map, and both stay visible", () => {
     const field = syntheticField({ soilOverride: { ph: 5.8 } });
-    const soil = effectiveSoil(field, { clayPct: 30, sandPct: 30, siltPct: 40, ph: 7.4, socGKg: 12, cecCmolKg: null, bulkDensityKgDm3: null, nitrogenGKg: null, texture: "clay loam", source: { dataset: "ISRIC SoilGrids v2", resolution: "250 m", depth: "0 to 30 cm" } });
+    const soil = effectiveSoil(field, { clayPct: 30, sandPct: 30, siltPct: 40, ph: 7.4, socGKg: 12, cecCmolKg: null, bulkDensityKgDm3: null, nitrogenGKg: null, fieldCapacityFrac: null, wiltingPointFrac: null, texture: "clay loam", source: { dataset: "ISRIC SoilGrids v2", resolution: "250 m", depth: "0 to 30 cm" } });
     expect(soil.ph?.value).toBe(5.8);
     expect(soil.ph?.from).toBe("farmer");
     expect(soil.texture?.from).toBe("soilgrids");
@@ -272,7 +272,12 @@ describe("pests, economics and the root-zone balance", () => {
     expect(ok.status).toBe("ok");
     if (ok.status === "ok") {
       expect(ok.tawMm).toBeCloseTo(72);
-      expect(ok.endDepletionMm).toBeCloseTo(50);
+      // v3.1: after storage falls below (1 - p) TAW = 36 mm the crop is throttled by Ks, so it extracts a little
+      // less than the 50 mm of demand. Days 9 and 10 run at Ks = 32/36 and 27.56/36: 72 - 23.73 = 48.27 mm.
+      expect(ok.endDepletionMm).toBeCloseTo(48.27, 2);
+      expect(ok.unmetDemandMm).toBeCloseTo(1.73, 2);
+      expect(ok.meanStressCoefficient).toBeLessThan(1);
+      expect(ok.conservationResidualMm).toBe(0);
       expect(ok.daysBeyondHalfTaw).toBeGreaterThan(0);
     }
   });
@@ -307,8 +312,12 @@ describe("MCDA", () => {
       ]),
       { order: ["soil", "water"], weights: {} },
     );
-    expect(res.used).not.toContain("water-shortfall");
-    expect(res.excluded.find((e) => e.criterion === "water-shortfall")?.reason).toBe("missing-evidence");
+    // v3.1: one option lacking water evidence no longer removes the criterion for everyone. It is set apart,
+    // and the two options that do have it are compared on it.
+    expect(res.used).toContain("water-shortfall");
+    expect(res.ranking.map((r) => r.rotationId).sort()).toEqual(["r0", "r2"]);
+    expect(res.partial.map((p) => p.rotationId)).toEqual(["r1"]);
+    expect(res.partial[0].missing).toEqual(["water-shortfall"]);
     expect(res.status).toBe("ranked");
   });
 
@@ -325,21 +334,22 @@ describe("MCDA", () => {
     expect(res.ranking).toHaveLength(0);
   });
 
-  test("no priorities, no ranking; an infeasible option is not ranked; no-difference is reported", () => {
+  test("no priorities, no ranking; an infeasible option is not ranked; a tie on a relative scale is reported", () => {
     expect(rankRotations(inputs([{}, {}, {}]), undefined).status).toBe("no-priorities");
     const res = rankRotations(
       inputs(
         [
-          { "soil-legume-share": 0, "soil-cover": 0.5 },
-          { "soil-legume-share": 1, "soil-cover": 0.5 },
-          { "soil-legume-share": 0.5, "soil-cover": 0.9 },
+          { "soil-legume-share": 0, "income-margin": 5 },
+          { "soil-legume-share": 1, "income-margin": 5 },
+          { "soil-legume-share": 0.5, "income-margin": 9 },
         ],
         [true, true, false],
       ),
-      { order: ["soil"], weights: {} },
+      { order: ["soil", "income"], weights: {} },
     );
     expect(res.ranking.map((r) => r.rotationId)).not.toContain("r2");
-    expect(res.excluded.find((e) => e.criterion === "soil-cover")?.reason).toBe("no-difference");
+    // income has no anchors, so a tie would score 1 for both and carry no information: it is left out and said so
+    expect(res.excluded.find((e) => e.criterion === "income-margin")?.reason).toBe("no-difference");
   });
 
   test("explicit weights are normalised", () => {

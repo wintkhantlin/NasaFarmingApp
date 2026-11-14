@@ -149,6 +149,12 @@ export function parsePowerDaily(json: unknown): DailyWeather {
   for (const [name, info] of Object.entries(unitsBlock)) {
     if (isObj(info) && typeof info.units === "string") units[name] = info.units;
   }
+
+  // Convert solar energy in kWh/m^2/day to MJ/m^2/day only for responses declaring kWh
+  if (series.ALLSKY_SFC_SW_DWN && units.ALLSKY_SFC_SW_DWN && /(kwh|kw-hr)/i.test(units.ALLSKY_SFC_SW_DWN)) {
+    series.ALLSKY_SFC_SW_DWN = series.ALLSKY_SFC_SW_DWN.map((v) => (v !== null ? v * 3.6 : null));
+    units.ALLSKY_SFC_SW_DWN = "MJ/m^2/day";
+  }
   return {
     longitude: typeof coords[0] === "number" ? coords[0] : Number.NaN,
     latitude: typeof coords[1] === "number" ? coords[1] : Number.NaN,

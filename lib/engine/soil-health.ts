@@ -23,6 +23,36 @@ export interface NitrogenAssessment {
   note: string;
 }
 
+/**
+ * Calculates dry grain nitrogen removal in kg N/ha (Section D).
+ * dry N removal = Ywet * (1 - moistureFraction) * grainNDryMassFraction.
+ * Example: 1,000 kg/ha at 15% moisture (0.15) and 3% N (0.03) removes 25.5 kg N/ha.
+ */
+export function dryGrainNRemoval(
+  yieldWetKgHa: number,
+  moistureFraction = 0.15,
+  grainNDryMassFraction = 0.03,
+): number {
+  const dryYieldKgHa = yieldWetKgHa * Math.max(0, 1 - moistureFraction);
+  return dryYieldKgHa * Math.max(0, grainNDryMassFraction);
+}
+
+/**
+ * Calculates conservative enclosure bounds for partial nitrogen budget (Section H4).
+ * N_partial = F - G - R in [Fmin - Gmax - Rmax, Fmax - Gmin - Rmin].
+ * Example: F in [35, 55], G in [25, 35], R in [5, 15] gives [-15, 25] kg N/ha.
+ */
+export function partialNitrogenBudgetEnclosure(
+  fixedRangeKgHa: [number, number],
+  grainRemovedRangeKgHa: [number, number],
+  residueRemovedRangeKgHa: [number, number],
+): [number, number] {
+  const [fMin, fMax] = fixedRangeKgHa;
+  const [gMin, gMax] = grainRemovedRangeKgHa;
+  const [rMin, rMax] = residueRemovedRangeKgHa;
+  return [fMin - gMax - rMax, fMax - gMin - rMin];
+}
+
 export function nitrogenAssessment(rotation: Pick<Rotation, "slots">): NitrogenAssessment {
   let lo = 0;
   let hi = 0;

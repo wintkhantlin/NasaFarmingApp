@@ -41,6 +41,8 @@ export type PriorityId = "water" | "soil" | "income" | "forage" | "lower-inputs"
 export type SoilProperty =
   | "ph"
   | "texture"
+  | "sand"
+  | "clay"
   | "drainage"
   | "salinity"
   | "organic-carbon"
@@ -141,6 +143,8 @@ export interface Rotation {
   label: string;
   /** Length of the repeating cycle, 1 to 4 years. */
   cycleYears: 1 | 2 | 3 | 4;
+  /** Exact occupied cycle days from first planting to restart, preventing integer rounding artifacts. */
+  cycleDays?: number;
   slots: RotationSlot[];
   source: "farmer" | "strategy";
   strategyId?: string;
@@ -228,7 +232,17 @@ export interface Crop {
   family: string;
   group: FunctionalGroup;
   cycleDays: { min: number; typ: number; max: number };
-  gdd: { baseC: number; toMaturity: number };
+  gdd: {
+    baseC: number;
+    toMaturity: number;
+    /** Upper developmental cutoff for McMaster-Wilhelm GDD. 30 C when absent. */
+    upperC?: number;
+    /**
+     * Cumulative GDD from sowing at which Initial, Development and Mid-season end. Absent when the cultivar's
+     * thermal requirements are unknown: stages then follow the calendar split by `stageFractions`.
+     */
+    stageEndGdd?: { ini: number; dev: number; mid: number };
+  };
   temp: {
     absMinC: number;
     optMinC: number;

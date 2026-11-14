@@ -38,6 +38,8 @@ const SOIL_UNITS: Record<SoilProperty, string> = {
   texture: "",
   drainage: "",
   salinity: "dS/m",
+  sand: "%",
+  clay: "%",
   "organic-carbon": "%",
   "available-water-capacity": "mm/m",
   "root-depth": "cm",

@@ -270,3 +270,29 @@ export function hotDaysPerYear(records: DailyRecord[], thresholdC = 35): number 
   if (complete.size === 0) return Number.NaN;
   return rows.filter((r) => r.tmaxC !== null && r.tmaxC > thresholdC).length / complete.size;
 }
+
+/**
+ * Daily Growing Degree Days (GDD). Clamps BOTH Tmax and Tmin to [baseC, upperC]
+ * (McMaster and Wilhelm, 1997 convention) before taking the mean, preventing
+ * asymmetrical overshoot when Tmin exceeds the ceiling.
+ * GDD = (clamped Tmax + clamped Tmin) / 2 - baseC.
+ */
+export function dailyGdd(tmaxC: number, tminC: number, baseC: number, upperC: number): number {
+  const boundedMax = Math.min(upperC, Math.max(baseC, tmaxC));
+  const boundedMin = Math.min(upperC, Math.max(baseC, tminC));
+  return Math.max(0, (boundedMax + boundedMin) / 2 - baseC);
+}
+
+/**
+ * Accumulates GDD across daily records for a given date window.
+ */
+export function windowGdd(records: DailyRecord[], fromIso: string, toIso: string, baseC: number, upperC: number): number | null {
+  const windowDays = records.filter((r) => r.date >= fromIso && r.date <= toIso);
+  if (windowDays.length === 0) return null;
+  let total = 0;
+  for (const d of windowDays) {
+    if (d.tmaxC === null || d.tminC === null) return null;
+    total += dailyGdd(d.tmaxC, d.tminC, baseC, upperC);
+  }
+  return total;
+}

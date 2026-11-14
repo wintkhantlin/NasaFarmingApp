@@ -127,4 +127,22 @@ describe("IMERG backfill", () => {
     expect(opendapCalls).toBe(3); // earlier days were not fetched again
     expect(second.days[0].precipMm).toBe(2.5);
   });
+
+  test("days NASA has not published (Final V07 ends in September 2025) do not keep the job pending forever", async () => {
+    // CMR lists granules for three of the four requested days; the fourth does not exist in the archive.
+    const entries = ["2025-09-28", "2025-09-29", "2025-09-30"].map((d) => ({
+      id: d,
+      producer_granule_id: `3B-DAY.${d}.nc4`,
+      time_start: `${d}T00:00:00.000Z`,
+      links: [{ rel: "http://esipfed.org/ns/fedsearch/1.1/service#", href: `https://opendap.earthdata.nasa.gov/granule-${d}` }],
+    }));
+    const f = (async (url: string) => {
+      if (String(url).includes("cmr.earthdata.nasa.gov")) return new Response(JSON.stringify({ feed: { entry: entries } }));
+      return new Response("precipitation[0][1][1]\n2.5\nprecipitation_cnt[0][1][1]\n48\nrandomError[0][1][1]\n0.4\nrandomError_cnt[0][1][1]\n48");
+    }) as unknown as typeof fetch;
+    const r = await imergBackfill(20.15, 94.95, { start: "2025-09-28", end: "2025-10-01" }, { fetch: f, env: { EARTHDATA_TOKEN: "t" }, cache: memoryCache() });
+    expect(r.covered).toBe(3);
+    expect(r.expected).toBe(4); // the shortfall stays visible: 3 of 4 days, never padded
+    expect(r.status).toBe("ok");
+  });
 });

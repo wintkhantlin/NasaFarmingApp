@@ -8,6 +8,7 @@ import type { RemoteState } from "../server/remote-sensing";
 
 const info = (s: RemoteState<unknown> | undefined): RemoteInfo => ({
   status: (s?.status ?? "not-requested") as SourceStatus,
+  provider: s?.provider ?? null,
   retrievedAt: s?.retrievedAt ?? null,
   start: s?.start ?? null,
   end: s?.end ?? null,

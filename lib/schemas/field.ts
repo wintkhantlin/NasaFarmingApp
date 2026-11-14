@@ -51,7 +51,7 @@ const monthDay = z.string().regex(/^\d{2}-\d{2}$/, "Use a date like 06-15.");
 
 export const soilObservationSchema: z.ZodType<SoilObservation> = z.object({
   id: z.string().min(1),
-  property: z.enum(["ph", "texture", "drainage", "salinity", "organic-carbon", "available-water-capacity", "root-depth", "nitrogen"]),
+  property: z.enum(["ph", "texture", "sand", "clay", "drainage", "salinity", "organic-carbon", "available-water-capacity", "root-depth", "nitrogen"]),
   value: z.union([z.number(), z.string().min(1)]),
   units: z.string().max(20),
   depthCm: z.tuple([z.number().min(0), z.number().min(0)]),
