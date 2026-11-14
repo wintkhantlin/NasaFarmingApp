@@ -1,0 +1,78 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e43]:
+    - link "Skip to content" [ref=e44] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=e45]:
+      - generic [ref=e46]:
+        - link "Rotation planner" [ref=e47] [cursor=pointer]:
+          - /url: /
+        - button "Settings" [ref=e52]
+    - main [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - heading "Your fields" [level=1] [ref=e59]
+          - paragraph [ref=e60]: Compare your crop rotation with other options, using NASA data.
+        - link "Add a field" [ref=e61] [cursor=pointer]:
+          - /url: /fields/new
+      - region "Draw your first field" [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - heading "Draw your first field" [level=2] [ref=e66]
+            - paragraph [ref=e67]: Choose where your field is, tell us what you grow now, and see how it compares with other rotations.
+          - list [ref=e68]:
+            - listitem [ref=e69]:
+              - generic [aria-hidden] [ref=e70]: "1"
+              - generic [ref=e71]:
+                - generic [ref=e72]: Mark your field on a map
+                - generic [ref=e73]: Search for a village or town, draw a box or outline, or enter corner coordinates. Location works without GPS.
+            - listitem [ref=e74]:
+              - generic [aria-hidden] [ref=e75]: "2"
+              - generic [ref=e76]:
+                - generic [ref=e77]: Record what you grow now
+                - generic [ref=e78]: Enter your crops and typical planting/harvest dates so the planner can measure your baseline.
+            - listitem [ref=e79]:
+              - generic [aria-hidden] [ref=e80]: "3"
+              - generic [ref=e81]:
+                - generic [ref=e82]: Tell us what matters & compare
+                - generic [ref=e83]: Rank your goals (water, soil, income, feed) and compare options tailored for your region.
+          - generic [ref=e84]:
+            - link "Add a field" [ref=e85] [cursor=pointer]:
+              - /url: /fields/new
+            - link "About the data" [ref=e88] [cursor=pointer]:
+              - /url: /about/data
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - generic [ref=e91]: "Preview: Magway Region"
+            - generic [ref=e96]: Suits sandy loam
+          - generic [ref=e100]:
+            - generic [ref=e101]: "Option: Sesame, then green gram"
+            - paragraph [ref=e102]: Sesame followed by green gram on stored moisture
+            - paragraph [ref=e103]: Rain shortfall is 85 mm lower than continuous sesame. Green gram adds nitrogen back to the soil and keeps ground covered during early dry months.
+          - generic [ref=e104]:
+            - generic [ref=e105]:
+              - term [ref=e106]: Dry-season reliability
+              - definition [ref=e107]: 7 of 8 years passed
+            - generic [ref=e108]:
+              - term [ref=e109]: Nitrogen fixed
+              - definition [ref=e110]: 35 to 60 kg N/ha
+    - navigation "Main" [ref=e111]:
+      - list [ref=e112]:
+        - listitem [ref=e113]:
+          - link "Fields" [ref=e114] [cursor=pointer]:
+            - /url: /
+        - listitem [ref=e118]:
+          - link "Compare" [ref=e119] [cursor=pointer]:
+            - /url: /compare
+        - listitem [ref=e124]:
+          - link "Learn" [ref=e125] [cursor=pointer]:
+            - /url: /learn
+  - generic [ref=e7] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e8]
+    - generic [ref=e128]:
+      - button "Open issues overlay" [ref=e129]:
+        - generic [ref=e130]:
+          - generic [aria-hidden] [ref=e131]: "0"
+          - generic [ref=e132]: "1"
+        - generic [ref=e133]: Insight
+      - button "Collapse issues badge" [ref=e134]
+  - alert [ref=e42]: Rotation planner

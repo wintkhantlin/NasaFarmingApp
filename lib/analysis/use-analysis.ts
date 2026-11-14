@@ -93,7 +93,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
         setPhase("ready");
       }
 
-      const fresh = cached && !isStale(cached.fetchedAt, 6) && cached.imerg?.status !== "pending";
+      const fresh = cached && cached.soilAvailable !== false && !isStale(cached.fetchedAt, 6) && cached.imerg?.status !== "pending";
       if (fresh && !isBackgroundPoll) {
         isFetching = false;
         return;

@@ -1,0 +1,62 @@
+- generic [ref=f3e1]:
+  - generic [ref=f3e6] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f3e7]
+    - generic [ref=f3e367]:
+      - button "Open issues overlay" [ref=f3e368]:
+        - generic [ref=f3e369]:
+          - generic [aria-hidden] [ref=f3e370]: "0"
+          - generic [ref=f3e371]: "1"
+        - generic [ref=f3e372]: Insight
+      - button "Collapse issues badge" [ref=f3e373]
+  - alert [ref=f3e11]: Your farm
+  - generic [ref=f3e105]:
+    - link "Skip to content" [ref=f3e106] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f3e107]:
+      - generic [ref=f3e108]:
+        - link "Rotation planner" [ref=f3e109] [cursor=pointer]:
+          - /url: /
+        - button "Settings" [ref=f3e114]
+    - main [ref=f3e118]:
+      - generic [ref=f3e119]:
+        - link "Fields" [ref=f3e121] [cursor=pointer]:
+          - /url: /
+        - navigation "Pages for Layout test field" [ref=f3e125]:
+          - list [ref=f3e126]:
+            - listitem [ref=f3e127]:
+              - link "Overview" [active] [ref=f3e128] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea
+            - listitem [ref=f3e132]:
+              - link "Farm details" [ref=f3e133] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/profile
+            - listitem [ref=f3e143]:
+              - link "Crops" [ref=f3e144] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/rotation
+            - listitem [ref=f3e148]:
+              - link "Conditions" [ref=f3e149] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/conditions
+            - listitem [ref=f3e155]:
+              - link "Compare" [ref=f3e156] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/compare
+        - generic [ref=f3e161]:
+          - generic [ref=f3e377]:
+            - heading "Layout test field" [level=1] [ref=f3e378]
+            - paragraph [ref=f3e379]: 119 ha
+          - link "Edit field boundary" [ref=f3e380] [cursor=pointer]:
+            - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/location
+          - region "Crops on this field" [ref=f3e384]:
+            - heading "Crops on this field" [level=2] [ref=f3e385]
+            - paragraph [ref=f3e386]: No crops recorded yet. Add them from the Crops tab.
+          - group [ref=f3e387]:
+            - generic "Field options" [ref=f3e388] [cursor=pointer]
+    - navigation "Main" [ref=f3e350]:
+      - list [ref=f3e351]:
+        - listitem [ref=f3e352]:
+          - link "Fields" [ref=f3e353] [cursor=pointer]:
+            - /url: /
+        - listitem [ref=f3e357]:
+          - link "Compare" [ref=f3e358] [cursor=pointer]:
+            - /url: /compare
+        - listitem [ref=f3e363]:
+          - link "Learn" [ref=f3e364] [cursor=pointer]:
+            - /url: /learn

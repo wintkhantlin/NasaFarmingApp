@@ -270,12 +270,12 @@ describe("Priority 4 & Section F: Priority Weights, MCDA, Anchors & Regret", () 
     expect(res.ranking).toHaveLength(0);
   });
 
-  test("all zero weights returns no-priorities", () => {
+  test("all zero weights falls back to equal weights and says so", () => {
     const res = rankRotations(sampleRotations, {
       order: ["water", "soil"],
       weights: { water: 0, soil: 0 },
     });
-    expect(res.status).toBe("no-priorities");
+    expect(res.assumedPriorities).toBe(true);
   });
 
   test("anchorUtility scales values monotonically against interpretable bounds", () => {

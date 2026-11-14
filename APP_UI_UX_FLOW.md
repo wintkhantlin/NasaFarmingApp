@@ -44,8 +44,8 @@ The stepper labels must describe real states: **Done**, **Needs your input**, **
 
 | Moment | User action | Visible response | Exit condition |
 | --- | --- | --- | --- |
-| 1. Start | Open Your fields | See saved fields and each field's next useful step. Empty state says "Drop a pin on your first field". | Choose or add a field. |
-| 2. Locate | Search, type coordinates, use device location, or draw a pin, box, or outline | Map shows the selection. A resolution control explains what data covers the area around it. Save sheet asks for field name, irrigation access, and optional soil test. | Field is saved locally and its overview opens. |
+| 1. Start | Open Your fields | See saved fields. Empty state says "Draw your first field". | Choose or add a field. |
+| 2. Locate | Search, use device location, draw a box or outline, or enter two corner coordinates | Map shows the selected field area. Save sheet asks for the field name only. | Field is saved locally and Farm details opens. |
 | 3. Describe rotation | Add crops in order with planting and harvest dates | Phone shows numbered crop cards; wider screens may show a month ribbon. Date certainty is marked **Exact**, **About**, or **Usual time**. Gaps remain visible. | Current rotation is saved, including any flagged gaps. |
 | 4. Read conditions | Open Conditions | First sentence states the most relevant finding. Weather, water, soil, and seasonal history follow with ranges, units, source dates, and missing-data notices. | Farmer can explain the main limits of this field and continue. |
 | 5. Compare | Open Compare | Current rotation and at least two alternatives are available. Each has a factual label, a short suggestion, trade-offs, and unknowns. | Farmer opens an option or the report. |

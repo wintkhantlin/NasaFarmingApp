@@ -1,57 +1,96 @@
 import { describe, expect, test } from "vitest";
-import { buildFieldRequest, engineCropId, lastKnownCrop } from "../../lib/rotation/field-request";
-import { recommend } from "../../lib/rotation/engine";
-import { rotation, slot, syntheticField, syntheticWeather } from "../helpers/synthetic";
+import { compareRotations } from "../../lib/engine/compare";
+import { engineData, rotation, slot, syntheticField, syntheticWeather } from "../helpers/synthetic";
 
-const planning = { startDate: "2026-11-20", endDate: "2027-05-20" };
-const field = () => syntheticField({ priorities: { order: ["soil"], weights: {} } });
-const history = () => rotation("f1", [slot("a", "sesame", "2026-05-15", "2026-08-23"), slot("b", "green-gram", "2026-08-30", "2026-11-13")]);
+const magwayField = () => syntheticField({ priorities: { order: ["water", "soil"], weights: {} } });
+const sesameGreenGram = (fieldId: string) =>
+  rotation(fieldId, [slot("a", "sesame", "2026-05-15", "2026-08-23"), slot("b", "green-gram", "2026-08-30", "2026-11-13")]);
 
-describe("saved field to rotation engine", () => {
-  test("maps the last crop, irrigation, priorities and excluded crops", () => {
-    const f = field();
-    f.irrigation = "supplemental";
-    f.constraints = { excludedCropIds: ["black-gram"], irrigation: { access: "none" }, preferredCropIds: ["rice"] };
-    f.soilObservations = [
-      { id: "p", property: "ph", value: 6.4, units: "pH", depthCm: [0, 20], date: "2026-01-01", method: "laboratory", source: "District lab" },
-      { id: "d", property: "drainage", value: "poor", units: "class", depthCm: [0, 20], date: "2026-01-01", method: "farmer-estimate", source: "Farmer" },
-    ];
-    const built = buildFieldRequest(f, history(), null, planning);
-    expect(lastKnownCrop(history())?.id).toBe("green-gram");
-    expect(engineCropId("green-gram")).toBe("green_gram");
-    expect(built.request.history).toEqual(["green_gram"]);
-    expect(built.request.farm.irrigation).toBe("none");
-    expect(built.request.farm.soil_ph).toBe(6.4);
-    expect(built.request.farm.drainage).toBe("poor");
-    expect(built.preferencesNotApplied).toEqual(["rice"]);
-    expect(built.request.farm.available_crops).not.toContain("black_gram");
-    expect(built.request.farmer.priorities).toHaveProperty("legume_inclusion", 1);
-    expect(recommend(built.request).scenarios.length).toBeGreaterThan(0);
+describe("compareRotations", () => {
+  test("a Magway field gets the current rotation and at least two defined alternatives", () => {
+    const field = magwayField();
+    expect(field.region).toBe("magway");
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.alternatives.length).toBeGreaterThanOrEqual(2);
+    // the farmer's own rotation is never offered back as an alternative
+    expect(r.alternatives.map((a) => a.id)).not.toContain("strategy-mg-sesame-green-gram");
+    expect(r.alternatives.every((a) => a.rotation.source === "strategy")).toBe(true);
   });
 
-  test("missing weather remains missing in the engine result", () => {
-    const result = recommend(buildFieldRequest(field(), history(), null, planning).request);
-    expect(result.global_warnings.join(" ")).toContain("No monthly environment data supplied");
-    expect(result.scenarios.some((item) => item.missing_information.some((reason) => /temperature|rainfall/i.test(reason)))).toBe(true);
+  test("the same inputs give the same comparison", () => {
+    const field = magwayField();
+    const w = syntheticWeather();
+    const now = new Date("2026-11-14T00:00:00Z");
+    const a = compareRotations(engineData(field, w), sesameGreenGram(field.id), { baseYear: 2026, now });
+    const b = compareRotations(engineData(field, w), sesameGreenGram(field.id), { baseYear: 2026, now });
+    expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
   });
 
-  test("synthetic test weather is explicitly labeled and never shown as NASA observations", () => {
-    const f = field();
-    const weather = syntheticWeather({ startYear: 2025, endYear: 2025 });
-    const built = buildFieldRequest(f, history(), { fieldId: f.id, fetchedAt: "2026-11-14T00:00:00Z", weather, sources: [] }, planning);
-    expect(built.request.environment.basis).toBe("synthetic");
-    expect(built.request.environment.source).toContain("synthetic");
-    expect(built.request.environment.monthly.some((row) => row.temp_c !== null)).toBe(true);
+  test("with no weather the result is unknown, not zero or a pass", () => {
+    const field = magwayField();
+    const r = compareRotations(engineData(field, null), sesameGreenGram(field.id), { baseYear: 2026 });
+    const sesame = r.current.slots[0];
+    expect(sesame.water).toBeNull();
+    expect(sesame.rain.total.p50).toBeNull();
+    expect(r.current.fit).toBe("not-confirmed");
+    expect(r.dataGaps.join(" ")).toContain("NASA POWER weather is not available");
+    const rainEvidence = r.current.evidence.filter((e) => e.indicator.sourceId === "R" || e.indicator.sourceId === "P");
+    for (const e of rainEvidence) {
+      expect(e.indicator.value).toBeNull();
+      expect(e.indicator.missingReason).not.toBeNull();
+    }
   });
 
-  test("unsupported previous crops are rejected rather than silently remapped", () => {
-    expect(() => buildFieldRequest(field(), rotation("f1", [slot("x", "groundnut", "2026-01-01", "2026-04-01")]), null, planning)).toThrow(/five-crop/);
+  test("an unconfigured IMERG falls back to POWER rain and says so", () => {
+    const field = magwayField();
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.rain.primary).toBe("P");
+    expect(r.rain.fromR).toBe(0);
+    const ev = r.current.evidence.find((e) => e.id.endsWith(":rain"));
+    expect(ev?.indicator.sourceId).toBe("P");
+    expect(ev?.indicator.assumptions.join(" ")).toContain("IMERG is not connected");
   });
 
-  test("an unsupported priority does not become a balanced ranking", () => {
-    const f = syntheticField({ priorities: { order: ["forage"], weights: {} } });
-    const built = buildFieldRequest(f, history(), null, planning);
-    expect(built.unsupportedPriority).toBe("forage");
-    expect(built.request.farmer.priorities).toEqual({});
+  test("a location outside the three regions is reported as unsupported", () => {
+    const nairobi = syntheticField({ id: "k", centroid: [36.8, -1.3] });
+    expect(nairobi.region).toBe("unsupported");
+    const r = compareRotations(engineData(nairobi, syntheticWeather({ lat: -1.3, lon: 36.8 })), sesameGreenGram("k"), { baseYear: 2026 });
+    expect(r.alternatives).toHaveLength(0);
+    expect(r.shortfall).toContain("outside");
+    expect(r.current.risks.some((x) => x.id === "region")).toBe(true);
+  });
+
+  test("without priorities every priority counts equally, and the result says so", () => {
+    const field = syntheticField();
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.mcda.status).not.toBe("no-priorities");
+    if (r.mcda.status === "ranked") expect(r.mcda.assumedPriorities).toBe(true);
+  });
+
+  test("a missing decisive input (pH) is unknown, and a soil value it can use settles it", () => {
+    const field = magwayField();
+    const w = syntheticWeather();
+    const unknown = compareRotations(engineData(field, w), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(unknown.current.slots[0].suitability?.checks.find((c) => c.id === "ph")?.level).toBe("unknown");
+
+    const withPh = syntheticField({ ...field, soilObservations: [{ id: "o1", property: "ph", value: 6.4, units: "pH", depthCm: [0, 20], date: "2026-03-01", method: "laboratory", source: "District lab" }] });
+    const known = compareRotations(engineData(withPh, w), sesameGreenGram(withPh.id), { baseYear: 2026 });
+    const ph = known.current.slots[0].suitability?.checks.find((c) => c.id === "ph");
+    expect(ph?.level).toBe("preferred");
+    expect(ph?.inputSource).toBe("Your soil value");
+  });
+});
+
+describe("defaults when the farmer has not entered something", () => {
+  test("typical prices are used, so every option has an economic comparison", () => {
+    const field = magwayField();
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.current.unknowns.join(" ")).not.toContain("Yield, price and cost ranges for every crop");
+  });
+
+  test("the soil-water answer is used for soil moisture at planting", () => {
+    const field = { ...magwayField(), answers: [{ questionId: "soil-water-at-sowing", value: "wet", at: "2026-11-14T00:00:00.000Z" }] };
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.current.unknowns.join(" ")).not.toContain("soil moisture at planting");
   });
 });

@@ -1,4 +1,4 @@
-import { en } from "@/app/plan/messages";
+import { en } from "@/app/(app)/plan/messages";
 
 export type Scenario = {
   proposed_crops: string[];

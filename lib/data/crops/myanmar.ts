@@ -91,6 +91,17 @@ interface Spec {
   droughtStages: Array<"ini" | "dev" | "mid" | "late">;
   waterlogStages: Array<"ini" | "dev" | "mid" | "late">;
   varietyNote?: string;
+  pBase?: number;
+  floweringRainMm?: number;
+}
+
+/**
+ * Calculates dynamic depletion fraction p(ETc) from base depletion fraction (FAO-56 Table 22 & Eq. 84).
+ * p = clamp(p_base + 0.04 * (5 - ETc), 0.1, 0.8)
+ */
+export function dynamicDepletionFraction(baseP: number, etcMmDay: number): number {
+  const adjusted = baseP + 0.04 * (5 - etcMmDay);
+  return Math.max(0.1, Math.min(0.8, Math.round(adjusted * 1000) / 1000));
 }
 
 function build(s: Spec): Crop {
@@ -105,9 +116,12 @@ function build(s: Spec): Crop {
     kc: kcSrc(Number(stageKc[id].toFixed(2)), id === "dev" || id === "late" ? "stage mean interpolated between published Kc points" : "published Kc point"),
     heatC: id === "mid" && s.temp.heatFlowerC !== undefined ? assumed(s.temp.heatFlowerC, "heat stress threshold at flowering") : undefined,
     coldC: id === "mid" && s.temp.coldC !== undefined ? assumed(s.temp.coldC, "cold stress threshold at flowering") : undefined,
+    excessRainMm: id === "mid" && s.floweringRainMm !== undefined ? assumed(s.floweringRainMm, "excess rain threshold at flowering causing flower drop or pod rot") : undefined,
     droughtSensitive: s.droughtStages.includes(id),
     waterloggingSensitive: s.waterlogStages.includes(id),
   }));
+
+  const baseP = s.pBase ?? 0.5;
 
   return {
     id: s.id,
@@ -116,6 +130,7 @@ function build(s: Spec): Crop {
     family: s.family,
     group: s.group,
     cycleDays: { min: s.cycle[0], typ: s.cycle[1], max: s.cycle[2] },
+    depletionFractionBase: baseP,
     gdd: { baseC: s.gdd[0], toMaturity: s.gdd[1] },
     temp: {
       absMinC: s.temp.absMin,
@@ -175,6 +190,7 @@ function build(s: Spec): Crop {
       rotationRules: [
         sameFamily(s.family, `Following a ${s.family} crop with another ${s.family} crop can carry over shared pests and diseases.`),
       ],
+      depletionFractionBase: fao(baseP, "FAO-56 Table 22 base soil water depletion fraction p"),
       forage: { ...s.forage, ref: "Analyst starting value; confirm local feed use and quality.", scope: "analyst-assumption" },
       regionalCalendars: s.calendars,
     },
@@ -215,6 +231,7 @@ export const MYANMAR_CROPS: Crop[] = [
     forage: CEREAL_FOOD,
     droughtStages: ["dev", "mid"],
     waterlogStages: [],
+    pBase: 0.2,
     calendars: {
       ayeyarwady: cal(["06-01", "07-31"], [120, 160]),
       magway: cal(["06-15", "08-15"], [110, 150]),
@@ -236,6 +253,8 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 250, opt: 350, max: 600 },
     droughtTol: 3,
     waterlogTol: 2,
+    pBase: 0.45,
+    floweringRainMm: 10,
     kc: { ini: 0.4, mid: 1.15, end: 0.35, scope: "fao56", ref: "Table 12, pulses (dry beans) used as the nearest published group" },
     stageFr: { ini: 0.2, dev: 0.25, mid: 0.35, late: 0.2 },
     rootDepthM: 0.7,
@@ -271,6 +290,8 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 250, opt: 350, max: 550 },
     droughtTol: 3,
     waterlogTol: 2,
+    pBase: 0.45,
+    floweringRainMm: 10,
     kc: { ini: 0.4, mid: 1.15, end: 0.35, scope: "fao56", ref: "Table 12, pulses (dry beans) used as the nearest published group" },
     stageFr: { ini: 0.2, dev: 0.25, mid: 0.35, late: 0.2 },
     rootDepthM: 0.6,
@@ -308,6 +329,8 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 300, opt: 450, max: 700 },
     droughtTol: 4,
     waterlogTol: 1,
+    pBase: 0.6,
+    floweringRainMm: 10,
     kc: { ini: 0.35, mid: 1.1, end: 0.25, scope: "fao56", ref: "Table 12, sesame" },
     stageFr: { ini: 0.18, dev: 0.27, mid: 0.36, late: 0.19 },
     rootDepthM: 1.0,
@@ -340,6 +363,7 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 350, opt: 500, max: 700 },
     droughtTol: 4,
     waterlogTol: 1,
+    pBase: 0.5,
     kc: { ini: 0.4, mid: 1.15, end: 0.6, scope: "fao56", ref: "Table 12, groundnut" },
     stageFr: { ini: 0.2, dev: 0.27, mid: 0.35, late: 0.18 },
     rootDepthM: 0.9,
@@ -374,6 +398,7 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 200, opt: 300, max: 450 },
     droughtTol: 4,
     waterlogTol: 1,
+    pBase: 0.45,
     kc: { ini: 0.4, mid: 1.0, end: 0.35, scope: "fao56", ref: "Table 12, chick pea" },
     stageFr: { ini: 0.18, dev: 0.27, mid: 0.37, late: 0.18 },
     rootDepthM: 1.0,
@@ -408,6 +433,7 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 400, opt: 600, max: 900 },
     droughtTol: 4,
     waterlogTol: 2,
+    pBase: 0.5,
     kc: { ini: 0.4, mid: 1.15, end: 0.35, scope: "analyst-assumption", ref: "pulses group Kc; pigeon pea has no own entry in FAO-56 Table 12" },
     stageFr: { ini: 0.12, dev: 0.28, mid: 0.4, late: 0.2 },
     rootDepthM: 1.5,
@@ -442,6 +468,7 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 450, opt: 650, max: 900 },
     droughtTol: 2,
     waterlogTol: 2,
+    pBase: 0.55,
     kc: { ini: 0.3, mid: 1.2, end: 0.35, scope: "fao56", ref: "Table 12, maize (grain, end value for dry harvest)" },
     stageFr: { ini: 0.15, dev: 0.3, mid: 0.35, late: 0.2 },
     rootDepthM: 1.2,
@@ -474,6 +501,7 @@ export const MYANMAR_CROPS: Crop[] = [
     seasonMm: { min: 400, opt: 550, max: 750 },
     droughtTol: 3,
     waterlogTol: 2,
+    pBase: 0.5,
     kc: { ini: 0.4, mid: 1.15, end: 0.5, scope: "fao56", ref: "Table 12, soybeans" },
     stageFr: { ini: 0.15, dev: 0.25, mid: 0.4, late: 0.2 },
     rootDepthM: 1.0,

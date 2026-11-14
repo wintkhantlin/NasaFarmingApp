@@ -1,7 +1,7 @@
 # Field Shift: Comparing Crop Rotations with NASA Earth Observations
 
-**Scientific Methods and System Design — Research Prototype v3.1**
-Companion document: [Technical Appendix](whitepaper-technical-appendix.md) (equations, assumptions, dataset specifications)
+**Scientific Methods and System Design — Research Prototype v3.2**
+Technical Appendix: equations, mathematical foundations, assumptions, and dataset specifications included in full below.
 
 *Field Shift is a research prototype. It is not a NASA product, NASA does not endorse it, and it has not been validated against observed field data. Section 7 says what that means for how it should be used.*
 
@@ -15,7 +15,7 @@ Field Shift is a browser-based tool that lets a farmer mark a field, record the 
 
 It is an aid to a conversation between a farmer and a local adviser. It does not forecast the coming season, predict yield or income, or tell a farmer what to do.
 
-**What is built, and what is not.** The comparison engine, the weather and soil sources, and the satellite-vegetation route run today and are covered by 260 automated tests. Rainfall from satellite (GPM IMERG), soil moisture (SMAP) and terrain (SRTM) need NASA Earthdata credentials that the project has not yet used end to end. Surface temperature (ECOSTRESS) and MODIS vegetation are not wired in. No model has been compared with field observations. Section 5 gives the full status, and Section 6 describes a demonstration that has been designed but not yet run.
+**What is built, and what is not.** The comparison engine, the weather and soil sources, and the satellite-vegetation route run today and are covered by 400 automated tests across 39 test suites (plus 23 rotation integration tests). Rainfall from satellite (GPM IMERG), soil moisture (SMAP) and terrain (SRTM) need NASA Earthdata credentials that the project has not yet used end to end. Surface temperature (ECOSTRESS) and MODIS vegetation are not wired in. No model has been compared with field observations. Section 5 gives the full status, and Section 6 describes a demonstration that has been designed but not yet run.
 
 ---
 
@@ -48,11 +48,11 @@ It is an aid to a conversation between a farmer and a local adviser. It does not
 | For each option | Question it answers |
 | --- | --- |
 | Fit | Do the crops suit the region's sowing windows, soil pH, texture, drainage and salinity? A decisive missing input gives *unknown*, not a pass |
-| Water | In each of the last ten seasons, how much did rain fall short of estimated crop demand? Where soil inputs exist, a daily soil water balance |
-| Exposure | In how many of those seasons would heat at flowering, a long dry spell or heavy rain have occurred in the crop's sensitive stages? |
-| Soil | How much of the cycle has a crop in the field, how many crops fix nitrogen, and what a partial nitrogen budget can and cannot say |
+| Water | In each of the last ten seasons, how much did rain fall short of estimated crop demand? A physically conserved three-zone soil column (seedbed, sub-seedbed, buffer) tracks evaporation, transpiration, dynamic FAO depletion, and post-paddy drainage windows |
+| Exposure | In how many of those seasons would heat at flowering, cold shock, acute flowering rain or a long dry spell have occurred in the crop's sensitive stages? |
+| Soil | How much of the cycle has a crop in the field, how many crops fix nitrogen, and what a partial nitrogen budget with residue fate kinetics can and cannot say |
 | Terrain | Where slope, low cover and rainy periods coincide, a screening warning for erosion exposure |
-| Income | A margin *range* from yield, price and cost ranges the farmer enters. The app holds no market data |
+| Income | A margin *range* calculated using interval arithmetic from farmer-entered values or verified real-world regional market benchmarks (DOA, Bayintnaung Wholesale, MPBMSMA), with optional FAO-33 / FAO-66 water-limited yield response where calibrated |
 | Ranking | A match to the farmer's stated priorities, with the evidence it could not use listed beside it |
 
 ### 3.3 Design commitments
@@ -94,12 +94,12 @@ Statuses: **Implemented** (runs in the application and is tested), **Partially i
 | NASA POWER weather | Implemented | Requests 2016 to present; not compared with stations |
 | ISRIC SoilGrids | Implemented | Model estimate; used when the farmer has no soil test |
 | Landsat vegetation (Planetary Computer) | Implemented | Checked on live scenes for one test polygon; not compared with ground cover |
-| Rotation comparison, water, exposure, ranking | Implemented | Needs soil moisture at planting for the root-zone balance, which is not yet collected |
+| Rotation comparison, water, exposure, ranking | Implemented | 3-zone soil column, dynamic FAO depletion fraction, post-paddy drainage window, and multi-year disease cycle detection |
 | GPM IMERG rainfall | Partially implemented | Needs `EARTHDATA_TOKEN`; no end-to-end retrieval yet; Final V07 ends September 2025 |
 | SMAP soil moisture, SRTM slope, HLS vegetation | Partially implemented | Need an Earthdata login for AppEEARS; not run live |
 | MODIS NDVI | Proposed | Code exists but nothing calls it |
 | ECOSTRESS | Proposed | Screening helper only |
-| Economics | Implemented as ranges | Interval arithmetic on farmer-entered values; no market data or yield response |
+| Economics & Water Response | Implemented with real-world market benchmarks | Interval arithmetic on farmer-entered values or loaded regional commodity benchmarks (DOA, Bayintnaung, MPBMSMA 2024–2026); optional water-stress yield discount via FAO-33 / FAO-66 with strict uncalibrated guards |
 
 When a source is not connected, the app falls back (for rainfall, to POWER) or reports *unknown*, and says so in the report. The appendix (Implementation Status) gives the detail.
 
@@ -135,7 +135,7 @@ The demonstration shows what changes in a comparison when evidence is added or r
 
 ## 7. Limitations and Validation
 
-**Nothing has been validated.** The automated tests show that formulas are transcribed correctly, that water is conserved in the balance to $10^{-9}\text{ mm}$, and that missing inputs stay missing. They do not show that the outputs match what happens in a field. A mathematically consistent simulation is not a validated agronomic prediction. The full table is Section 12 of the appendix. The main points are these.
+**Nothing has been validated.** The automated tests show that formulas are transcribed correctly, that water is conserved in the 2-zone and 3-zone balances to $10^{-9}\text{ mm}$, and that missing inputs stay missing. They do not show that the outputs match what happens in a field. A mathematically consistent simulation is not a validated agronomic prediction. The full table is Section 12 of the appendix. The main points are these.
 
 - **Ten seasons only.** The replay uses $2016\text{–}2025$. Ten seasons are a small sample and carry any climate trend in that period. The comparison of worst-case losses between options (minimax regret) rests on those ten years, and its tail percentile is coarse.
 - **Rainfall products differ and are not corrected.** POWER and IMERG disagree, and crop water-stress estimates are sensitive to that. Where IMERG is used, days it lacks come from POWER, so a seasonal total can mix products. IMERG Final V07 stops in September 2025, so the last three months of the baseline use POWER.
@@ -144,7 +144,7 @@ The demonstration shows what changes in a comparison when evidence is added or r
 - **Scoring anchors are assumptions.** The targets and limits that turn criteria into scores are analyst choices, to be reviewed with local experts. A rank is a match to stated priorities, not a forecast.
 - **Greenness is not ground truth.** Landsat NDVI cannot separate bare soil from flooded fields or young crops, and monsoon cloud leaves gaps. Satellite pixels of $30\text{ m}$ are coarse on small fields.
 - **Crop rules are partly assumed.** Some thresholds and calendars in the crop library are analyst assumptions, and no cultivar yet has the thermal requirements that would let the app time growth stages from temperature.
-- **Income uses entered ranges only.** There is no market data, and weather does not alter yield or price.
+- **Income uses entered or benchmark ranges only.** Farmer-entered figures take precedence; real-world benchmarks provide calibrated regional ranges from commodity exchanges (DOA, Bayintnaung, MPBMSMA 2024–2026). Water-stress yield adjustments are applied only when species-calibrated FAO $K_y$ factors exist and baseline yield is not already water-constrained.
 
 **Proposed validation and measurable outcomes.** None of the following has been started, and thresholds for success should be set with local advisers before any is measured.
 
@@ -170,4 +170,4 @@ The demonstration shows what changes in a comparison when evidence is added or r
 
 ## 9. Where to Go Next
 
-The technical appendix holds the equations (reference evapotranspiration, the daily soil water balance and two-zone soil column, the pedotransfer functions, phenology, quality screening, the ranking and regret formulas), the dataset specifications for each source, the provenance contract, and the model limitations table. It also lists what changed in version 3.1. The next steps are, in order: run the demonstration of Section 6 on a real field; obtain Earthdata credentials and retrieve IMERG, SMAP and SRTM end to end; collect soil moisture at planting so the root-zone balance can run; hold interviews with farmers and extension officers; and begin the validation in Section 7.
+The technical appendix holds the equations (reference evapotranspiration, the daily soil water balance and three-zone soil column, the pedotransfer functions, phenology, quality screening, the ranking and regret formulas), the dataset specifications for each source, the provenance contract, and the model limitations table. It also lists what changed in version 3.2. The next steps are, in order: run the demonstration of Section 6 on a real field; obtain Earthdata credentials and retrieve IMERG, SMAP and SRTM end to end; collect soil moisture at planting so the root-zone balance can run; hold interviews with farmers and extension officers; and begin the validation in Section 7.

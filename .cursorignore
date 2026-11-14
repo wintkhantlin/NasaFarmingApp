@@ -1,0 +1,24 @@
+# Dependencies & build output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Large logs, test output, and test artifacts
+.playwright-cli/
+output/
+verify/*.png
+*.log
+
+# Large data fixtures and research dumps (prevent 100k+ token dumps; use targeted paths if needed)
+tests/fixtures/**
+data/predownload/**
+docs/DATASET_RESEARCH_DOSSIER.md
+
+# OS and local cache files
+.DS_Store
+.cache/
+*.sqlite*
+*.sqlite3*

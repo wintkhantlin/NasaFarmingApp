@@ -1,8 +1,20 @@
 import type { Crop, RegionId } from "../../types";
 import { MYANMAR_CROPS, CROP_LIBRARY_VERSION } from "./myanmar";
 import { REFERENCE_CROPS } from "./reference";
+import {
+  REAL_WORLD_CROP_ECONOMICS,
+  getRealWorldCropEconomics,
+  getDefaultEconomicsForCrops,
+  type RealWorldCropEconomicProfile,
+} from "./real-world-economics";
 
-export { CROP_LIBRARY_VERSION };
+export {
+  CROP_LIBRARY_VERSION,
+  REAL_WORLD_CROP_ECONOMICS,
+  getRealWorldCropEconomics,
+  getDefaultEconomicsForCrops,
+  type RealWorldCropEconomicProfile,
+};
 
 /** Myanmar crops first, then the reference-only crops. */
 export const CROPS: Crop[] = [...MYANMAR_CROPS, ...REFERENCE_CROPS];

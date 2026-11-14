@@ -75,6 +75,8 @@ export interface PartialCandidate {
 
 export interface McdaResult {
   status: "ranked" | "unresolved" | "no-priorities";
+  /** True when the farmer set no priorities and every priority was weighted equally. */
+  assumedPriorities?: boolean;
   /** The complete-evidence set, best first. */
   ranking: McdaScore[];
   /** Options set apart for missing evidence. Empty when every option could be compared on every criterion. */
@@ -215,8 +217,37 @@ export function switchingPoint(
   return w >= 0 && w <= 1 ? w : null;
 }
 
-export function rankRotations(inputs: McdaInput[], priorities: FarmerPriorities | undefined): McdaResult {
-  const pw = priorityWeights(priorities);
+/** Which criterion each finer choice is measured by. A choice missing here has no measure yet. */
+export const SUB_CRITERION: Record<string, CriterionId | undefined> = {
+  nitrogen: "soil-legume-share",
+  erosion: "soil-cover",
+  "organic-matter": undefined,
+  infiltration: undefined,
+  margin: "income-margin",
+  "market-fit": undefined,
+  "extra-income": undefined,
+};
+
+/** Finer choices the app has no measure for. Shown as "no measure yet", never counted as zero. */
+export function unmeasuredSubs(p: FarmerPriorities | undefined): string[] {
+  return [...(p?.soil ?? []), ...(p?.income ?? [])].filter((s) => SUB_CRITERION[s] === undefined);
+}
+
+/** Criteria a priority is narrowed to by finer choices; null means no narrowing (none chosen, or none measurable). */
+function narrowed(p: FarmerPriorities | undefined, priority: PriorityId): Set<CriterionId> | null {
+  const subs = priority === "soil" ? p?.soil : priority === "income" ? p?.income : undefined;
+  const ids = (subs ?? []).map((s) => SUB_CRITERION[s]).filter((c): c is CriterionId => c !== undefined);
+  return ids.length ? new Set(ids) : null;
+}
+
+const ALL_PRIORITIES: PriorityId[] = ["water", "soil", "income", "forage", "lower-inputs"];
+
+export function rankRotations(inputs: McdaInput[], farmerPriorities: FarmerPriorities | undefined): McdaResult {
+  const given = priorityWeights(farmerPriorities);
+  // No priorities set: weigh everything equally so there is always an answer. The result says so.
+  const assumedPriorities = !given;
+  const priorities: FarmerPriorities | undefined = given ? farmerPriorities : { order: ALL_PRIORITIES, weights: {} };
+  const pw = given ?? priorityWeights(priorities);
   const empty = (status: McdaResult["status"], note: string, excluded: McdaResult["excluded"] = [], partial: PartialCandidate[] = []): McdaResult => ({ status, ranking: [], partial, used: [], excluded, weights: {}, note });
   if (!pw) {
     return empty("no-priorities", "Choose what matters most to you to see a ranking. Without your priorities the options are compared side by side, not ranked.");
@@ -232,7 +263,9 @@ export function rankRotations(inputs: McdaInput[], priorities: FarmerPriorities 
   const excluded: McdaResult["excluded"] = [];
   const wanted: CriterionDef[] = [];
   for (const def of CRITERIA) {
+    const keep = narrowed(priorities, def.priority);
     if ((pw[def.priority] ?? 0) <= 0) excluded.push({ criterion: def.id, label: def.label, reason: "no-priority", detail: "Not one of your priorities." });
+    else if (keep && !keep.has(def.id)) excluded.push({ criterion: def.id, label: def.label, reason: "no-priority", detail: "Not one of the finer choices you made." });
     else wanted.push(def);
   }
 
@@ -323,6 +356,7 @@ export function rankRotations(inputs: McdaInput[], priorities: FarmerPriorities 
   ranking.sort((a, b) => b.score - a.score);
   return {
     status: "ranked",
+    assumedPriorities,
     ranking,
     partial,
     used: usable.map((u) => u.def.id),

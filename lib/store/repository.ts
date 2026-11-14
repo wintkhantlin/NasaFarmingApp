@@ -21,10 +21,13 @@ export interface NewField {
   soilOverride?: SoilOverride;
   soilObservations?: Field["soilObservations"];
   locationConfirmed?: boolean;
+  archivedAt?: string;
   constraints?: Field["constraints"];
   priorities?: Field["priorities"];
   economics?: Field["economics"];
   localNotes?: string;
+  answers?: Field["answers"];
+  recall?: Field["recall"];
 }
 
 const newId = () => crypto.randomUUID();
@@ -35,7 +38,7 @@ export const LARGE_FIELD_HA = 5_000;
 
 /** Fields saved before regions existed get one at read time. Nothing is written back until the field is saved. */
 function withRegion(field: Field): Field {
-  return field.region ? field : { ...field, region: checkRegion(field.geometry, field.centroid).region };
+  return field.region && field.region !== "unsupported" ? field : { ...field, region: checkRegion(field.geometry, field.centroid).region };
 }
 
 export function createRepository(storage: KeyValueStorage) {

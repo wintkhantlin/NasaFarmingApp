@@ -157,3 +157,15 @@ describe("rotation slot schema", () => {
     expect(rotationSlotSchema.safeParse({ ...slot, plantDate: "10/05/2025" }).success).toBe(false);
   });
 });
+
+describe("archiving a field", () => {
+  test("archive keeps the record and its history, and restoring clears the mark", async () => {
+    const repo = createRepository(memoryStorage());
+    const f = await repo.createField({ name: "Creek", geometry: square, irrigation: "none" });
+    const archived = await repo.updateField(f.id, { archivedAt: "2026-11-14T00:00:00.000Z" });
+    expect(archived.archivedAt).toBe("2026-11-14T00:00:00.000Z");
+    expect((await repo.listFields()).map((x) => x.id)).toContain(f.id);
+    const restored = await repo.updateField(f.id, { archivedAt: undefined });
+    expect(restored.archivedAt).toBeUndefined();
+  });
+});

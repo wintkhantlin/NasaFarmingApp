@@ -34,6 +34,7 @@ describe("fields with region and confirmation", () => {
       name: "Plot",
       geometry: magwayPoint,
       irrigation: "none",
+      soilOverride: { ph: 6.2, texture: "loam", salinityDsM: 2.1 },
       priorities: { order: ["water", "soil"], weights: {} },
       constraints: { labour: "low", excludedCropIds: ["rice"], plantingWindow: { from: "05-01", to: "07-31" } },
       soilObservations: [{ id: "o1", property: "ph", value: 6.2, units: "pH", depthCm: [0, 20], date: "2026-03-01", method: "laboratory", source: "District lab" }],
@@ -41,6 +42,8 @@ describe("fields with region and confirmation", () => {
     });
     const again = await repo.getField(f.id);
     expect(again?.priorities?.order).toEqual(["water", "soil"]);
+    expect(again?.soilOverride?.texture).toBe("loam");
+    expect(again?.soilOverride?.salinityDsM).toBe(2.1);
     expect(again?.soilObservations?.[0].source).toBe("District lab");
     await expect(
       repo.updateField(f.id, { soilObservations: [{ id: "o2", property: "ph", value: 6.2, units: "pH", depthCm: [0, 20], date: "2026-03-01", method: "laboratory", source: "" }] }),

@@ -1,6 +1,7 @@
 import { getCropById } from "../data/crops";
 import type { Rotation } from "../types";
 import { daysBetween } from "./season";
+import { daysInCalendarYear } from "../rotation-format";
 
 /**
  * Directly checkable rotation descriptors. These describe the plan; they do not predict soil
@@ -41,9 +42,14 @@ function monthsBetween(from: string, to: string): number[] {
   return [...out];
 }
 
-export function rotationStructure(rotation: Pick<Rotation, "slots" | "cycleYears">): RotationStructure {
+export function rotationStructure(rotation: Pick<Rotation, "slots" | "cycleYears"> & { cycleDays?: number }): RotationStructure {
   const slots = [...rotation.slots].sort((a, b) => a.plantDate.localeCompare(b.plantDate));
-  const cycleDays = rotation.cycleYears * 365;
+  const startYear = Number(slots[0]?.plantDate?.slice(0, 4)) || new Date().getFullYear();
+  let calculatedCycleDays = 0;
+  for (let y = 0; y < rotation.cycleYears; y++) {
+    calculatedCycleDays += daysInCalendarYear(startYear + y);
+  }
+  const cycleDays = rotation.cycleDays ?? calculatedCycleDays;
   if (slots.length === 0) {
     return { cycleDays, coveredDays: 0, coveredShare: 0, gaps: [], distinctFamilies: 0, legumeSlots: 0, cropSlots: 0, legumeShare: null, longestSameFamilyRun: 0, coverSlots: 0 };
   }
