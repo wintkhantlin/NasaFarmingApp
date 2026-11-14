@@ -55,12 +55,13 @@ $$S(R) = \sum_{i \in \mathcal{C}_{\text{active}}} w'_i \cdot s_i(R)$$
 
 ---
 
-### 2.2 Normalization & Missing Data Rules
-1. **Zero-Variance:** If $\max_i = \min_i$, $s_i(R) = 0.5$ and reported as `"no difference across options"`.
-2. **Min-Max Scaling:** Higher: $\frac{x - \min}{\max - \min}$; Lower: $\frac{\max - x}{\max - \min}$.
-3. **The Non-Imputation Rule:** A missing value is **never** defaulted to zero or an average. If any candidate rotation has null for criterion $i$, criterion $i$ is dropped from active criteria.
+### 2.2 Normalization & Missing Data Rules (spec v3.1)
+1. **Anchor utility is primary:** every criterion except money has a target and a limit ($u = \text{clip}\left(\frac{x - x_{\text{limit}}}{x_{\text{target}} - x_{\text{limit}}}, 0, 1\right)$, reversed for lower-is-better), so tiny differences between options stay tiny. The anchors are analyst assumptions listed in `CRITERIA`.
+2. **Relative min-max with a zero-variance guard** is used only where there is no anchor (margin): $\frac{x - \min}{\max - \min}$ (or $\frac{\max - x}{\max - \min}$), and $1.0$ for everyone when $\max - \min < 10^{-9}$. A relative criterion on which all options tie is reported as `"no difference"` and left out of the weights.
+3. **The Non-Imputation Rule:** A missing value is **never** defaulted to zero or an average. A criterion nobody has evidence for is dropped for all. If some options lack evidence the others have, they form a **partial-evidence set**: listed with a warning, not scored. The rest (the complete-evidence set) are ranked on every criterion. With fewer than two complete options, only criteria every option has are used.
 4. **Dynamic Renormalization:** $w'_i = \frac{w_i}{\sum_{j \in \text{active}} w_j}$.
-5. **Unresolved Trigger:** If the farmer's top priority has missing decisive data $\implies$ `status: "unresolved"`.
+5. **Unresolved Trigger:** If the farmer's top priority cannot be evaluated on the complete set, or any partial-evidence option has no evidence at all on that priority $\implies$ `status: "unresolved"`.
+6. **Regret:** `minimaxRegret` reports $L_{\max}$ and the 90th-percentile regret $L_{P90}$ per option; the choice stays minimax, ties go to the lower $L_{P90}$.
 
 **Implementation:** `lib/engine/mcda.ts` (`rankRotations`)
 

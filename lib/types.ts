@@ -41,6 +41,8 @@ export type PriorityId = "water" | "soil" | "income" | "forage" | "lower-inputs"
 export type SoilProperty =
   | "ph"
   | "texture"
+  | "sand"
+  | "clay"
   | "drainage"
   | "salinity"
   | "organic-carbon"
@@ -230,7 +232,17 @@ export interface Crop {
   family: string;
   group: FunctionalGroup;
   cycleDays: { min: number; typ: number; max: number };
-  gdd: { baseC: number; toMaturity: number };
+  gdd: {
+    baseC: number;
+    toMaturity: number;
+    /** Upper developmental cutoff for McMaster-Wilhelm GDD. 30 C when absent. */
+    upperC?: number;
+    /**
+     * Cumulative GDD from sowing at which Initial, Development and Mid-season end. Absent when the cultivar's
+     * thermal requirements are unknown: stages then follow the calendar split by `stageFractions`.
+     */
+    stageEndGdd?: { ini: number; dev: number; mid: number };
+  };
   temp: {
     absMinC: number;
     optMinC: number;

@@ -1,5 +1,5 @@
 import { fetchWithRetry } from "../network/fetch-with-retry";
-import { ndvi, ndmi, type ObservationSummary } from "./derive/ndvi";
+import { ndvi, ndmi, sceneAdmitted, type ObservationSummary } from "./derive/ndvi";
 import { viUsable, viIsInlandWater, MODIS_NDVI_FILL } from "./qa/modis-vi";
 import type { FieldGeometry, LngLat } from "../types";
 import { pointInPolygon } from "../geo/shapes";
@@ -517,9 +517,10 @@ export async function processLandsatScene(
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
-  const ndviMedian = median(ndviValues);
-  const ndmiMedian = median(ndmiValues);
   const coverage = validPixels / fieldPixels;
+  // Minimum clear-area gate (Section 6.2): too little of the parcel clear means no field value for this date.
+  const ndviMedian = sceneAdmitted(coverage) ? median(ndviValues) : null;
+  const ndmiMedian = sceneAdmitted(coverage) ? median(ndmiValues) : null;
 
   return {
     itemId: item.id,
@@ -702,7 +703,7 @@ export async function ingestPlanetaryComputerModisVi(
         return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
       };
 
-      const med = median(validNdvi);
+      const med = sceneAdmitted(validNdvi.length / fieldPixels) ? median(validNdvi) : null;
       if (validNdvi.length > 0) {
         observations.push({
           date,

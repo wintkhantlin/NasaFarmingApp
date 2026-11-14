@@ -45,6 +45,8 @@ export interface RemoteInfo {
 }
 
 export type SoilValueSource = "farmer" | "soilgrids";
+/** `farmer-ptf`: derived by pedotransfer from the farmer's own sand, clay and organic carbon. */
+export type AwcSource = "farmer" | "farmer-ptf" | "soilgrids";
 
 export interface EffectiveSoil {
   ph: { value: number; from: SoilValueSource; note: string } | null;
@@ -52,7 +54,11 @@ export interface EffectiveSoil {
   organicCarbonGKg: { value: number; from: SoilValueSource; note: string } | null;
   drainage: { value: string; note: string } | null;
   salinityDsM: { value: number; note: string } | null;
-  awcMmPerM: { value: number; note: string } | null;
+  /**
+   * Plant-available water, mm per m. Farmer's own value first; then Saxton-Rawls from the farmer's
+   * sand, clay and organic carbon; then the SoilGrids retention layers (Section 4.1, v3.1).
+   */
+  awcMmPerM: { value: number; from: AwcSource; note: string } | null;
   rootDepthM: { value: number; note: string } | null;
   /** Dated measurements the farmer gave, kept so the report can list them. */
   observations: SoilObservation[];

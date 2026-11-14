@@ -4,7 +4,7 @@ import { Redis } from "@upstash/redis";
 import { PROCESSING_VERSION } from "../lib/evidence/indicator";
 import { powerCell, pointKey } from "../lib/geo/cells";
 import { fetchPowerDaily } from "../lib/nasa/power";
-import { fetchSoilGrids } from "../lib/soil/soilgrids";
+import { fetchSoilGrids, SOILGRIDS_SCHEMA } from "../lib/soil/soilgrids";
 import { cacheKey } from "../lib/server/cache";
 import { weatherEnd, WEATHER_START } from "../lib/server/weather";
 
@@ -155,7 +155,7 @@ async function main() {
 
       const retrievedAt = new Date().toISOString();
       if (redis) {
-        const sKey = cacheKey("soilgrids", PROCESSING_VERSION, pointKey("soil", hub.lat, hub.lng, 3));
+        const sKey = cacheKey("soilgrids", PROCESSING_VERSION, SOILGRIDS_SCHEMA, pointKey("soil", hub.lat, hub.lng, 3));
         await redis.set(sKey, { soil: profile, retrievedAt }, { ex: 60 * 60 * 24 * 30 });
       }
 

@@ -1,6 +1,6 @@
 import { pointKey } from "../geo/cells";
 import { PROCESSING_VERSION } from "../evidence/indicator";
-import { fetchSoilGrids, type SoilProfile } from "../soil/soilgrids";
+import { fetchSoilGrids, SOILGRIDS_SCHEMA, type SoilProfile } from "../soil/soilgrids";
 import { cacheKey, serverCache, type ServerCache } from "./cache";
 
 export interface SoilResult {
@@ -21,7 +21,7 @@ export async function loadSoil(
   opts: { cache?: ServerCache; fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): Promise<SoilResult> {
   const cache = opts.cache ?? serverCache();
-  const key = cacheKey("soilgrids", PROCESSING_VERSION, pointKey("soil", lat, lng, 3));
+  const key = cacheKey("soilgrids", PROCESSING_VERSION, SOILGRIDS_SCHEMA, pointKey("soil", lat, lng, 3));
   const hit = await cache.get<{ soil: SoilProfile | null; retrievedAt: string }>(key);
   if (hit) {
     return { soil: hit.soil, retrievedAt: hit.retrievedAt, error: null, cached: true };

@@ -189,6 +189,15 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   const slots = slotsOf(rotation);
   const fieldIrrigated = data.field.irrigation === "full";
 
+  // One soil column for the whole rotation: as deep as the deepest-rooting crop in it, so that crops with
+  // different roots share the same water instead of each seeing its own bucket (Section 4.2.1).
+  const soilLimitM = data.soil.rootDepthM?.value ?? null;
+  const rootOf = (id: string | null | undefined) => {
+    const c = id ? getCropById(id) : undefined;
+    return c ? (soilLimitM !== null ? Math.min(c.rootDepthM, soilLimitM) : c.rootDepthM) : 0;
+  };
+  const columnDepthM = Math.max(0, ...slots.map((s) => rootOf(s.cropId)));
+
   const evals: SlotEvaluation[] = slots
     .filter((s) => s.kind !== "fallow")
     .map((slot) => {
@@ -206,13 +215,13 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
         );
         return emptySlot(slot, crop, crop.names.common, unknowns, irrigated, rain);
       }
-      const windows = replayWindows(slot, crop, years);
+      const windows = replayWindows(slot, crop, years, data.records);
       const suitability = assessSuitability({ crop, region: data.region, slot, windows, records: data.records, soil: data.soil });
       const exposure = data.records.length ? exposureForCrop(crop, windows, data.records) : null;
       const water = data.records.length ? waterForCrop(crop, windows, et0, rain.days) : null;
       const rw = windows.map((w) => windowRain(rain.days, w.from, w.to));
       const ok = rw.filter((r) => r.evaluable);
-      const rz = rootZoneFor(ctx, crop, slot, windows, rain);
+      const rz = rootZoneFor(ctx, crop, slot, windows, rain, columnDepthM);
       if (!data.records.length) unknowns.push("NASA POWER weather could not be read, so weather results are unknown.");
       else if (ok.length < 5) unknowns.push(`Only ${ok.length} complete ${ok.length === 1 ? "season" : "seasons"} of weather for this crop window.`);
       for (const c of suitability.checks) if (c.level === "unknown" && c.decisive) unknowns.push(`${c.label}: ${c.detail}`);
@@ -303,11 +312,13 @@ function emptySlot(slot: RotationSlot, crop: Crop | null, name: string, unknowns
   return { slot, cropId: crop?.id ?? null, name, hasRules: false, suitability: null, exposure: null, water: null, rain: { eligible: 0, windows: 0, total: none, longestDry: none, heavyDays: none, source: rain.primary }, rootZone: null, irrigated, unknowns };
 }
 
-function rootZoneFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnType<typeof replayWindows>, rain: RainSeries): RootZoneResult {
+function rootZoneFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnType<typeof replayWindows>, rain: RainSeries, columnDepthM: number): RootZoneResult {
   const soil = ctx.data.soil;
   const input = {
     awcMmPerM: soil.awcMmPerM?.value ?? null,
-    rootDepthM: soil.rootDepthM?.value ?? null,
+    // The crop's own rooting depth from the library, capped by a restrictive depth the farmer reported.
+    rootDepthM: soil.rootDepthM ? Math.min(crop.rootDepthM, soil.rootDepthM.value) : crop.rootDepthM,
+    maxRootDepthM: columnDepthM > 0 ? columnDepthM : null,
     // moisture at planting is never defaulted; no field input exists for it yet
     initialDepletionMm: null,
     irrigationMm: slot.irrigated ? (ctx.data.field.constraints?.irrigation?.amountMm ?? null) : 0,

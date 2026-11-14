@@ -188,13 +188,23 @@ describe("Priority 3 & Technical Spec Section B: Water Balance & Hand-Check Synt
     expect(step.residualMm).toBe(0);
   });
 
-  test("depleted storage limits actual ET and tracks unmet demand with residual 0", () => {
-    // Start 2 mm, Capacity 50 mm, Rain 0 mm, Demand 4 mm => actual ET = 2 mm, end storage = 0 mm, unmet = 2 mm
+  test("v3.1: a nearly dry soil throttles crop demand through Ks, with residual 0", () => {
+    // Start 2 mm, Capacity 50 mm, p = 0.5, Rain 0, Demand 4 mm. Ks = B / ((1 - p) C) = 2 / 25 = 0.08,
+    // so the crop asks for 0.32 mm, takes it, and 1.68 mm stays in the soil, unmet = 3.68 mm.
     const step = dailySoilWaterStep(2, 50, 0, 4, 0);
+    expect(step.stressCoefficient).toBeCloseTo(0.08, 10);
+    expect(step.actualEtMm).toBeCloseTo(0.32, 10);
+    expect(step.endStorageMm).toBeCloseTo(1.68, 10);
+    expect(step.unmetDemandMm).toBeCloseTo(3.68, 10);
+    expect(step.residualMm).toBe(0);
+  });
+
+  test("v3.0 behaviour (no stress) is still reachable with p = null: the crop empties the soil at the potential rate", () => {
+    const step = dailySoilWaterStep(2, 50, 0, 4, 0, null);
+    expect(step.stressCoefficient).toBe(1);
     expect(step.actualEtMm).toBe(2);
     expect(step.endStorageMm).toBe(0);
     expect(step.unmetDemandMm).toBe(2);
-    expect(step.residualMm).toBe(0);
   });
 
   test("FAO-56 Section B worked fixture: TAW=90 mm, RAW=45 mm, Dr=60 mm, Ks=2/3, ETadj=3.5 mm/day", () => {
@@ -411,11 +421,19 @@ describe("Worked Fixtures H1 through H6 Implementation Tests", () => {
     expect(run1.conservationResidualMm).toBe(0);
 
     // Rain history (12, 0, 0)
+    // v3.1, p = 0.5 so Ks starts below 5 mm: day 1 wets to 10 (4 drains) and loses 4 -> 6; day 2 -> 2;
+    // day 3 has B = 2, Ks = 2/5 = 0.4, takes 1.6 of the 4 mm asked and leaves 0.4 -> unmet 2.4 mm.
     const run2 = timingBucketModel(10, 2, 4, [12, 0, 0]);
-    expect(run2.endStorage).toEqual([6, 2, 0]);
+    expect(run2.endStorage[0]).toBe(6);
+    expect(run2.endStorage[1]).toBe(2);
+    expect(run2.endStorage[2]).toBeCloseTo(0.4, 10);
     expect(run2.totalDrainageMm).toBe(4);
-    expect(run2.totalUnmetDemandMm).toBe(2);
+    expect(run2.totalUnmetDemandMm).toBeCloseTo(2.4, 10);
     expect(run2.conservationResidualMm).toBe(0);
+    // v3.0 comparison: without stress the third day drains the soil to 0 and the unmet demand is 2 mm
+    const v30 = timingBucketModel(10, 2, 4, [12, 0, 0], null);
+    expect(v30.endStorage).toEqual([6, 2, 0]);
+    expect(v30.totalUnmetDemandMm).toBe(2);
   });
 
   test("Worked Fixture H2: Convert irrigation depth into a pumping decision", () => {

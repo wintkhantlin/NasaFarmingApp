@@ -60,9 +60,11 @@ describe("NASA POWER", () => {
 });
 
 describe("SoilGrids", () => {
-  test("requests eight properties at three depths", () => {
+  test("requests ten properties (eight soil properties and two water-retention layers) at three depths", () => {
     const url = soilGridsUrl(42.12, -93.75);
-    expect(url.match(/property=/g)).toHaveLength(8);
+    expect(url.match(/property=/g)).toHaveLength(10);
+    expect(url).toContain("property=wv0033");
+    expect(url).toContain("property=wv1500");
     expect(url.match(/depth=/g)).toHaveLength(3);
   });
 

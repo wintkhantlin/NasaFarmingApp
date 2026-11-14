@@ -25,6 +25,15 @@ export interface HlsPixelSeries {
   pixels: Array<Array<[red: number | null, nir: number | null, swir1: number | null, fmask: number | null]>>;
 }
 
+/**
+ * A scene is admitted only when at least this share of the parcel is clear, f_valid = A_clear / A_parcel
+ * (Section 6.2, v3.1). Below it the few clear pixels are usually the unflagged fringe of a cloud or its
+ * shadow, and one of them can drag a parcel mean far from the crop. The date is still reported, with no value.
+ */
+export const MIN_VALID_COVERAGE = 0.25;
+
+export const sceneAdmitted = (coverageFraction: number) => coverageFraction >= MIN_VALID_COVERAGE;
+
 export interface PixelContribution {
   areaHa: number;
   usable: boolean;
@@ -35,7 +44,7 @@ export interface PixelContribution {
  * Computes area-weighted coverage and valid area-weighted mean (Section H3).
  * f_valid = sum(a_i * q_i) / A
  * x_bar_valid = sum(a_i * q_i * x_i) / sum(a_i * q_i)
- * If total clear/valid area is 0, coverage is 0 and mean is undefined (null).
+ * If total clear/valid area is 0, or below `MIN_VALID_COVERAGE` of the parcel, the mean is undefined (null).
  */
 export function areaWeightedCoverage(
   totalParcelAreaHa: number,
@@ -63,7 +72,7 @@ export function areaWeightedCoverage(
   }
 
   const coverage = clearArea / totalParcelAreaHa;
-  const mean = clearArea > 0 ? weightedSum / clearArea : null;
+  const mean = clearArea > 0 && sceneAdmitted(coverage) ? weightedSum / clearArea : null;
 
   return {
     coverageFraction: coverage,
@@ -95,7 +104,8 @@ const median = (xs: number[]): number | null => {
 /**
  * One summary per date for a field polygon. Pixels with fill or a rejected Fmask are dropped before
  * any index is computed. Water pixels are counted separately so flooded fields are not called bare.
- * A date with no valid pixel keeps `null`: it is not "zero vegetation".
+ * A date with no valid pixel, or with less than `MIN_VALID_COVERAGE` of the parcel clear, keeps `null`:
+ * it is not "zero vegetation".
  */
 export function summariseHls(series: HlsPixelSeries): ObservationSummary[] {
   return series.dates.map((date, d) => {
@@ -117,14 +127,16 @@ export function summariseHls(series: HlsPixelSeries): ObservationSummary[] {
       const m = ndmi(nir, swir1);
       if (m !== null) nm.push(m);
     }
+    const coverage = pix.length ? nd.length / pix.length : 0;
+    const admitted = sceneAdmitted(coverage);
     return {
       date,
-      ndviMedian: median(nd),
-      ndmiMedian: median(nm),
+      ndviMedian: admitted ? median(nd) : null,
+      ndmiMedian: admitted ? median(nm) : null,
       validPixels: nd.length,
       totalPixels: pix.length,
       waterPixels: water,
-      coverage: pix.length ? nd.length / pix.length : 0,
+      coverage,
     };
   });
 }

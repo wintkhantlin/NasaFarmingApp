@@ -123,12 +123,32 @@ export interface DailyWaterStepResult {
   drainageMm: number;
   actualEtMm: number;
   unmetDemandMm: number;
+  /** Ks applied to today's demand, evaluated on post-wetting storage. 1 when stress is switched off. */
+  stressCoefficient: number;
   residualMm: number;
 }
 
+/** Depletion fraction p before stress begins: the FAO-56 default for a crop without a tabulated value. */
+export const DEFAULT_DEPLETION_FRACTION = 0.5;
+
 /**
- * A single daily soil water balance step adhering to the wetting-before-ET convention (FAO-56 / Section H1).
- * Residual = (S' - S) - (P + I - Drainage - ActualET), which is strictly conserved (0 mm).
+ * Transpiration reduction coefficient Ks from the water a crop can actually reach today (Section 4.2, v3.1).
+ * `accessibleMm` is storage AFTER today's rain and irrigation, B = min(C, S + P + I), because wetting happens
+ * before extraction. Ks = 1 while B >= (1 - p) C, falls linearly to 0 as B -> 0. `p = null` switches stress
+ * off (potential rate all the way down), which is the v3.0 behaviour and is only used to show the difference.
+ */
+export function postWettingKs(accessibleMm: number, capacityMm: number, p: number | null): number {
+  if (p === null) return 1;
+  if (!(accessibleMm > 0)) return 0;
+  const threshold = (1 - Math.min(1, Math.max(0, p))) * capacityMm;
+  if (threshold <= 0 || accessibleMm >= threshold) return 1;
+  return accessibleMm / threshold;
+}
+
+/**
+ * A single daily soil water balance step adhering to the wetting-before-ET convention (FAO-56 / Section 4.2).
+ *   Q = max(0, S + P + I - C),  B = S + P + I - Q,  Ks = Ks(B),  E* = Ks ETc,  A = min(E*, B),  S' = B - A,  U = ETc - A.
+ * Residual = (S' - S) - (P + I - Q - A) is conserved to the 1e-9 mm tolerance.
  */
 export function dailySoilWaterStep(
   initialStorageMm: number,
@@ -136,6 +156,7 @@ export function dailySoilWaterStep(
   rainMm: number,
   demandMm: number,
   irrigationMm = 0,
+  depletionFraction: number | null = DEFAULT_DEPLETION_FRACTION,
 ): DailyWaterStepResult {
   const c = Math.max(0, capacityMm);
   const s = Math.min(c, Math.max(0, initialStorageMm));
@@ -144,7 +165,8 @@ export function dailySoilWaterStep(
 
   const drainage = Math.max(0, s + p - c);
   const accessible = s + p - drainage;
-  const actualEt = Math.min(e, accessible);
+  const ks = postWettingKs(accessible, c, depletionFraction);
+  const actualEt = Math.min(ks * e, accessible);
   const endStorage = accessible - actualEt;
   const unmet = e - actualEt;
   const deltaS = endStorage - s;
@@ -155,19 +177,21 @@ export function dailySoilWaterStep(
     drainageMm: drainage,
     actualEtMm: actualEt,
     unmetDemandMm: unmet,
+    stressCoefficient: ks,
     residualMm: Math.abs(residual) < 1e-9 ? 0 : residual,
   };
 }
 
 /**
- * Stripped-down bucket model testing the order of operations and rainfall timing (Section H1).
- * Q = max(0, S + P - C), B = S + P - Q, A = min(E, B), S' = B - A, U = E - A.
+ * Stripped-down bucket model testing the order of operations and rainfall timing (Section 4.2).
+ * Q = max(0, S + P - C), B = S + P - Q, A = min(Ks E, B), S' = B - A, U = E - A.
  */
 export function timingBucketModel(
   capacityMm: number,
   initialStorageMm: number,
   demandPerDayMm: number,
   rainHistoryMm: number[],
+  depletionFraction: number | null = DEFAULT_DEPLETION_FRACTION,
 ) {
   let s = initialStorageMm;
   const endStorage: number[] = [];
@@ -177,7 +201,7 @@ export function timingBucketModel(
   const totalRain = rainHistoryMm.reduce((a, b) => a + b, 0);
 
   for (const p of rainHistoryMm) {
-    const res = dailySoilWaterStep(s, capacityMm, p, demandPerDayMm, 0);
+    const res = dailySoilWaterStep(s, capacityMm, p, demandPerDayMm, 0, depletionFraction);
     endStorage.push(res.endStorageMm);
     totalDrainage += res.drainageMm;
     totalUnmet += res.unmetDemandMm;
@@ -194,6 +218,116 @@ export function timingBucketModel(
     totalActualEtMm: totalActualEt,
     conservationResidualMm: Math.abs(conservationResidual) < 1e-9 ? 0 : conservationResidual,
   };
+}
+
+// ---- Two-zone soil column (Section 4.2.1, v3.1) ------------------------------------------------------
+
+/**
+ * One fixed soil column of depth Zmax = max over the rotation of the crops' rooting depths, split at the
+ * current root depth Zr(t) into an active root zone and a sub-root buffer. Changing crop or stage moves the
+ * split, never the total, so water is conserved across a rotation instead of appearing or vanishing when
+ * the rooting depth changes.
+ */
+export interface TwoZoneState {
+  /** Water in the active root zone, mm, within [0, AWC Zr]. */
+  rootMm: number;
+  /** Water below the roots but inside the column, mm, within [0, AWC (Zmax - Zr)]. */
+  subMm: number;
+}
+
+export interface TwoZoneColumn {
+  awcMmPerM: number;
+  /** Current effective rooting depth Zr, m. */
+  rootDepthM: number;
+  /** Fixed column depth Zmax, m. Never smaller than `rootDepthM`. */
+  maxDepthM: number;
+}
+
+export const twoZoneCapacities = (c: TwoZoneColumn) => {
+  const zmax = Math.max(c.maxDepthM, c.rootDepthM);
+  return { rootMm: c.awcMmPerM * c.rootDepthM, subMm: c.awcMmPerM * (zmax - c.rootDepthM) };
+};
+
+export interface TwoZoneStepResult extends Omit<DailyWaterStepResult, "endStorageMm" | "drainageMm"> {
+  state: TwoZoneState;
+  /** Water that left the root zone downwards and entered the sub-root buffer. */
+  rootDrainageMm: number;
+  /** Water that left the whole column. This is the only loss besides actual ET. */
+  deepDrainageMm: number;
+}
+
+/**
+ * One day on the two-zone column. Gravitational drainage cascades:
+ *   Q_root = max(0, S_root + P + I - C_r),  Q_deep = max(0, S_sub + Q_root - C_sub).
+ * Ks and extraction use the root zone only: B = S_root + P + I - Q_root, A = min(Ks ETc, B).
+ * Column conservation: (S_root' + S_sub') - (S_root + S_sub) = P + I - Q_deep - A.
+ */
+export function twoZoneStep(
+  state: TwoZoneState,
+  column: TwoZoneColumn,
+  rainMm: number,
+  demandMm: number,
+  irrigationMm = 0,
+  depletionFraction: number | null = DEFAULT_DEPLETION_FRACTION,
+): TwoZoneStepResult {
+  const cap = twoZoneCapacities(column);
+  const sRoot = Math.min(cap.rootMm, Math.max(0, state.rootMm));
+  const sSub = Math.min(cap.subMm, Math.max(0, state.subMm));
+  const inflow = Math.max(0, rainMm) + Math.max(0, irrigationMm);
+  const e = Math.max(0, demandMm);
+
+  const qRoot = Math.max(0, sRoot + inflow - cap.rootMm);
+  const qDeep = Math.max(0, sSub + qRoot - cap.subMm);
+  const accessible = sRoot + inflow - qRoot;
+  const ks = postWettingKs(accessible, cap.rootMm, depletionFraction);
+  const actualEt = Math.min(ks * e, accessible);
+  const next: TwoZoneState = { rootMm: accessible - actualEt, subMm: sSub + qRoot - qDeep };
+  const residual = next.rootMm + next.subMm - (sRoot + sSub) - (inflow - qDeep - actualEt);
+
+  return {
+    state: next,
+    rootDrainageMm: qRoot,
+    deepDrainageMm: qDeep,
+    actualEtMm: actualEt,
+    unmetDemandMm: e - actualEt,
+    stressCoefficient: ks,
+    residualMm: Math.abs(residual) < 1e-9 ? 0 : residual,
+  };
+}
+
+/**
+ * Moves the split between root zone and sub-root buffer when the rooting depth changes from `fromZr` to `toZr`
+ * (a stage or crop transition) inside a column of fixed depth `zmax`. The total never changes:
+ *   deeper roots (dZ > 0): S_root+ = S_root + S_sub dZ / (Zmax - Zr),
+ *   shallower roots:       S_root+ = S_root Zr' / Zr,
+ *   S_sub+ = (S_root + S_sub) - S_root+.
+ * Water is assumed evenly spread within each zone, so a deepening root captures its share of the buffer.
+ */
+export function redistributeAtRootChange(state: TwoZoneState, fromZr: number, toZr: number, zmax: number): TwoZoneState {
+  const total = state.rootMm + state.subMm;
+  const dz = toZr - fromZr;
+  let root: number;
+  if (dz > 0) {
+    const room = Math.max(zmax, toZr) - fromZr;
+    root = state.rootMm + (room > 0 ? state.subMm * (dz / room) : 0);
+  } else {
+    root = fromZr > 0 ? state.rootMm * (toZr / fromZr) : 0;
+  }
+  return { rootMm: root, subMm: total - root };
+}
+
+/**
+ * Hand-over from bunded paddy (Section 4.3) to an upland crop. A paddy that still holds ponded water at
+ * harvest leaves the profile saturated, so the upland column starts at field capacity in both zones and the
+ * pond is booked as surface drainage before sowing. With no pond left, the caller keeps the state it has.
+ */
+export function uplandStartAfterPaddy(
+  pondAtHarvestMm: number,
+  column: TwoZoneColumn,
+): { state: TwoZoneState; surfaceDrainageMm: number } | null {
+  if (!(pondAtHarvestMm > 0)) return null;
+  const cap = twoZoneCapacities(column);
+  return { state: { rootMm: cap.rootMm, subMm: cap.subMm }, surfaceDrainageMm: pondAtHarvestMm };
 }
 
 /**
@@ -299,20 +433,41 @@ export interface RootZoneInput {
   /** mm of water the soil holds per metre of soil, from a soil test or soil map the farmer trusts. */
   awcMmPerM: number | null;
   rootDepthM: number | null;
+  /**
+   * Depth of the fixed soil column, m: the deepest rooting among the crops of the rotation. Omit when only
+   * one rooting depth is involved; the column then ends at the roots and there is no sub-root buffer.
+   */
+  maxRootDepthM?: number | null;
   /** Depletion at planting, mm (0 = field capacity). Must be supplied by the farmer or an observation. */
   initialDepletionMm: number | null;
   irrigationMm: number | null;
+  /** Depletion fraction p; the FAO-56 default when a crop has no tabulated value. */
+  depletionFraction?: number;
 }
 
 export type RootZoneResult =
   | { status: "unknown"; missing: string[] }
-  | { status: "ok"; tawMm: number; daysBeyondHalfTaw: number; endDepletionMm: number; assumptions: string[] };
+  | {
+      status: "ok";
+      tawMm: number;
+      /** Days the root zone was drier than p of its capacity at the end of the day. */
+      daysBeyondHalfTaw: number;
+      endDepletionMm: number;
+      /** Season totals: water the crop could not get, and mean Ks over the window. */
+      actualEtMm: number;
+      unmetDemandMm: number;
+      meanStressCoefficient: number;
+      deepDrainageMm: number;
+      /** Largest daily mass-balance residual; 0 within the 1e-9 mm tolerance. */
+      conservationResidualMm: number;
+      assumptions: string[];
+    };
 
 /**
- * A simple FAO-56 style daily depletion balance for one window. It refuses to run without available
- * water capacity, root depth and an initial depletion: those are never defaulted. Runoff is not
- * modelled (rain above field capacity drains), and "half of total available water" is an analyst
- * threshold for the stress-day count, not a crop-specific depletion fraction.
+ * A FAO-56 style daily balance for one window on the two-zone column. It refuses to run without available
+ * water capacity, root depth and an initial depletion: those are never defaulted. Each day wets first, then
+ * Ks (from post-wetting storage) throttles the crop's demand before extraction. Runoff is not modelled
+ * (rain above field capacity drains), and p is the FAO-56 default, not a crop-specific value.
  */
 export function rootZoneBalance(
   input: RootZoneInput,
@@ -327,29 +482,52 @@ export function rootZoneBalance(
   if (input.irrigationMm === null) missing.push("irrigation amount (enter 0 if none)");
   if (missing.length) return { status: "unknown", missing };
 
-  const taw = (input.awcMmPerM as number) * (input.rootDepthM as number);
-  let dr = Math.min(taw, Math.max(0, input.initialDepletionMm as number));
+  const p = input.depletionFraction ?? DEFAULT_DEPLETION_FRACTION;
+  const zr = input.rootDepthM as number;
+  const column: TwoZoneColumn = { awcMmPerM: input.awcMmPerM as number, rootDepthM: zr, maxDepthM: Math.max(input.maxRootDepthM ?? zr, zr) };
+  const cap = twoZoneCapacities(column);
+  const rootStart = cap.rootMm - Math.min(cap.rootMm, Math.max(0, input.initialDepletionMm as number));
+  // The buffer starts as wet, relatively, as the root zone does. It is a recorded assumption, not an observation.
+  let state: TwoZoneState = { rootMm: rootStart, subMm: cap.rootMm > 0 ? cap.subMm * (rootStart / cap.rootMm) : 0 };
+
   const days = Math.round((Date.parse(window.to) - Date.parse(window.from)) / 86_400_000) + 1;
   const irrPerDay = (input.irrigationMm as number) / Math.max(1, days);
   let beyond = 0;
+  let actualEt = 0;
+  let unmet = 0;
+  let deep = 0;
+  let ksSum = 0;
+  let n = 0;
+  let worstResidual = 0;
   for (let t = Date.parse(window.from); t <= Date.parse(window.to); t += 86_400_000) {
     const iso = new Date(t).toISOString().slice(0, 10);
-    const p = rain.get(iso) ?? 0; // a missing rain day contributes nothing here; coverage is reported elsewhere
+    const pRain = rain.get(iso) ?? 0; // a missing rain day contributes nothing here; coverage is reported elsewhere
     const etc = etcByDate.get(iso) ?? 0;
-    dr = dr - p - irrPerDay + etc;
-    if (dr < 0) dr = 0; // deep percolation of the excess
-    if (dr > taw) dr = taw;
-    if (dr > 0.5 * taw) beyond++;
+    const r = twoZoneStep(state, column, pRain, etc, irrPerDay, p);
+    state = r.state;
+    actualEt += r.actualEtMm;
+    unmet += r.unmetDemandMm;
+    deep += r.deepDrainageMm;
+    ksSum += r.stressCoefficient;
+    n++;
+    if (Math.abs(r.residualMm) > Math.abs(worstResidual)) worstResidual = r.residualMm;
+    if (cap.rootMm - state.rootMm > p * cap.rootMm) beyond++;
   }
   return {
     status: "ok",
-    tawMm: taw,
+    tawMm: cap.rootMm,
     daysBeyondHalfTaw: beyond,
-    endDepletionMm: dr,
+    endDepletionMm: cap.rootMm - state.rootMm,
+    actualEtMm: actualEt,
+    unmetDemandMm: unmet,
+    meanStressCoefficient: n > 0 ? ksSum / n : 1,
+    deepDrainageMm: deep,
+    conservationResidualMm: worstResidual,
     assumptions: [
       "No runoff is modelled; rain above field capacity drains.",
       "Irrigation is spread evenly over the window.",
-      "Stress days use half of total available water as an analyst threshold.",
+      `Crop water use is throttled by the stress coefficient from soil water after wetting, with p = ${p} (FAO-56 default, not crop-specific).`,
+      ...(cap.subMm > 0 ? ["Water below the roots starts as wet, in proportion, as the root zone. Drainage from the root zone refills it before anything leaves the column."] : []),
       "No capillary rise or groundwater.",
     ],
   };

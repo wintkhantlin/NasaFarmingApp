@@ -393,6 +393,18 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           </ol>
         ) : null}
         {comparison.mcda.status === "unresolved" ? <p className="m-0 text-body text-ink">{comparison.mcda.note}</p> : null}
+        {comparison.mcda.partial.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <h3 className="m-0 text-label text-ink">{copy.compare.partialTitle}</h3>
+            <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
+              {comparison.mcda.partial.map((x) => (
+                <li key={x.rotationId}>
+                  {options.find((o) => o.id === x.rotationId)?.label}: {x.warning}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {comparison.mcda.excluded.filter((x) => x.reason !== "no-priority").length > 0 ? (
           <div className="flex flex-col gap-1">
             <h3 className="m-0 text-label text-ink">{copy.compare.notRankedTitle}</h3>

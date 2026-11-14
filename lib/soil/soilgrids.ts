@@ -10,7 +10,13 @@
 import type { TextureClass } from "../types";
 import { fetchWithRetry } from "../network/fetch-with-retry";
 
-export const SOIL_PROPERTIES = ["clay", "sand", "silt", "phh2o", "soc", "cec", "bdod", "nitrogen"] as const;
+export const SOIL_PROPERTIES = ["clay", "sand", "silt", "phh2o", "soc", "cec", "bdod", "nitrogen", "wv0033", "wv1500"] as const;
+
+/**
+ * Bump when the shape of a stored profile changes, so cached profiles without the new fields are not
+ * served as if they were complete. Used in the server and pre-download cache keys.
+ */
+export const SOILGRIDS_SCHEMA = "wrc-1";
 export type SoilProperty = (typeof SOIL_PROPERTIES)[number];
 
 const DEPTHS = [
@@ -33,6 +39,10 @@ export interface SoilProfile {
   bulkDensityKgDm3: number | null;
   /** Total nitrogen, g per kg. */
   nitrogenGKg: number | null;
+  /** Volumetric water content at -33 kPa (field capacity), m3/m3, 0 to 30 cm. SoilGrids water-retention layer wv0033. */
+  fieldCapacityFrac: number | null;
+  /** Volumetric water content at -1500 kPa (wilting point), m3/m3, 0 to 30 cm. SoilGrids layer wv1500. */
+  wiltingPointFrac: number | null;
   texture: TextureClass | null;
   source: { dataset: string; resolution: string; depth: string };
 }
@@ -89,6 +99,21 @@ function layerMean(layer: Json): number | null {
   return weight > 0 ? sum / weight : null;
 }
 
+/**
+ * A water-retention layer as a volumetric fraction. The API reports these in 10^-2 cm3/cm3 (percent by
+ * volume) after dividing by its own d_factor, so 304 raw with d_factor 10 is 30.4 %, or 0.304 m3/m3.
+ * A layer in any other unit is refused rather than rescaled by guesswork.
+ */
+function retentionFraction(layer: Json): number | null {
+  const unit = isObj(layer.unit_measure) ? layer.unit_measure : {};
+  const target = typeof unit.target_units === "string" ? unit.target_units.replace(/\s/g, "") : "";
+  if (!/^10[-\u2212\u207b]2cm[3\u00b3]\/cm[3\u00b3]$/.test(target)) return null;
+  const pct = layerMean(layer);
+  if (pct === null) return null;
+  const frac = pct / 100;
+  return frac > 0 && frac < 1 ? frac : null;
+}
+
 /** null when the response has no usable value at all. */
 export function parseSoilGrids(json: unknown): SoilProfile | null {
   if (!isObj(json) || !isObj(json.properties) || !Array.isArray(json.properties.layers)) {
@@ -99,7 +124,11 @@ export function parseSoilGrids(json: unknown): SoilProfile | null {
     if (isObj(layer) && typeof layer.name === "string") byName.set(layer.name, layerMean(layer));
   }
   const get = (n: SoilProperty) => byName.get(n) ?? null;
-  const values = SOIL_PROPERTIES.map(get);
+  const retention = new Map<string, number | null>();
+  for (const layer of json.properties.layers) {
+    if (isObj(layer) && (layer.name === "wv0033" || layer.name === "wv1500")) retention.set(layer.name, retentionFraction(layer));
+  }
+  const values = SOIL_PROPERTIES.filter((n) => n !== "wv0033" && n !== "wv1500").map(get);
   if (values.every((v) => v === null)) return null;
 
   const clay = get("clay");
@@ -114,6 +143,8 @@ export function parseSoilGrids(json: unknown): SoilProfile | null {
     cecCmolKg: get("cec"),
     bulkDensityKgDm3: get("bdod"),
     nitrogenGKg: get("nitrogen"),
+    fieldCapacityFrac: retention.get("wv0033") ?? null,
+    wiltingPointFrac: retention.get("wv1500") ?? null,
     texture: clay !== null && sand !== null && silt !== null ? usdaTexture(sand, silt, clay) : null,
     source: { dataset: "ISRIC SoilGrids v2", resolution: "250 m", depth: "0 to 30 cm" },
   };

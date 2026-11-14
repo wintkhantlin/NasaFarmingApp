@@ -1,4 +1,5 @@
 import type { Crop, RotationSlot, StageId } from "../types";
+import { dailyGdd, type DailyRecord } from "./climate";
 
 /**
  * Crop seasons replayed over historical years. A slot's planting and harvest dates give the crop
@@ -19,6 +20,8 @@ export interface SeasonWindow {
   from: string;
   to: string;
   stages: StageWindow[];
+  /** `gdd`: stage ends came from accumulated thermal time that year. `calendar`: fixed fractions of the window. */
+  stageBasis: "gdd" | "calendar";
 }
 
 const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
@@ -84,8 +87,51 @@ export function stageWindows(crop: Crop, from: string, to: string): StageWindow[
   return out;
 }
 
-/** One window per historical year. The slot's own year is ignored; only month and day are used. */
-export function replayWindows(slot: Pick<RotationSlot, "plantDate" | "harvestDate">, crop: Crop | undefined, years: number[]): SeasonWindow[] {
+/** The McMaster and Wilhelm (1997) convention's usual upper cutoff, used when a crop does not give one. */
+export const DEFAULT_UPPER_GDD_C = 30;
+
+/**
+ * Stage windows driven by thermal time (Section 5.2, v3.1). A stage ends on the first day the cumulative
+ * McMaster-Wilhelm GDD since sowing reaches the cultivar's threshold for it, so a hot year runs through the
+ * stages faster than a cool one. The planned harvest date stays fixed and closes the last stage.
+ *
+ * Returns null, and the caller falls back to the Hamilton-Hare calendar split, when the cultivar has no
+ * thermal thresholds, a day in the window has no temperature (no day is imputed), the thresholds are not
+ * reached before harvest, or they would leave a stage with no days.
+ */
+export function gddStageWindows(crop: Crop, from: string, to: string, records: DailyRecord[]): StageWindow[] | null {
+  const end = crop.gdd.stageEndGdd;
+  if (!end || !(end.ini > 0 && end.dev > end.ini && end.mid > end.dev)) return null;
+  const total = windowDays(from, to);
+  if (total < 4) return null;
+
+  const byDate = new Map(records.map((r) => [r.date, r]));
+  const upper = crop.gdd.upperC ?? DEFAULT_UPPER_GDD_C;
+  const thresholds = [end.ini, end.dev, end.mid];
+  const ends: number[] = []; // index of the last day of each of the first three stages
+  let cumulative = 0;
+  for (let d = 0; d < total && ends.length < 3; d++) {
+    const r = byDate.get(addDaysIso(from, d));
+    if (!r || r.tmaxC === null || r.tminC === null) return null;
+    cumulative += dailyGdd(r.tmaxC, r.tminC, crop.gdd.baseC, upper);
+    while (ends.length < 3 && cumulative >= thresholds[ends.length]) {
+      // two thresholds crossed on one day: the next stage still gets at least one day
+      ends.push(ends.length > 0 ? Math.max(d, ends[ends.length - 1] + 1) : d);
+    }
+  }
+  if (ends.length < 3 || ends[2] >= total - 1) return null;
+
+  const order: StageId[] = ["ini", "dev", "mid", "late"];
+  const starts = [0, ends[0] + 1, ends[1] + 1, ends[2] + 1];
+  const stops = [ends[0], ends[1], ends[2], total - 1];
+  return order.map((id, i) => ({ id, from: addDaysIso(from, starts[i]), to: addDaysIso(from, stops[i]) }));
+}
+
+/**
+ * One window per historical year. The slot's own year is ignored; only month and day are used. With `records`
+ * and a crop that has thermal stage thresholds, each year's stages follow that year's temperatures.
+ */
+export function replayWindows(slot: Pick<RotationSlot, "plantDate" | "harvestDate">, crop: Crop | undefined, years: number[], records?: DailyRecord[]): SeasonWindow[] {
   const [, pm, pd] = slot.plantDate.split("-").map(Number);
   const [, hm, hd] = slot.harvestDate.split("-").map(Number);
   const spanDays = daysBetween(slot.plantDate, slot.harvestDate);
@@ -93,7 +139,8 @@ export function replayWindows(slot: Pick<RotationSlot, "plantDate" | "harvestDat
   return years.map((year) => {
     const from = isoFrom(year, pm, pd);
     const to = crossesYear ? isoFrom(year + 1, hm, hd) : isoFrom(year, hm, hd);
-    return { year, from, to, stages: crop ? stageWindows(crop, from, to) : [] };
+    const thermal = crop && records ? gddStageWindows(crop, from, to, records) : null;
+    return { year, from, to, stages: crop ? (thermal ?? stageWindows(crop, from, to)) : [], stageBasis: thermal ? "gdd" : "calendar" };
   });
 }
 
