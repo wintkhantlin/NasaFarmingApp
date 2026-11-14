@@ -2,29 +2,25 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FirstRun } from "@/components/home/first-run";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, DownloadGlyph, PinGlyph } from "@/components/ui/icons";
+import { ChevronRightGlyph, DownloadGlyph } from "@/components/ui/icons";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
 import { downloadJson } from "@/lib/download";
-import { formatPoint } from "@/lib/geo/format";
 import { staticMapUrl } from "@/lib/geo/static-map";
 import { sequenceText } from "@/lib/rotation-format";
 import { deriveStepStates, EMPTY_ROTATIONS, useFieldsStore } from "@/lib/store/fields-store";
 import type { Field, Rotation } from "@/lib/types";
 
-function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }) {
+function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[]; onArchive?: (f: Field) => void }) {
   const states = deriveStepStates(field, rotations);
   const hasRotation = states.rotation === "done";
-  const stepList = Object.values(states);
-  const stepsDone = stepList.filter((s) => s === "done").length;
-  const next = hasRotation ? "Compare rotation options" : "Record what you grow now";
+  const next = hasRotation ? "See my answer" : "Add my crops";
   const nextHref = hasRotation ? `/fields/${field.id}/compare` : `/fields/${field.id}/rotation`;
 
   return (
@@ -61,13 +57,6 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
           </div>
 
           <dl className="flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-ink-muted">
-            <div className="flex items-center gap-1.5">
-              <dt className="sr-only">Location</dt>
-              <dd className="tabular flex items-center gap-1.5 font-mono">
-                <PinGlyph className="shrink-0 text-field" />
-                {formatPoint(field.centroid)}
-              </dd>
-            </div>
             <div>
               <dt className="sr-only">Area</dt>
               <dd>{field.areaHa === null ? copy.home.pinOnly : copy.home.area(field.areaHa)}</dd>
@@ -83,15 +72,6 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
           ) : null}
 
           <div className="mt-auto flex flex-col gap-2 border-t border-line pt-3">
-            <div
-              role="img"
-              aria-label={`${stepsDone} of ${stepList.length} steps done`}
-              className={cn("grid gap-1", stepList.length === 5 ? "grid-cols-5" : "grid-cols-4")}
-            >
-              {stepList.map((s, i) => (
-                <span key={i} className={cn("h-1 rounded-pill", s === "done" ? "bg-field" : "bg-line")} />
-              ))}
-            </div>
             <Link
               href={nextHref}
               className="relative z-10 flex min-h-tap items-center justify-between gap-2 text-label text-field no-underline hover:underline"
@@ -115,6 +95,9 @@ export function FieldsList() {
   const load = useFieldsStore((s) => s.load);
   const exportBackup = useFieldsStore((s) => s.exportBackup);
   const importBackup = useFieldsStore((s) => s.importBackup);
+  const update = useFieldsStore((s) => s.update);
+  const [query, setQuery] = useState("");
+  const [undo, setUndo] = useState<Field | null>(null);
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -142,13 +125,57 @@ export function FieldsList() {
 
   if (fields.length === 0) return <FirstRun />;
 
+  const needle = query.trim().toLowerCase();
+  const matches = (f: Field) => f.name.toLowerCase().includes(needle);
+  const live = fields.filter((f) => !f.archivedAt && matches(f));
+  const archived = fields.filter((f) => f.archivedAt && matches(f));
+  const archive = async (f: Field) => {
+    const wasArchived = Boolean(f.archivedAt);
+    await update(f.id, { archivedAt: wasArchived ? undefined : new Date().toISOString() });
+    if (!wasArchived) {
+      setUndo(f);
+      window.setTimeout(() => setUndo((u) => (u?.id === f.id ? null : u)), 5000);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
+      <input
+        type="search"
+        aria-label="Search fields"
+        placeholder="Search fields"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="min-h-tap w-full rounded-md border border-line bg-surface-sunken px-3 text-body text-ink"
+      />
+      {live.length === 0 ? (
+        <p className="m-0 text-body text-ink-muted">{needle ? `No fields named \u201c${query.trim()}\u201d.` : "All your fields are archived."}</p>
+      ) : null}
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-        {fields.map((f) => (
-          <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} />
+        {live.map((f) => (
+          <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} onArchive={archive} />
         ))}
       </ul>
+
+      {archived.length > 0 ? (
+        <details className="rounded-md border border-line bg-surface-raised p-3">
+          <summary className="min-h-tap cursor-pointer text-label text-ink">Show {archived.length} archived {archived.length === 1 ? "field" : "fields"}</summary>
+          <ul className="m-0 mt-3 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+            {archived.map((f) => (
+              <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} onArchive={archive} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {undo ? (
+        <div role="status" className="fixed inset-x-4 bottom-[calc(var(--tabbar-h)+0.75rem)] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-md bg-ink px-4 py-2 text-body-sm text-surface-raised">
+          <span>Archived {undo.name}.</span>
+          <button type="button" className="min-h-tap font-semibold underline" onClick={() => { void update(undo.id, { archivedAt: undefined }); setUndo(null); }}>
+            Undo
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4 text-body-sm text-ink-muted">
         <p className="m-0">Your fields and crop data are saved privately in this browser.</p>

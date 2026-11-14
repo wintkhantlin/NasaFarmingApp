@@ -21,10 +21,13 @@ export interface NewField {
   soilOverride?: SoilOverride;
   soilObservations?: Field["soilObservations"];
   locationConfirmed?: boolean;
+  archivedAt?: string;
   constraints?: Field["constraints"];
   priorities?: Field["priorities"];
   economics?: Field["economics"];
   localNotes?: string;
+  answers?: Field["answers"];
+  recall?: Field["recall"];
 }
 
 const newId = () => crypto.randomUUID();

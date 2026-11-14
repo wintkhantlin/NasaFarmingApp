@@ -44,52 +44,52 @@ export const theme = createTheme({
   palette: {
     mode: "light",
     background: {
-      default: "#f4f2ea", // surface (parchment)
-      paper: "#fbfaf6", // surface-raised
+      default: "#f4f3ee", // surface (parchment)
+      paper: "#ffffff", // surface-raised
     },
     text: {
-      primary: "#1f1d17", // ink (soil)
-      secondary: "#5a564a", // ink-muted
+      primary: "#1c1b18", // ink (soil)
+      secondary: "#5a5850", // ink-muted
     },
     primary: {
-      main: "#2e5e3a", // field green
-      contrastText: "#fbfaf6", // on-field
+      main: "#0e6b4f", // field green
+      contrastText: "#ffffff", // on-field
     },
     success: {
-      main: "#2e5e3a", // healthy
-      contrastText: "#fbfaf6",
+      main: "#0e6b4f", // healthy
+      contrastText: "#ffffff",
     },
     info: {
       main: "#1d5c91", // water
-      contrastText: "#fbfaf6",
+      contrastText: "#ffffff",
     },
     warning: {
-      main: "#765709", // drought
-      contrastText: "#fbfaf6",
+      main: "#7a4a00", // drought
+      contrastText: "#ffffff",
     },
     error: {
-      main: "#a33d17", // heat
-      contrastText: "#fbfaf6",
+      main: "#9c3d12", // heat
+      contrastText: "#ffffff",
     },
-    surfaceSunken: "#e9e6da",
-    line: "#d8d3c2",
-    lineStrong: "#8c8676",
-    fieldSoft: "#dfe8d8",
+    surfaceSunken: "#eceae3",
+    line: "#d9d6cc",
+    lineStrong: "#8f8c82",
+    fieldSoft: "#e3f2ec",
     water: "#1d5c91",
     waterSoft: "#dce8f2",
-    heat: "#a33d17",
-    heatSoft: "#f6e1d6",
-    drought: "#765709",
-    droughtSoft: "#f1e6c8",
+    heat: "#9c3d12",
+    heatSoft: "#f8e3d8",
+    drought: "#7a4a00",
+    droughtSoft: "#fbefd5",
     frost: "#4850a6",
     frostSoft: "#e3e4f5",
-    healthy: "#2e5e3a",
-    healthySoft: "#dfe8d8",
+    healthy: "#0e6b4f",
+    healthySoft: "#e3f2ec",
   },
   typography: {
-    fontFamily: 'var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+    fontFamily: 'var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     allVariants: {
-      color: "#1f1d17",
+      color: "#1c1b18",
     },
     h1: {
       fontSize: "2.5rem",
@@ -117,7 +117,7 @@ export const theme = createTheme({
       fontSize: "0.875rem",
       lineHeight: "1.25rem",
       fontWeight: 400,
-      color: "#5a564a",
+      color: "#5a5850",
     },
     button: {
       fontSize: "0.875rem",
@@ -172,8 +172,8 @@ export const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: "#fbfaf6",
-          border: "1px solid #d8d3c2",
+          backgroundColor: "#ffffff",
+          border: "1px solid #d9d6cc",
           borderRadius: 10,
           boxShadow: "none",
         },
@@ -182,7 +182,7 @@ export const theme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          backgroundColor: "#fbfaf6",
+          backgroundColor: "#ffffff",
           borderRadius: 16,
           boxShadow: "0 8px 24px -12px rgb(31 29 23 / 0.35)",
         },
@@ -191,7 +191,7 @@ export const theme = createTheme({
     MuiSkeleton: {
       styleOverrides: {
         root: {
-          backgroundColor: "#e9e6da",
+          backgroundColor: "#eceae3",
         },
       },
     },

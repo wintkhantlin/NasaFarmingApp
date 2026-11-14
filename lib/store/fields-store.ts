@@ -4,7 +4,6 @@ import { create } from "zustand";
 import { createRepository, ValidationError, type NewField, type Repository } from "./repository";
 import { indexedDbStorage } from "./storage";
 import type { Backup, Field, Rotation } from "../types";
-import type { StepId, StepState } from "@/components/ui/stepper";
 
 let repo: Repository | undefined;
 /** The IndexedDB repository. Created on first use, so it never runs on the server. */
@@ -125,6 +124,9 @@ export function useFieldRotations(fieldId: string): Rotation[] {
 }
 
 /** Derives the step state for a field from the actual store data. */
+export type StepId = "location" | "rotation" | "profile" | "conditions" | "compare";
+export type StepState = "done" | "needs-input" | "loading" | "not-started";
+
 export function deriveStepStates(field: Field | undefined, fieldRotations: Rotation[] | undefined): Record<StepId, StepState> {
   if (!field) {
     return { location: "not-started", rotation: "not-started", profile: "not-started", conditions: "not-started", compare: "not-started" };

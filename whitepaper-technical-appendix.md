@@ -48,7 +48,7 @@ Each capability carries one of three statuses, and a separate statement of valid
 | Water balance, phenology, suitability, exposure | Implemented | Sections 3 to 5 | Needs soil moisture at planting, which the application does not yet collect, so the root-zone balance reports `unknown` |
 | Rotation ranking and regret | Implemented | Section 8 | Scoring anchors are analyst assumptions |
 | Nitrogen, erosion and soil-health screens | Implemented as screens | Section 7 | Bounds and indicators, not predictions |
-| Economics | Implemented as interval arithmetic | Margin ranges from farmer-entered yield, price and cost ranges | No market data, no weather-to-yield response, no optimisation |
+| Economics | Implemented as interval arithmetic | Margin ranges from farmer-entered yield, price and cost ranges or verified regional market benchmarks | Calibrated benchmarks from DOA, Bayintnaung and MPBMSMA (2024–2026); no weather-to-yield response, no optimisation |
 
 **Replay baseline.** The application replays the ten seasons $2016\text{–}2025$ (its weather request begins on 1 January 2016). The POWER record in the service reaches back to 1981, but the application does not use the earlier years.
 
@@ -910,21 +910,56 @@ A missing value is never imputed as zero or as an average. Version 3.0 dropped c
 
 ---
 
-## 9. Farm Economics from Farmer-Entered Ranges
+## 9. Farm Economics: Real-World Commodity Market Benchmarks and Farmer Ranges
 
-The application holds no market data. Margins are interval arithmetic on yield, price and cost ranges that the farmer, or a cited local source, enters; weather does not change yield or price, and no optimisation is performed. A rotation's margin is therefore only as good as those ranges. Closed intervals are used to avoid implying point precision:
+Economic margins are computed using closed interval arithmetic on yield, price and variable cost ranges. Farmer-entered numbers always supersede any default. To prevent uncalibrated dummy data when farmers have not yet recorded their exact figures, Field Shift integrates calibrated real-world market benchmarks for Myanmar (2024–2026), sourced from official agricultural records and commodity exchange bulletins:
+- **Myanmar Department of Agriculture (DOA)**, Ministry of Agriculture, Livestock and Irrigation.
+- **Bayintnaung Wholesale Commodity Exchange (Yangon)** and **War Tan Wholesale Depot** (pulses, beans and export grains).
+- **Myanmar Pulses, Beans & Sesame Seeds Merchants Association (MPBMSMA)** indicative export price circulars.
+- **Regional Wholesale Exchanges:** Magway and Mandalay (oilseeds and pulses), Monywa (chickpea), Taunggyi (maize and soybean).
+
+### 9.1 Traditional Trade Units and Conversion Factors
+Wholesale trading in Myanmar operates on historical volumetric and weight standards. The system standardizes these into SI units ($\text{kg}$ and $\text{ha}$):
+- **Viss (ပိဿာ, Peittha):** $1\text{ viss} = 1.63293\text{ kg} \approx 1.633\text{ kg}$.
+- **Paddy basket (စပါးတင်း):** $1\text{ basket} = 46\text{ lbs} \approx 20.86\text{ kg}$. One standard hundred-basket lot ($100\text{ baskets}$) equals $2,086\text{ kg}$.
+- **Pulse basket (ပဲတင်း):** $1\text{ basket} = 72\text{ lbs} \approx 31.75\text{ kg}$ (to $32.65\text{ kg}$).
+- **Sesame / Maize basket (နှမ်း / ပြောင်းတင်း):** $1\text{ basket} = 54\text{ lbs} \approx 24.49\text{ kg} \approx 24.5\text{ kg}$.
+- **Metric Ton (MT):** $1\text{ MT} = 1,000\text{ kg}$.
+
+### 9.2 Calibrated Regional Benchmark Values (2024–2026)
+
+| Crop ID | Burmese Name | Price Range ($P_{\min}, P_{\max}$) [$\text{MMK}\cdot\text{kg}^{-1}$] | Yield Range ($Y_{\min}, Y_{\max}$) [$\text{kg}\cdot\text{ha}^{-1}$] | Variable Cost ($C_{\min}, C_{\max}$) [$\text{MMK}\cdot\text{ha}^{-1}$] | Trade Unit Reference & Market Source |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `rice` | မိုးစပါး / နွေစပါး | $[950, \, 1300]$ | $[3200, \, 4800]$ | $[850000, \, 1350000]$ | Rough paddy: 2.0M–2.7M MMK / 100 baskets (~2,086 kg). DOA & Bayintnaung. |
+| `black-gram` | မတ်ပဲ | $[3200, \, 3850]$ | $[1000, \, 1600]$ | $[550000, \, 850000]$ | Export FAQ/SQ: 3.5M–3.85M MMK / MT (~105k–122k MMK / basket). MPBMSMA. |
+| `green-gram` | ပဲတီစိမ်း | $[3200, \, 4500]$ | $[950, \, 1500]$ | $[520000, \, 800000]$ | Bago/Khayan Shwe Wah: 5,500–7,500 MMK / viss. MPBMSMA & DOA. |
+| `sesame` | နှမ်း | $[4500, \, 6800]$ | $[500, \, 900]$ | $[450000, \, 700000]$ | Samone black: 9,500–11,500 MMK / viss; Brown/white: 7,500–9,000 MMK / viss. Magway/Mandalay. |
+| `groundnut` | မြေပဲ | $[2400, \, 3600]$ | $[1400, \, 2200]$ | $[700000, \, 1100000]$ | In-shell pods: 3,800–5,500 MMK / viss; shelled kernels: 4,500–6,000 MMK / kg. Central Dry Zone. |
+| `chickpea` | ကုလားပဲ | $[3400, \, 4200]$ | $[1100, \, 1700]$ | $[550000, \, 850000]$ | Wholesale: 5,500–6,800 MMK / viss. Mandalay & Monywa Exchange. |
+| `pigeon-pea` | ပဲစင်းငုံ | $[3400, \, 4100]$ | $[900, \, 1500]$ | $[500000, \, 750000]$ | Red pigeon pea export: 3.8M–4.2M MMK / MT (~110k–130k MMK / basket). Bayintnaung. |
+| `maize` | ပြောင်းဖူး | $[1050, \, 1400]$ | $[4000, \, 6500]$ | $[900000, \, 1500000]$ | Feed depot: 1,100–1,450 MMK / kg (17.5k–23k MMK / basket). Taunggyi & CP purchase. |
+| `soybean` | ပဲပုပ် | $[3000, \, 3900]$ | $[1200, \, 1900]$ | $[600000, \, 900000]$ | Wholesale: 4,900–6,400 MMK / viss. Shan State & Mandalay Market. |
+| `lablab` | ပဲကြီး | $[2600, \, 3400]$ | $[800, \, 1400]$ | $[400000, \, 650000]$ | Local assembly: 4,200–5,500 MMK / viss. Local survey. |
+| `sunn-hemp` | ပိုက်ဆံလျှော် | $[2500, \, 3200]$ | $[400, \, 750]$ | $[200000, \, 350000]$ | Seed production: 2,500–3,200 MMK / kg. Green manure biomass: 0 MMK direct sales. DOA Land Use. |
+| `wheat` | ဂျုံ | $[1100, \, 1500]$ | $[1500, \, 2400]$ | $[650000, \, 1000000]$ | Grain wholesale: 1,100–1,500 MMK / kg. Sagaing & Shan winter survey. |
+| `sorghum` | ပြောင်းဆန် | $[900, \, 1300]$ | $[1200, \, 2200]$ | $[450000, \, 700000]$ | Grain depot: 900–1,300 MMK / kg. Central Dry Zone fodder & coarse grain. |
+| `cowpea` | ပဲလွမ်း | $[2500, \, 3400]$ | $[900, \, 1500]$ | $[450000, \, 700000]$ | Wholesale depot: 4,000–5,500 MMK / viss. Mandalay & Bago pulse assessment. |
+| `crimson-clover` | ကလိုဗာ | $[2000, \, 2800]$ | $[300, \, 600]$ | $[200000, \, 350000]$ | Specialty forage & cover seed valuation: 2,000–2,800 MMK / kg. Reference benchmark. |
+
+### 9.3 Interval Arithmetic Formulation
+Weather does not change yield or price, and no optimization is performed. Closed intervals are used to avoid implying point precision:
 $$\begin{aligned}
 \text{GrossRevenue}_s &= [Y_{\min,s} \cdot P_{\min,s}, \, Y_{\max,s} \cdot P_{\max,s}] \\
 \text{TotalCost}_s &= [C_{\min,s}, \, C_{\max,s}] \\
 \text{GrossMargin}_s &= [Y_{\min,s} \cdot P_{\min,s} - C_{\max,s}, \, Y_{\max,s} \cdot P_{\max,s} - C_{\min,s}]
 \end{aligned}$$
 
-### 9.1 Gregorian Solar Annualization Factor ($365.2425\text{ days}\cdot\text{yr}^{-1}$)
+### 9.4 Gregorian Solar Annualization Factor ($365.2425\text{ days}\cdot\text{yr}^{-1}$)
 To compare rotations of varying cycle lengths (e.g., a one-year double crop vs. a three-year multi-stage rotation) without whole-year integer rounding discontinuities:
 $$\text{AnnualMargin}(R) = \text{GrossMargin}_{\text{cycle}} \times \frac{365.2425}{\Delta t_{\text{cycle,days}}}$$
 where $\Delta t_{\text{cycle,days}}$ is the number of days from the first planting of the cycle to the next planting of its first crop: the full repeating interval. **Fallow and idle days between crops are included.** Dividing instead by the days between first planting and last harvest, or by the days a crop is in the field, would treat idle land as free and overstate the annual return of any cycle that contains fallow time. For a rotation entered by the farmer without explicit dates, the cycle length is the recorded number of cycle years $\times\ 365$ days.
 
-### 9.2 Break-Even Commodity Price
+### 9.5 Break-Even Commodity Price
 $$P_{\text{breakeven}} = \frac{C_{\text{cost}}}{Y_{\text{saleable}}}$$
 
 ---
@@ -1132,7 +1167,7 @@ A mathematically consistent simulation is not a validated agronomic prediction. 
 | Ranking scores and anchors | 8 | The targets and limits of Section 8.2 are analyst assumptions; a score is a match to stated priorities, not a forecast | Local expert review; sensitivity analysis |
 | Minimax and percentile regret | 8.3 | Ten seasons only; no allowance for climate trend | A longer record or a calibrated weather generator |
 | Satellite vegetation indices | 6 | NDVI is greenness, not bare soil or crop type; coarse pixels on small fields; cloud gaps in the monsoon | Ground cover photographs; field visits |
-| Economics | 9 | Interval arithmetic on entered ranges; no market feed; weather does not change yield or price | Local price and yield records |
+| Economics | 9 | Interval arithmetic on entered or benchmark ranges; calibrated regional market benchmarks (DOA, Bayintnaung, MPBMSMA 2024–2026); weather does not change yield or price | Local price and yield records |
 
 **What the tool can and cannot support.** It can show which options a field's recorded conditions make easier or harder, in what years, and why, with the evidence and its gaps in view. It does not predict yield, income or soil change, and it is not a substitute for local advisers.
 

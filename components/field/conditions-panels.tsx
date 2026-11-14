@@ -75,8 +75,8 @@ function SlotVulnerability({ e }: { e: SlotEvaluation }) {
           </li>
         ))}
       </ul>
-      <p className="tabular m-0 font-mono text-source text-ink-muted">
-        Dry run in the season: median {fmt(e.rain.longestDry.p50)} days, driest tenth {fmt(e.rain.longestDry.p90)} days · heavy-rain days: median {fmt(e.rain.heavyDays.p50)} ·{" "}
+      <p className="tabular m-0 text-source text-ink-muted">
+        Dry run in the season: median {fmt(e.rain.longestDry.p50)} days, driest tenth {fmt(e.rain.longestDry.p90)} days. Heavy-rain days: median {fmt(e.rain.heavyDays.p50)}. {" "}
         {ofSeasons(e.rain.eligible, e.rain.windows)} usable
       </p>
     </div>

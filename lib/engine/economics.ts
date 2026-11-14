@@ -1,4 +1,4 @@
-import { getCropById } from "../data/crops";
+import { getCropById, getRealWorldCropEconomics } from "../data/crops";
 import type { CropEconomics, Rotation } from "../types";
 
 /**
@@ -57,12 +57,16 @@ export function economicsFor(
   rotation: Pick<Rotation, "slots" | "cycleYears"> & { cycleDays?: number },
   economics: CropEconomics[] | undefined,
   areaHa: number | null,
+  opts?: { fallbackToRealWorld?: boolean },
 ): EconomicsAssessment {
   const slots: SlotMargin[] = rotation.slots
     .filter((s) => s.kind !== "fallow")
     .map((s) => {
       const crop = s.cropId ? getCropById(s.cropId) : undefined;
-      const e = economics?.find((x) => x.cropId === s.cropId);
+      let e = economics?.find((x) => x.cropId === s.cropId);
+      if (!e && opts?.fallbackToRealWorld && s.cropId) {
+        e = getRealWorldCropEconomics(s.cropId);
+      }
       const missing: string[] = [];
       if (!e?.yieldKgHa) missing.push("yield range");
       if (!e?.priceMmkPerKg) missing.push("price range");

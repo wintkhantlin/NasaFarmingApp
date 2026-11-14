@@ -21,10 +21,12 @@ import {
 } from "./provenance";
 import { windowRain, spread, type Spread } from "./rain";
 import { replayWindows, slotOverlaps } from "./season";
+import { ASSUMED_IRRIGATION_MM } from "./scenario";
+import { answerOf } from "./questions";
 import { erosionScreen, nitrogenAssessment, soilMechanisms, type ErosionScreen, type Mechanism, type NitrogenAssessment } from "./soil-health";
 import { rotationStructure, type RotationStructure } from "./structure";
 import { assessSuitability, type Suitability } from "./suitability";
-import { dailyEt0, rootZoneBalance, waterForCrop, type DailyEt0, type RootZoneResult, type WaterSummary } from "./water";
+import { dailyEt0, isPaddyCrop, paddySeasonBalance, pumpingDecision, rootZoneBalance, twoZoneCapacities, uplandStartAfterPaddy, waterForCrop, type DailyEt0, type PaddyResult, type RootZoneResult, type WaterSummary } from "./water";
 import { monthlyNormals } from "./climate";
 import { smapWindowStats } from "../nasa/appeears/results";
 
@@ -47,6 +49,8 @@ export interface SlotEvaluation {
   water: WaterSummary | null;
   rain: { eligible: number; windows: number; total: Spread; longestDry: Spread; heavyDays: Spread; source: RainSeries["primary"] };
   rootZone: RootZoneResult | null;
+  /** Ponded balance for rice (Section 4.3); null for upland crops. */
+  paddy: PaddyResult | null;
   irrigated: boolean;
   unknowns: string[];
 }
@@ -147,7 +151,11 @@ export function compareRotations(data: EngineData, currentRotation: Rotation, op
   const all = [current, ...alternatives];
 
   // MCDA over feasible options only
-  const mcdaInputs: McdaInput[] = all.map((o) => ({ rotationId: o.id, feasible: o.fit !== "does-not-fit", values: o.metrics }));
+  const mcdaInputs: McdaInput[] = all.map((o) => ({
+    rotationId: o.id,
+    feasible: o.fit !== "does-not-fit" && o.slots.length > 0,
+    values: o.metrics,
+  }));
   const mcda = rankRotations(mcdaInputs, data.field.priorities);
 
   const sensitivity = (["water", "soil", "income", "forage", "lower-inputs"] as const).map((p) => {
@@ -198,6 +206,8 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   };
   const columnDepthM = Math.max(0, ...slots.map((s) => rootOf(s.cropId)));
 
+  // Pond left at harvest by the last paddy slot, mm; the next upland crop inherits a saturated profile (Section 4.3).
+  let pondAtHarvestMm: number | null = null;
   const evals: SlotEvaluation[] = slots
     .filter((s) => s.kind !== "fallow")
     .map((slot) => {
@@ -221,11 +231,16 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
       const water = data.records.length ? waterForCrop(crop, windows, et0, rain.days) : null;
       const rw = windows.map((w) => windowRain(rain.days, w.from, w.to));
       const ok = rw.filter((r) => r.evaluable);
-      const rz = rootZoneFor(ctx, crop, slot, windows, rain, columnDepthM);
+      const paddyCrop = isPaddyCrop(crop);
+      const rz = paddyCrop ? null : rootZoneFor(ctx, crop, slot, windows, rain, columnDepthM, pondAtHarvestMm);
+      const pd = paddyCrop ? paddyFor(ctx, crop, slot, windows, rain) : null;
+      if (paddyCrop) pondAtHarvestMm = pd?.status === "ok" ? pd.endPondMm : null;
+      else if (rz) pondAtHarvestMm = null;
       if (!data.records.length) unknowns.push("NASA POWER weather could not be read, so weather results are unknown.");
       else if (ok.length < 5) unknowns.push(`Only ${ok.length} complete ${ok.length === 1 ? "season" : "seasons"} of weather for this crop window.`);
       for (const c of suitability.checks) if (c.level === "unknown" && c.decisive) unknowns.push(`${c.label}: ${c.detail}`);
-      if (rz.status === "unknown") unknowns.push(`Root-zone water balance needs: ${rz.missing.join(", ")}.`);
+      if (rz?.status === "unknown") unknowns.push(`Root-zone water balance needs: ${rz.missing.join(", ")}.`);
+      if (pd?.status === "unknown") unknowns.push(`Paddy water balance needs: ${pd.missing.join(", ")}.`);
       return {
         slot,
         cropId: crop.id,
@@ -243,6 +258,7 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
           source: rain.primary,
         },
         rootZone: rz,
+        paddy: pd,
         irrigated,
         unknowns,
       };
@@ -255,7 +271,7 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   const lowCover = assessGaps(structure.gaps, data.hls);
   const pest = pestSequence(rotation);
   const forage = forageMarket(rotation, data.field.constraints);
-  const economics = economicsFor(rotation, data.field.economics, data.field.areaHa);
+  const economics = economicsFor(rotation, data.field.economics, data.field.areaHa, { fallbackToRealWorld: true });
   const overlaps = slotOverlaps(slots).map((o) => ({ from: slots[o.from].id, to: slots[o.to].id, days: o.days }));
 
   // feasibility
@@ -265,7 +281,10 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   const noFitReason =
     fit === "does-not-fit"
       ? [
-          ...outside.map((e) => `${e.name}: ${e.suitability?.blockers[0] ?? "outside its documented range"}`),
+          ...outside.map((e) => {
+            const check = e.suitability?.checks.find((c) => c.level === "outside");
+            return `${e.name}: ${check?.detail ?? e.suitability?.blockers[0] ?? "outside its documented range"}`;
+          }),
           ...overlaps.map((o) => `Two crops overlap by ${o.days} days.`),
         ].join(" ")
       : undefined;
@@ -309,32 +328,104 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
 
 function emptySlot(slot: RotationSlot, crop: Crop | null, name: string, unknowns: string[], irrigated: boolean, rain: RainSeries): SlotEvaluation {
   const none: Spread = { n: 0, p10: null, p50: null, p90: null };
-  return { slot, cropId: crop?.id ?? null, name, hasRules: false, suitability: null, exposure: null, water: null, rain: { eligible: 0, windows: 0, total: none, longestDry: none, heavyDays: none, source: rain.primary }, rootZone: null, irrigated, unknowns };
+  return { slot, cropId: crop?.id ?? null, name, hasRules: false, suitability: null, exposure: null, water: null, rain: { eligible: 0, windows: 0, total: none, longestDry: none, heavyDays: none, source: rain.primary }, rootZone: null, paddy: null, irrigated, unknowns };
 }
 
-function rootZoneFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnType<typeof replayWindows>, rain: RainSeries, columnDepthM: number): RootZoneResult {
-  const soil = ctx.data.soil;
-  const input = {
-    awcMmPerM: soil.awcMmPerM?.value ?? null,
-    // The crop's own rooting depth from the library, capped by a restrictive depth the farmer reported.
-    rootDepthM: soil.rootDepthM ? Math.min(crop.rootDepthM, soil.rootDepthM.value) : crop.rootDepthM,
-    maxRootDepthM: columnDepthM > 0 ? columnDepthM : null,
-    // moisture at planting is never defaulted; no field input exists for it yet
-    initialDepletionMm: null,
-    irrigationMm: slot.irrigated ? (ctx.data.field.constraints?.irrigation?.amountMm ?? null) : 0,
-  };
-  const w = windows[windows.length - 1];
-  if (!w) return { status: "unknown", missing: ["weather years"] };
+/** Daily crop demand over one replayed window: stage Kc times reference ET, for days with an ET estimate. */
+function etcForWindow(ctx: Ctx, crop: Crop, w: ReturnType<typeof replayWindows>[number]): Map<string, number> {
   const etc = new Map<string, number>();
   for (const st of w.stages) {
-    const kc = crop.profile?.stages.find((s) => s.id === st.id)?.kc.value ?? crop.kc.mid;
+    const kc = crop.profile?.stages.find((x) => x.id === st.id)?.kc.value ?? crop.kc.mid;
     for (let t = Date.parse(st.from); t <= Date.parse(st.to); t += 86_400_000) {
       const iso = new Date(t).toISOString().slice(0, 10);
       const e = ctx.et0.find((d) => d.date === iso)?.mm;
       if (e != null) etc.set(iso, kc * e);
     }
   }
-  return rootZoneBalance(input, w, etc, new Map(rain.days.map((d) => [d.date, d.mm])));
+  return etc;
+}
+
+/**
+ * Season irrigation depth the farmer's pump can deliver (Section 4.4). With no pump figures the entered amount
+ * stands; with them it is capped at the depth the pump hours allow, and the cap is reported.
+ */
+function irrigationDepth(ctx: Ctx, slot: RotationSlot): { mm: number | null; note: string | null } {
+  if (!slot.irrigated && ctx.data.field.irrigation !== "full") return { mm: 0, note: null };
+  const irr = ctx.data.field.constraints?.irrigation;
+  const access = irr?.access ?? ctx.data.field.irrigation;
+  const assumedMm = access === "supplemental" || access === "full" ? ASSUMED_IRRIGATION_MM[access] : 0;
+  const amount = irr?.amountMm ?? assumedMm;
+  const assumedNote = irr?.amountMm == null ? `Irrigation amount assumed at ${assumedMm} mm for the season. Enter your own to replace it.` : null;
+  const areaHa = ctx.data.field.areaHa;
+  if (amount === null || !irr?.pump || !areaHa || areaHa <= 0) return { mm: amount, note: assumedNote };
+  const d = pumpingDecision({ netDepthMm: amount, areaHa, efficiency: irr.pump.efficiency, pumpRateM3H: irr.pump.rateM3H, hoursAvailable: irr.pump.hoursAvailable });
+  if (d.shortfallMm && d.shortfallMm > 0 && d.maxNetDepthMm !== null)
+    return { mm: d.maxNetDepthMm, note: `Irrigation is capped at ${d.maxNetDepthMm.toFixed(0)} mm: the pump can deliver that in ${irr.pump.hoursAvailable} h, short of the ${amount} mm entered by ${d.shortfallMm.toFixed(0)} mm.` };
+  return { mm: amount, note: assumedNote };
+}
+
+const ASSUMED_PADDY = { bundMm: 100, seepageMmDay: 5 };
+const SOIL_WATER_DEPLETION: Record<string, number> = { wet: 0.1, damp: 0.4, dry: 0.7 };
+
+function rootZoneFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnType<typeof replayWindows>, rain: RainSeries, columnDepthM: number, pondAtHarvestMm: number | null): RootZoneResult {
+  const soil = ctx.data.soil;
+  const irr = irrigationDepth(ctx, slot);
+  const rootDepthM = soil.rootDepthM ? Math.min(crop.rootDepthM, soil.rootDepthM.value) : crop.rootDepthM;
+  const maxRootDepthM = columnDepthM > 0 ? columnDepthM : null;
+  const farmerDepletion = ctx.data.field.constraints?.soilDepletionAtPlantingMm ?? null;
+  // After a paddy the profile stands saturated (Section 4.3); that holds only until the farmer says otherwise.
+  let initialDepletionMm = farmerDepletion;
+  let handover = false;
+  const awc = soil.awcMmPerM?.value ?? null;
+  if (initialDepletionMm === null && awc !== null && pondAtHarvestMm !== null) {
+    const start = uplandStartAfterPaddy(pondAtHarvestMm, { awcMmPerM: awc, rootDepthM, maxDepthM: Math.max(maxRootDepthM ?? rootDepthM, rootDepthM) });
+    if (start) {
+      const cap = twoZoneCapacities({ awcMmPerM: awc, rootDepthM, maxDepthM: Math.max(maxRootDepthM ?? rootDepthM, rootDepthM) });
+      initialDepletionMm = cap.rootMm - start.state.rootMm;
+      handover = true;
+    }
+  }
+  let soilWaterNote: string | null = null;
+  if (initialDepletionMm === null) {
+    const answer = answerOf(ctx.data.field, "soil-water-at-sowing")?.value ?? "";
+    const known = answer in SOIL_WATER_DEPLETION;
+    const frac = known ? SOIL_WATER_DEPLETION[answer] : 0.5;
+    // Without a water capacity the balance cannot run at all, so the missing capacity is what gets reported.
+    const cap = awc !== null ? twoZoneCapacities({ awcMmPerM: awc, rootDepthM, maxDepthM: Math.max(maxRootDepthM ?? rootDepthM, rootDepthM) }) : null;
+    initialDepletionMm = cap ? cap.rootMm * frac : 0;
+    soilWaterNote = known ? `Soil water at planting taken from your answer (${answer}).` : "Soil water at planting assumed half-full. Answer one question to replace it.";
+  }
+  const w = windows[windows.length - 1];
+  if (!w) return { status: "unknown", missing: ["weather years"] };
+  const r = rootZoneBalance(
+    { awcMmPerM: awc, rootDepthM, maxRootDepthM, initialDepletionMm, irrigationMm: irr.mm },
+    w,
+    etcForWindow(ctx, crop, w),
+    new Map(rain.days.map((d) => [d.date, d.mm])),
+  );
+  if (r.status !== "ok") return r;
+  const extra = [
+    ...(irr.note ? [irr.note] : []),
+    ...(soilWaterNote ? [soilWaterNote] : []),
+    ...(handover ? ["Soil moisture at planting is taken as field capacity because the paddy before this crop left standing water; enter your own value to replace it."] : []),
+  ];
+  return extra.length ? { ...r, assumptions: [...r.assumptions, ...extra] } : r;
+}
+
+function paddyFor(ctx: Ctx, crop: Crop, slot: RotationSlot, windows: ReturnType<typeof replayWindows>, rain: RainSeries): PaddyResult {
+  const w = windows[windows.length - 1];
+  if (!w) return { status: "unknown", missing: ["weather years"] };
+  const c = ctx.data.field.constraints;
+  const irr = irrigationDepth(ctx, slot);
+  const r = paddySeasonBalance(
+    { bundMm: c?.paddy?.bundMm ?? ASSUMED_PADDY.bundMm, seepagePercolationMmDay: c?.paddy?.seepagePercolationMmDay ?? ASSUMED_PADDY.seepageMmDay, irrigationMm: irr.mm },
+    w,
+    etcForWindow(ctx, crop, w),
+    new Map(rain.days.map((d) => [d.date, d.mm])),
+  );
+  const paddyNote = c?.paddy?.bundMm == null || c?.paddy?.seepagePercolationMmDay == null ? "Bund height and seepage assumed at typical values for paddy. Enter your own to replace them." : null;
+  const notes = [irr.note, paddyNote].filter((n): n is string => Boolean(n));
+  return r.status === "ok" && notes.length ? { ...r, assumptions: [...r.assumptions, ...notes] } : r;
 }
 
 function dryYearFit(ctx: Ctx, evals: SlotEvaluation[]): DryYearFit {

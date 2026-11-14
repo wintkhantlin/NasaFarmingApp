@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
+import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ArrowLeftGlyph, PrintGlyph } from "@/components/ui/icons";
-import { JudgmentNote } from "@/components/ui/judgment-note";
+import { ActionBar } from "@/components/ui/action-bar";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
@@ -124,24 +125,12 @@ export function ReportView({ fieldId }: { fieldId: string }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 print:hidden">
-        <div className="flex min-w-0 flex-col gap-2">
-          <Link
-            href={`/fields/${field.id}/compare`}
-            className="inline-flex min-h-tap items-center gap-1.5 text-body-sm text-ink-muted no-underline hover:text-ink hover:underline"
-          >
-            <ArrowLeftGlyph />
-            {copy.report.backToCompare}
-          </Link>
-          <h1 className="text-title text-ink sm:text-display">{copy.report.title}</h1>
-        </div>
-        <Button variant="primary" onClick={() => window.print()} className="max-sm:w-full">
-          <PrintGlyph />
-          {copy.report.printButton}
-        </Button>
+      <div className="print:hidden">
+        <FieldPageHeader
+          title={copy.report.title}
+          summary={copy.report.subtitle}
+        />
       </div>
-
-      <JudgmentNote className="print:hidden" />
 
       <article
         aria-label={`${copy.report.title}: ${field.name}`}
@@ -155,7 +144,6 @@ export function ReportView({ fieldId }: { fieldId: string }) {
             </time>
           </p>
           <h2 className="text-balance text-display text-ink">{field.name}</h2>
-          <p className="m-0 max-w-measure text-body text-ink-muted">{copy.report.subtitle}</p>
         </header>
 
         <section aria-labelledby="r-field" className="flex flex-col gap-3">
@@ -214,10 +202,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
           </ol>
         </section>
 
-        <section aria-labelledby="r-evidence" className="flex flex-col gap-3">
-          <h3 id="r-evidence" className="text-headline text-ink">
-            {copy.report.evidenceSummary}
-          </h3>
+        <Disclosure title={copy.report.evidenceSummary} className="border-0 bg-transparent print:break-inside-auto [&>summary]:px-0 [&>summary]:text-headline [&>div]:px-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] border-collapse text-left text-source">
               <thead>
@@ -243,7 +228,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
               </tbody>
             </table>
           </div>
-        </section>
+        </Disclosure>
 
         <section aria-labelledby="r-gaps" className="flex break-inside-avoid flex-col gap-2">
           <h3 id="r-gaps" className="text-headline text-ink">
@@ -401,19 +386,29 @@ export function ReportView({ fieldId }: { fieldId: string }) {
 
         <footer className="flex flex-col gap-1 border-t border-line pt-4 text-source text-ink-muted">
           <p className="m-0">{copy.judgment.short} {copy.judgment.long}</p>
-          <p className="m-0">{copy.report.footerNotice}</p>
           <p className="tabular m-0 font-mono">
             Data: NASA POWER daily (UTC days, {comparison.baseline.startYear} to {comparison.baseline.endYear}); rainfall from {comparison.rain.primary === "R" ? "GPM IMERG" : comparison.rain.primary === "P" ? "NASA POWER" : "no source"}; ISRIC SoilGrids v2 250 m (not NASA). Processed {comparison.processedAt.slice(0, 10)}.
           </p>
         </footer>
       </article>
 
-      <div className="flex justify-end print:hidden">
-        <Button variant="secondary" onClick={() => window.print()} className="max-sm:w-full">
-          <PrintGlyph />
+      <ActionBar>
+        <Button
+          variant="secondary"
+          size="lg"
+          icon="share"
+          onClick={() => {
+            const text = `${field.name}: past ${comparison.baseline.completeYears} seasons. Talk it through with your extension officer or an experienced farmer.`;
+            if (navigator.share) void navigator.share({ title: copy.app.name, text }).catch(() => undefined);
+            else window.print();
+          }}
+        >
+          Share
+        </Button>
+        <Button variant="primary" size="lg" icon="print" onClick={() => window.print()}>
           {copy.report.printButton}
         </Button>
-      </div>
+      </ActionBar>
     </>
   );
 }

@@ -3,66 +3,65 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Stepper, type StepId } from "@/components/ui/stepper";
-import { deriveStepStates, useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
+import { PageBar } from "@/components/ui/page-bar";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { cn } from "@/lib/cn";
+import { useFieldsStore } from "@/lib/store/fields-store";
 
-function stepFromPath(pathname: string, fieldId: string): StepId {
-  const rest = pathname.replace(`/fields/${fieldId}`, "").replace(/^\//, "");
-  if (rest.startsWith("rotation")) return "rotation";
-  if (rest.startsWith("profile")) return "profile";
-  if (rest.startsWith("conditions")) return "conditions";
-  if (rest.startsWith("compare") || rest.startsWith("report")) return "compare";
-  return "location";
+const TABS: Array<{ label: string; path: string; icon: IconName }> = [
+  { label: "Overview", path: "", icon: "fields" },
+  { label: "Crops", path: "/rotation", icon: "rotation" },
+  { label: "Conditions", path: "/conditions", icon: "conditions" },
+  { label: "Compare", path: "/compare", icon: "compare" },
+];
+
+function activeTab(pathname: string, base: string): string {
+  const rest = pathname.slice(base.length);
+  if (rest.startsWith("/rotation")) return "/rotation";
+  if (rest.startsWith("/conditions")) return "/conditions";
+  if (rest.startsWith("/compare") || rest.startsWith("/report") || rest.startsWith("/questions")) return "/compare";
+  return "";
 }
 
-/**
- * The workspace around one field: a breadcrumb, then the five steps (a strip
- * above the screen on phones, a rail beside it from lg), then the screen.
- * Each screen supplies only its own title and content.
- */
+/** Familiar field tabs keep navigation in one place on every field screen. */
 export function FieldShell({ children }: { children: ReactNode }) {
   const { fieldId } = useParams<{ fieldId: string }>();
   const pathname = usePathname();
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
-  const rotations = useFieldRotations(fieldId);
+  const base = `/fields/${fieldId}`;
+  const isResult = /\/report$|\/questions\//.test(pathname);
 
-  // Unknown field: the screen itself explains, without a workspace around it.
   if (status === "ready" && !field) return <>{children}</>;
-
-  const loading = status === "idle" || status === "loading";
 
   return (
     <div className="flex flex-col gap-5 print:block">
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-body-sm text-ink-muted print:hidden">
-        <Link href="/" className="inline-flex min-h-tap items-center text-ink-muted hover:text-ink hover:underline">
-          Your fields
-        </Link>
-        <span aria-hidden="true">/</span>
-        {field ? (
-          <span className="truncate text-ink" aria-current="page">
-            {field.name}
-          </span>
-        ) : (
-          <Skeleton className="h-4 w-28" />
-        )}
-      </nav>
-
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-10 print:block">
-        <div className="lg:sticky lg:top-24 print:hidden">
-          {loading || !field ? (
-            <Skeleton className="h-16 lg:h-64" />
-          ) : (
-            <Stepper
-              fieldId={field.id}
-              current={stepFromPath(pathname, field.id)}
-              states={deriveStepStates(field, rotations)}
-            />
-          )}
-        </div>
-        <div className="flex min-w-0 flex-col gap-6">{children}</div>
-      </div>
+      <PageBar backHref={isResult ? `${base}/compare` : "/"} backLabel={isResult ? "Compare" : "Fields"} />
+      {field ? (
+        <nav aria-label={`Pages for ${field.name}`} className="-mx-4 border-b border-line px-4 sm:-mx-6 sm:px-6 print:hidden">
+          <ul className="m-0 grid grid-cols-4 list-none gap-0 p-0 sm:flex sm:gap-1">
+            {TABS.map((tab) => {
+              const selected = activeTab(pathname, base) === tab.path;
+              return (
+                <li key={tab.path}>
+                  <Link
+                    href={`${base}${tab.path}`}
+                    aria-current={selected ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 border-b-2 px-1 text-source no-underline transition-colors sm:min-h-tap sm:flex-row sm:gap-2 sm:px-3 sm:text-label",
+                      selected ? "border-field font-semibold text-field" : "border-transparent text-ink-muted hover:text-ink",
+                    )}
+                  >
+                    <Icon name={tab.icon} size={18} />
+                    {tab.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      ) : null}
+      <div className="flex min-w-0 flex-col gap-6">{children}</div>
     </div>
   );
 }

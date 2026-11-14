@@ -3,6 +3,8 @@ name: NASA Farming App
 description: A calm, field-readable interface that turns NASA Earth-observation data into clear decisions for farmers adapting to a changing climate.
 ---
 
+> **Superseded for tokens by `DESIGN_SYSTEM.md`** (light values only; the repo stays light-only). Colours, type scale, radii and fonts in `app/globals.css` follow it. Treat the rest of this file as background.
+
 # Design System: NASA Farming App
 
 > Direction is proposed from the project name and the NASA Space Apps challenge "Adapting Farms with NASA Data". Tokens are implemented in `app/globals.css` (Tailwind v4 `@theme`) and mirrored in the Field Almanac design system: https://claude.ai/artifact/71qXy2Mh5EzaN9ZyfzNjtn. When a value changes, change it here and in `app/globals.css` together.

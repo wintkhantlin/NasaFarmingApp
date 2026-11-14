@@ -70,5 +70,5 @@ export function checkRegion(geometry: FieldGeometry, center: LngLat): RegionChec
 }
 
 export function regionName(region: ResolvedRegion | undefined): string {
-  return region && region !== "unsupported" ? REGIONS[region].name : "Outside the supported regions";
+  return region && region !== "unsupported" ? REGIONS[region].name : "Region not listed";
 }

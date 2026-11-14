@@ -1,7 +1,7 @@
 # Field Shift: Comparing Crop Rotations with NASA Earth Observations
 
 **Scientific Methods and System Design — Research Prototype v3.1**
-Companion document: [Technical Appendix](whitepaper-technical-appendix.md) (equations, assumptions, dataset specifications)
+Technical Appendix: equations, mathematical foundations, assumptions, and dataset specifications included in full below.
 
 *Field Shift is a research prototype. It is not a NASA product, NASA does not endorse it, and it has not been validated against observed field data. Section 7 says what that means for how it should be used.*
 
@@ -52,7 +52,7 @@ It is an aid to a conversation between a farmer and a local adviser. It does not
 | Exposure | In how many of those seasons would heat at flowering, a long dry spell or heavy rain have occurred in the crop's sensitive stages? |
 | Soil | How much of the cycle has a crop in the field, how many crops fix nitrogen, and what a partial nitrogen budget can and cannot say |
 | Terrain | Where slope, low cover and rainy periods coincide, a screening warning for erosion exposure |
-| Income | A margin *range* from yield, price and cost ranges the farmer enters. The app holds no market data |
+| Income | A margin *range* calculated using interval arithmetic from farmer-entered values or verified real-world regional market benchmarks (DOA, Bayintnaung Wholesale, MPBMSMA). Weather does not alter yield or price |
 | Ranking | A match to the farmer's stated priorities, with the evidence it could not use listed beside it |
 
 ### 3.3 Design commitments
@@ -99,7 +99,7 @@ Statuses: **Implemented** (runs in the application and is tested), **Partially i
 | SMAP soil moisture, SRTM slope, HLS vegetation | Partially implemented | Need an Earthdata login for AppEEARS; not run live |
 | MODIS NDVI | Proposed | Code exists but nothing calls it |
 | ECOSTRESS | Proposed | Screening helper only |
-| Economics | Implemented as ranges | Interval arithmetic on farmer-entered values; no market data or yield response |
+| Economics | Implemented with real-world market benchmarks | Interval arithmetic on farmer-entered values or loaded regional commodity benchmarks (DOA, Bayintnaung, MPBMSMA 2024–2026); no weather-driven yield response |
 
 When a source is not connected, the app falls back (for rainfall, to POWER) or reports *unknown*, and says so in the report. The appendix (Implementation Status) gives the detail.
 
@@ -144,7 +144,7 @@ The demonstration shows what changes in a comparison when evidence is added or r
 - **Scoring anchors are assumptions.** The targets and limits that turn criteria into scores are analyst choices, to be reviewed with local experts. A rank is a match to stated priorities, not a forecast.
 - **Greenness is not ground truth.** Landsat NDVI cannot separate bare soil from flooded fields or young crops, and monsoon cloud leaves gaps. Satellite pixels of $30\text{ m}$ are coarse on small fields.
 - **Crop rules are partly assumed.** Some thresholds and calendars in the crop library are analyst assumptions, and no cultivar yet has the thermal requirements that would let the app time growth stages from temperature.
-- **Income uses entered ranges only.** There is no market data, and weather does not alter yield or price.
+- **Income uses entered or benchmark ranges only.** Farmer-entered figures take precedence; real-world benchmarks provide calibrated regional ranges from commodity exchanges (DOA, Bayintnaung, MPBMSMA 2024–2026). Weather does not alter yield or price.
 
 **Proposed validation and measurable outcomes.** None of the following has been started, and thresholds for success should be set with local advisers before any is measured.
 

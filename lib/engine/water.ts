@@ -429,6 +429,88 @@ export function paddyWaterBalance(input: {
   };
 }
 
+/** Rice is the one crop in the library grown in a bunded, ponded field (Section 4.3). */
+export const isPaddyCrop = (crop: { id: string }) => crop.id === "rice";
+
+export interface PaddyInput {
+  bundMm: number | null;
+  seepagePercolationMmDay: number | null;
+  irrigationMm: number | null;
+  /** Pond depth at sowing, mm. Nursery or puddled fields start with water; 0 when none is known to stand. */
+  initialPondMm?: number;
+}
+
+export type PaddyResult =
+  | { status: "unknown"; missing: string[] }
+  | {
+      status: "ok";
+      /** Season totals, mm. */
+      actualEtMm: number;
+      unmetEtMm: number;
+      seepagePercolationMm: number;
+      spillMm: number;
+      /** Days the pond was empty at the end of the day. */
+      dryPondDays: number;
+      endPondMm: number;
+      conservationResidualMm: number;
+      assumptions: string[];
+    };
+
+/**
+ * Daily ponded balance across one paddy window (Section 4.3), built on paddyWaterBalance. It refuses to run
+ * without the bund height, the seepage-and-percolation rate and the irrigation amount: none is defaulted.
+ */
+export function paddySeasonBalance(
+  input: PaddyInput,
+  window: { from: string; to: string },
+  etcByDate: Map<string, number>,
+  rain: Map<string, number | null>,
+): PaddyResult {
+  const missing: string[] = [];
+  if (input.bundMm === null) missing.push("bund height");
+  if (input.seepagePercolationMmDay === null) missing.push("seepage and percolation rate");
+  if (input.irrigationMm === null) missing.push("irrigation amount (enter 0 if none)");
+  if (missing.length) return { status: "unknown", missing };
+  const days = Math.round((Date.parse(window.to) - Date.parse(window.from)) / 86_400_000) + 1;
+  const irrPerDay = (input.irrigationMm as number) / Math.max(1, days);
+  let pond = input.initialPondMm ?? 0;
+  let et = 0, unmet = 0, sp = 0, spill = 0, dry = 0, worst = 0;
+  for (let t = Date.parse(window.from); t <= Date.parse(window.to); t += 86_400_000) {
+    const iso = new Date(t).toISOString().slice(0, 10);
+    const etc = etcByDate.get(iso) ?? 0;
+    const r = paddyWaterBalance({
+      initialPondMm: pond,
+      maxBundMm: input.bundMm as number,
+      rainMm: rain.get(iso) ?? 0,
+      irrigationMm: irrPerDay,
+      etcMm: etc,
+      seepagePercolationMmDay: input.seepagePercolationMmDay as number,
+    });
+    pond = r.endPondMm;
+    et += r.actualEtMm;
+    unmet += Math.max(0, etc - r.actualEtMm);
+    sp += r.actualSeepagePercolationMm;
+    spill += r.spillMm;
+    if (pond <= 1e-9) dry++;
+    if (Math.abs(r.residualMm) > Math.abs(worst)) worst = r.residualMm;
+  }
+  return {
+    status: "ok",
+    actualEtMm: et,
+    unmetEtMm: unmet,
+    seepagePercolationMm: sp,
+    spillMm: spill,
+    dryPondDays: dry,
+    endPondMm: pond,
+    conservationResidualMm: worst,
+    assumptions: [
+      "Surface water only: there is no separate store for water in saturated soil, so this screens rice and does not model the paddy soil.",
+      "Irrigation is spread evenly over the window.",
+      "Seepage and percolation are one constant rate the farmer entered.",
+    ],
+  };
+}
+
 export interface RootZoneInput {
   /** mm of water the soil holds per metre of soil, from a soil test or soil map the farmer trusts. */
   awcMmPerM: number | null;

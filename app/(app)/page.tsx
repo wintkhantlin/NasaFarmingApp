@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FieldsList } from "@/components/field/fields-list";
 import { buttonClass } from "@/components/ui/button";
-import { PlusGlyph } from "@/components/ui/icons";
+import { Icon } from "@/components/ui/icon";
 import { copy } from "@/lib/copy/en";
 
 export default function Home() {
@@ -13,7 +13,7 @@ export default function Home() {
           <p className="max-w-measure text-body text-ink-muted">{copy.app.tagline}</p>
         </div>
         <Link href="/fields/new" className={buttonClass("secondary", "max-sm:w-full")}>
-          <PlusGlyph />
+          <Icon name="add" />
           {copy.home.addField}
         </Link>
       </div>

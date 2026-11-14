@@ -172,31 +172,49 @@ function WaterBlock({ e }: { e: SlotEvaluation }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
       <p className="m-0 text-label text-ink">{e.name}</p>
-      <p className="tabular m-0 font-mono text-data text-ink">
-        Rain {fmt(e.rain.total.p50)} mm · demand {fmt(e.water?.etc.p50 ?? null)} mm · short by {fmt(e.water?.shortfall.p50 ?? null)} mm
+      <p className="tabular m-0 text-data text-ink">
+        Rain {fmt(e.rain.total.p50)} mm, demand {fmt(e.water?.etc.p50 ?? null)} mm, short by {fmt(e.water?.shortfall.p50 ?? null)} mm
       </p>
       <p className="m-0 text-ink-muted">
         Medians over {ofSeasons(e.rain.eligible, n)} usable. Longest dry run: median {fmt(e.rain.longestDry.p50)} days, driest tenth {fmt(e.rain.longestDry.p90)} days.
         {e.irrigated ? " Marked irrigated, so rain alone is not the whole picture." : ""}
       </p>
+      {e.rootZone?.status === "ok" ? (
+        <p className="tabular m-0 text-data text-ink">
+          Root zone: crop got {fmt(e.rootZone.actualEtMm)} mm of {fmt(e.rootZone.actualEtMm + e.rootZone.unmetDemandMm)} mm, {e.rootZone.daysBeyondHalfTaw} days past the stress point, mean stress factor {e.rootZone.meanStressCoefficient.toFixed(2)}
+        </p>
+      ) : null}
+      {e.rootZone?.status === "ok" ? e.rootZone.assumptions.filter((a) => /capped|field capacity/.test(a)).map((a) => <p key={a} className="m-0 text-ink-muted">{a}</p>) : null}
+      {e.paddy?.status === "ok" ? (
+        <p className="tabular m-0 text-data text-ink">
+          Paddy pond: crop got {fmt(e.paddy.actualEtMm)} mm of {fmt(e.paddy.actualEtMm + e.paddy.unmetEtMm)} mm, pond empty {e.paddy.dryPondDays} days, {fmt(e.paddy.spillMm)} mm spilled over the bund
+        </p>
+      ) : null}
+      {e.paddy?.status === "unknown" ? <p className="m-0 text-ink-muted">Paddy balance not run: needs {e.paddy.missing.join(", ")}.</p> : null}
       {e.rootZone?.status === "unknown" ? <p className="m-0 text-ink-muted">Root-zone balance not run: needs {e.rootZone.missing.join(", ")}.</p> : null}
     </div>
   );
 }
 
 /** Everything the engine knows about one option, in the order a farmer or adviser would ask for it. */
+const NoCall = () => null;
+
 export function OptionDetail({
   option,
   rainyMonths,
   fieldId,
   region,
+  showCalls = true,
 }: {
   option: EvaluatedOption;
   rainyMonths: number[];
   fieldId?: string;
   region?: string;
+  /** The "Your call" notes are the same for every option, so a page shows them once. */
+  showCalls?: boolean;
 }) {
   const o = option;
+  const YC = showCalls ? YourCallMarker : NoCall;
   return (
     <div className="flex flex-col gap-4">
       {o.fit === "does-not-fit" && o.noFitReason ? (
@@ -220,13 +238,13 @@ export function OptionDetail({
             </ul>
           </div>
         ) : null}
-        <YourCallMarker
+        <YC
           topic="Variety and sowing dates"
           note="Sowing calendars are general species baselines. Sowing dates should be tuned to local varieties and the arrival of the monsoon."
           fieldId={fieldId}
         />
         {region === "ayeyarwady" ? (
-          <YourCallMarker
+          <YC
             topic="Flooded rice and bare soil"
             note="Satellite water pixels do not mean bare ground. Standing water and flood recession timing depend on local bunding."
             fieldId={fieldId}
@@ -252,7 +270,7 @@ export function OptionDetail({
           Dry-season replay: {o.dryYear.evaluated > 0 ? `${ofSeasons(o.dryYear.passes, o.dryYear.evaluated)} met every crop's checks` : "not evaluated"}. {o.dryYear.note}
           {o.dryYear.label ? ` ${o.dryYear.label}.` : ""}
         </p>
-        <YourCallMarker
+        <YC
           topic="Water on your field"
           note="SMAP is a 9 km cell and cannot see your canal, tube well or low corner. Your experience with local moisture beats the satellite model."
           fieldId={fieldId}
@@ -297,13 +315,13 @@ export function OptionDetail({
             ))}
           </ul>
         </div>
-        <YourCallMarker
+        <YC
           topic="Soil fertility"
           note="The soil map is 250 m and global. Your own soil test or hands-on experience beats any regional map."
           fieldId={fieldId}
         />
         {region === "shan" ? (
-          <YourCallMarker
+          <YC
             topic="Slope and erosion"
             note="Weather models cannot resolve every mountain slope or valley. Contour bunds, terracing and cover crops depend on your topography."
             fieldId={fieldId}
@@ -329,7 +347,7 @@ export function OptionDetail({
             ))}
           </ul>
         )}
-        <YourCallMarker
+        <YC
           topic="Pests and disease"
           note="NASA data cannot identify insect pests, stem borers, or soil-borne fungi or guarantee that a rotation breaks their cycle."
           fieldId={fieldId}
@@ -363,7 +381,7 @@ export function OptionDetail({
             ? `Whole cycle: ${mmk(o.economics.cycleMarginMmkHa[0])} to ${mmk(o.economics.cycleMarginMmkHa[1])} per ha${o.economics.cycleMarginMmk ? `, ${mmk(o.economics.cycleMarginMmk[0])} to ${mmk(o.economics.cycleMarginMmk[1])} for this field` : ""}.`
             : "No cycle total: some crops lack a yield, price or cost range."}
         </p>
-        <YourCallMarker
+        <YC
           topic="Markets, prices and labour"
           note="No satellite can see current farmgate prices, buyer presence, or harvest labour availability in your township."
           fieldId={fieldId}

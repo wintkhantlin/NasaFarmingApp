@@ -60,11 +60,11 @@ describe("compareRotations", () => {
     expect(r.current.risks.some((x) => x.id === "region")).toBe(true);
   });
 
-  test("without priorities there is no ranking", () => {
+  test("without priorities every priority counts equally, and the result says so", () => {
     const field = syntheticField();
     const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
-    expect(r.mcda.status).toBe("no-priorities");
-    expect(r.mcda.ranking).toHaveLength(0);
+    expect(r.mcda.status).not.toBe("no-priorities");
+    if (r.mcda.status === "ranked") expect(r.mcda.assumedPriorities).toBe(true);
   });
 
   test("a missing decisive input (pH) is unknown, and a soil value it can use settles it", () => {
@@ -78,5 +78,19 @@ describe("compareRotations", () => {
     const ph = known.current.slots[0].suitability?.checks.find((c) => c.id === "ph");
     expect(ph?.level).toBe("preferred");
     expect(ph?.inputSource).toBe("Your soil value");
+  });
+});
+
+describe("defaults when the farmer has not entered something", () => {
+  test("typical prices are used, so every option has an economic comparison", () => {
+    const field = magwayField();
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.current.unknowns.join(" ")).not.toContain("Yield, price and cost ranges for every crop");
+  });
+
+  test("the soil-water answer is used for soil moisture at planting", () => {
+    const field = { ...magwayField(), answers: [{ questionId: "soil-water-at-sowing", value: "wet", at: "2026-11-14T00:00:00.000Z" }] };
+    const r = compareRotations(engineData(field, syntheticWeather()), sesameGreenGram(field.id), { baseYear: 2026 });
+    expect(r.current.unknowns.join(" ")).not.toContain("soil moisture at planting");
   });
 });

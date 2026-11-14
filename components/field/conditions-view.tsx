@@ -1,11 +1,14 @@
 "use client";
 
+import { ActionBar } from "@/components/ui/action-bar";
+import { Icon } from "@/components/ui/icon";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { MONTHS, RainWaterChart, TemperatureChart } from "@/components/ui/charts";
 import { buttonClass, Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, DownloadGlyph, InfoGlyph, ThermometerGlyph } from "@/components/ui/icons";
+import { InfoGlyph, ThermometerGlyph } from "@/components/ui/icons";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Reading } from "@/components/ui/reading";
 import { RiskChip } from "@/components/ui/risk-chip";
@@ -13,6 +16,8 @@ import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SourceLine } from "@/components/ui/source-line";
 import { CropCalendar } from "@/components/field/crop-calendar";
+import { FieldPageHeader } from "@/components/field/field-page-header";
+import { TrendsView } from "@/components/field/trends-view";
 import { SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
@@ -160,57 +165,26 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-title text-ink sm:text-display">{copy.conditions.title}</h1>
-        <p className="max-w-measure text-body text-ink-muted">What the climate and soil around this field allow.</p>
-      </div>
+      <FieldPageHeader title={copy.conditions.title} summary="Rain, heat and soil around this field." />
 
       {phase === "loading" ? (
-        <Panel as="div" role="status" aria-label={copy.conditions.loadingData} className="flex flex-col gap-4 p-5 sm:p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-headline text-ink">Gathering satellite and climate data for this field</h2>
-            <p className="text-body-sm text-ink-muted">Reading historical conditions from NASA and global soil surveys.</p>
-          </div>
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            <li className="flex items-center gap-3 rounded-md bg-surface p-3 text-body-sm text-ink">
-              <span className="tabular grid size-6 shrink-0 place-items-center rounded-pill border border-line-strong font-mono text-source text-ink-muted">1</span>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">NASA POWER Weather & Climate (0.5°)</span>
-                <span className="text-source text-ink-muted">Reading 40 years of temperature, solar radiation and rain (usually 2–4 seconds)</span>
-              </div>
-              <Skeleton className="h-5 w-16 shrink-0" />
-            </li>
-            <li className="flex items-center gap-3 rounded-md bg-surface p-3 text-body-sm text-ink">
-              <span className="tabular grid size-6 shrink-0 place-items-center rounded-pill border border-line-strong font-mono text-source text-ink-muted">2</span>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">ISRIC SoilGrids Profile (250 m)</span>
-                <span className="text-source text-ink-muted">Reading soil texture, pH, carbon and drainage (usually 1–3 seconds)</span>
-              </div>
-              <Skeleton className="h-5 w-16 shrink-0" />
-            </li>
-            <li className="flex items-center gap-3 rounded-md bg-surface p-3 text-body-sm text-ink">
-              <span className="tabular grid size-6 shrink-0 place-items-center rounded-pill border border-line-strong font-mono text-source text-ink-muted">3</span>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">GPM IMERG & SMAP Satellite Detail (0.1° / 9 km)</span>
-                <span className="text-source text-ink-muted">High-resolution rainfall history and root-zone moisture (about 2–3 minutes)</span>
-              </div>
-              <Skeleton className="h-5 w-20 shrink-0" />
-            </li>
-          </ul>
-          <p className="m-0 text-source text-ink-muted">Partial results will appear as each source answers.</p>
+        <Panel as="div" role="status" aria-label={copy.conditions.loadingData} className="flex flex-col gap-3 p-5 sm:p-6">
+          <h2 className="m-0 text-headline text-ink">Getting the weather and soil for this field</h2>
+          <p className="m-0 text-body-sm text-ink-muted">A few seconds. Satellite detail can take a few minutes and will appear when ready.</p>
+          <Skeleton className="h-5 w-40" />
         </Panel>
       ) : null}
 
       {phase === "failed" ? (
         <EmptyState
           title="We couldn't reach the data sources"
-          body="Conditions come from NASA POWER and ISRIC SoilGrids. Check your connection and try again. Your field and rotation are saved."
+          body="Check your connection and try again. Your field and crops are saved."
         >
           <Button variant="primary" onClick={() => setAttempt((n) => n + 1)}>
             {copy.home.retry}
           </Button>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>
-            Back to your rotation
+          <Link href={`/fields/${field.id}/compare`} className={buttonClass("secondary")}>
+            {copy.conditions.compareButton}
           </Link>
         </EmptyState>
       ) : null}
@@ -271,15 +245,15 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
 
           {/* Rain and crop water use */}
           <Panel as="section" aria-labelledby="rain" className="flex flex-col gap-5 p-4 sm:p-6">
-            <PanelHeader id="rain" title={copy.conditions.rainTitle} description={copy.conditions.rainDescription} />
+            <PanelHeader id="rain" title={<span className="inline-flex items-center gap-2"><Icon name="water" />Rain and dry months</span>} description="Usual rain against the water crops may need." />
             {rain ? (
               <RainWaterChart rain={rain} cropUse={et0} />
             ) : (
               <p className="text-body text-ink-muted">NASA POWER didn&apos;t answer, so there is no rainfall chart yet.</p>
             )}
-            <div className="flex flex-col gap-1 border-t border-line pt-3 text-body-sm text-ink-muted">
-              <p className="m-0 text-ink">
-                <span className="font-medium">Satellite rainfall (GPM IMERG):</span>{" "}
+            <Disclosure title="About this rainfall" className="border-0 bg-surface-sunken">
+              <p className="m-0 text-body-sm text-ink">
+                Satellite rainfall:{" "}
                 {data.imerg?.status === "ok"
                   ? "retrieved for the whole record"
                   : data.imerg?.status === "pending"
@@ -288,53 +262,53 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                       ? "not available right now"
                       : "not connected on this server"}
               </p>
-              <p className="m-0">{copy.data.rainfallNote}</p>
-            </div>
-            <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="2016 to 2025, daily values averaged by month" />
+              <p className="m-0 text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
+            </Disclosure>
           </Panel>
 
           {/* Heat and frost */}
           {tmax && tmin ? (
             <Panel as="section" aria-labelledby="heat" className="flex flex-col gap-5 p-4 sm:p-6">
-              <PanelHeader id="heat" title={copy.conditions.heatFrostTitle} description={copy.conditions.heatFrostDescription} />
+              <PanelHeader id="heat" title="Hot and cold months" description="The shaded range is what this crop prefers." />
               <TemperatureChart
                 tmax={tmax}
                 tmin={tmin}
                 band={crop ? [crop.temp.optMinC, crop.temp.optMaxC] : undefined}
                 bandLabel={crop ? `${cropName} grows best at ${crop.temp.optMinC} to ${crop.temp.optMaxC} °C` : undefined}
               />
-              <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-                These are monthly averages. A single cold night or hot afternoon can go past them, so check local frost
-                dates before planting.
-              </p>
-              <SourceLine dataset={copy.data.sourceNasaPower} resolution="0.5°" dates="2016 to 2025, daily values averaged by month" />
+              <p className="m-0 max-w-measure text-body-sm text-ink-muted">Monthly averages. Check local frost dates before planting.</p>
             </Panel>
           ) : null}
 
+          <Disclosure title="More detail" className="border-0 bg-transparent [&>summary]:px-0 [&>div]:px-0">
           {comparison ? <VulnerabilityPanel comparison={comparison} /> : null}
-          {comparison ? <WaterUsePanel comparison={comparison} /> : null}
+            {comparison ? <WaterUsePanel comparison={comparison} /> : null}
 
-          {comparison ? (
-            <Panel as="section" aria-labelledby="calendar" className="flex flex-col gap-4 p-4 sm:p-6">
-              <PanelHeader id="calendar" title={copy.calendar.title} description={copy.calendar.lead} />
-              <CropCalendar option={comparison.current} rainyMonths={rainyMonths} />
-              {comparison.current.lowCover.length > 0 ? (
-                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
-                  {comparison.current.lowCover.map((g) => (
-                    <li key={g.gap.from}>
-                      {g.gap.from.slice(5)} to {g.gap.to.slice(5)}: {g.text}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </Panel>
-          ) : null}
+            {comparison ? (
+              <Panel as="section" aria-labelledby="calendar" className="flex flex-col gap-4 p-4 sm:p-6">
+                <PanelHeader id="calendar" title={copy.calendar.title} description={copy.calendar.lead} />
+                <CropCalendar option={comparison.current} rainyMonths={rainyMonths} />
+                {comparison.current.lowCover.length > 0 ? (
+                  <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
+                    {comparison.current.lowCover.map((g) => (
+                      <li key={g.gap.from}>
+                        {g.gap.from.slice(5)} to {g.gap.to.slice(5)}: {g.text}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </Panel>
+            ) : null}
 
-          <SourceStatusPanel conditions={data} remote={analysis.remote} />
+            <SourceStatusPanel conditions={data} remote={analysis.remote} />
+            <Disclosure title="Long-term trends" lazy>
+              <TrendsView fieldId={field.id} embedded />
+            </Disclosure>
+          </Disclosure>
 
           {/* Soil */}
           <Panel as="section" aria-labelledby="soil" className="flex flex-col gap-4 p-4 sm:p-6">
-            <PanelHeader id="soil" title={copy.conditions.soilTitle} description={copy.conditions.soilDescription} />
+            <PanelHeader id="soil" title={<span className="inline-flex items-center gap-2"><Icon name="soil" />Soil around this field</span>} description="Mapped at 250 m. A soil test is more precise." />
 
             {effectivePh === null && effectiveSoc === null && !texture ? (
               <Panel tone="plain" as="div" className="flex flex-col gap-3 p-4 sm:p-5">
@@ -410,37 +384,31 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             ) : null}
 
             <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-              {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : "Soil values come from a 250 m world map, not from this field. A soil test, if you have one, is more accurate."}{" "}
-              {copy.data.sourceSoilGrids}.
+              {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : copy.data.sourceSoilGrids + "."}
             </p>
           </Panel>
 
-          <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-raised px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
-            <Link href={`/fields/${field.id}/rotation`} className="inline-flex min-h-tap items-center text-label text-ink-muted hover:underline">
-              Back to your rotation
+          <ActionBar>
+            {data.weather ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                icon="download"
+                onClick={() => {
+                  const csv = generateWeatherCsv(field.name, data.weather!);
+                  const slug = field.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                  downloadCsv(`${slug}-weather-observations.csv`, csv);
+                }}
+              >
+                Weather CSV
+              </Button>
+            ) : null}
+            <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "flex-1", "lg")}>
+              {copy.conditions.compareButton}
+              <Icon name="next" />
             </Link>
-            <div className="flex flex-wrap items-center gap-2">
-              {data.weather ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    const csv = generateWeatherCsv(field.name, data.weather!);
-                    const slug = field.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-                    downloadCsv(`${slug}-weather-observations.csv`, csv);
-                  }}
-                  className="min-h-tap"
-                >
-                  <DownloadGlyph />
-                  Download weather CSV
-                </Button>
-              ) : null}
-              <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "max-sm:flex-1")}>
-                {copy.conditions.compareButton}
-                <ChevronRightGlyph />
-              </Link>
-            </div>
-          </div>
+          </ActionBar>
         </>
       ) : null}
     </>

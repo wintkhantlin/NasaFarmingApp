@@ -1,6 +1,9 @@
 "use client";
 
+import { ActionBar } from "@/components/ui/action-bar";
+import { Icon } from "@/components/ui/icon";
 import Link from "next/link";
+import { FieldPageHeader } from "@/components/field/field-page-header";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Alert from "@mui/material/Alert";
@@ -9,8 +12,9 @@ import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import { Button, buttonClass } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, CheckGlyph, PlusGlyph } from "@/components/ui/icons";
+import { ChevronRightGlyph, PlusGlyph } from "@/components/ui/icons";
 import { Panel } from "@/components/ui/panel";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +69,7 @@ function RotationRibbon({ slots, cycleYears }: { slots: RotationSlot[]; cycleYea
                   <span
                     key={s.id}
                     className={cn(
-                      "absolute inset-y-1 flex min-w-0 items-center overflow-hidden rounded-sm px-2 text-body-sm transition-all",
+                      "absolute inset-y-1 flex min-w-0 items-center overflow-hidden rounded-sm px-2 text-body-sm transition-colors",
                       fallow
                         ? "border-dashed border border-line-strong bg-surface-sunken text-ink-muted"
                         : "border-2 border-field bg-field-soft font-medium text-ink shadow-xs",
@@ -92,7 +96,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
   const loadRotations = useFieldsStore((s) => s.loadRotations);
   const saveRotation = useFieldsStore((s) => s.saveRotation);
 
-  const [cycleYears, setCycleYears] = useState<1 | 2 | 3 | 4>(2);
+  const [cycleYears, setCycleYears] = useState<1 | 2 | 3 | 4>(1);
   const [slots, setSlots] = useState<RotationSlot[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -108,22 +112,6 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
       if (loaded && loaded.length > 0) {
         setCycleYears(loaded[0].cycleYears);
         setSlots(loaded[0].slots);
-      } else {
-        // start from the first crop the team lists for this field's region, with its usual sowing window
-        const startRegion = useFieldsStore.getState().fields.find((f) => f.id === fieldId)?.region;
-        const startCrop = startRegion && startRegion !== "unsupported" ? REGIONS[startRegion].candidateCropIds[0] : "maize";
-        const defaultDates = getDefaultTypicalDates(startCrop, new Date().getFullYear(), startRegion && startRegion !== "unsupported" ? startRegion : undefined);
-        setSlots([
-          {
-            id: crypto.randomUUID(),
-            kind: "crop",
-            cropId: startCrop,
-            plantDate: defaultDates.plantDate,
-            harvestDate: defaultDates.harvestDate,
-            dateConfidence: "typical",
-            irrigated: false,
-          },
-        ]);
       }
     });
   }, [fieldId, loadRotations]);
@@ -172,6 +160,38 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         cropId: nextCropId,
         plantDate: defaultDates.plantDate,
         harvestDate: defaultDates.harvestDate,
+        dateConfidence: "typical",
+        irrigated: field.irrigation !== "none",
+      },
+    ]);
+  };
+
+  const regionKey = field.region && field.region !== "unsupported" ? field.region : undefined;
+  const chipCropIds = regionKey ? REGIONS[regionKey].candidateCropIds : CROPS.slice(0, 8).map((c) => c.id);
+
+  /** Tapping a crop adds it with its usual dates, in the first year where it does not overlap another crop. */
+  const toggleCrop = (cropId: string) => {
+    markChanged();
+    if (slots.some((x) => x.cropId === cropId)) {
+      setSlots(slots.filter((x) => x.cropId !== cropId));
+      return;
+    }
+    const base = new Date().getFullYear();
+    let chosen = getDefaultTypicalDates(cropId, base, regionKey);
+    let offset = 0;
+    for (; offset < 3; offset++) {
+      chosen = getDefaultTypicalDates(cropId, base + offset, regionKey);
+      if (!slots.some((x) => x.plantDate <= chosen.harvestDate && chosen.plantDate <= x.harvestDate)) break;
+    }
+    setCycleYears((y) => Math.max(y, offset + 1) as 1 | 2 | 3 | 4);
+    setSlots([
+      ...slots,
+      {
+        id: crypto.randomUUID(),
+        kind: getCropById(cropId)?.group === "cover" ? "cover" : "crop",
+        cropId,
+        plantDate: chosen.plantDate,
+        harvestDate: chosen.harvestDate,
         dateConfidence: "typical",
         irrigated: field.irrigation !== "none",
       },
@@ -243,7 +263,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
       };
       await saveRotation(rotationSchema.parse(record));
       setSaveSuccess(true);
-      if (navigateToConditions) router.push(`/fields/${field.id}/conditions`);
+      if (navigateToConditions) router.push(`/fields/${field.id}/compare`);
     } catch (e) {
       setErrors({ _form: e instanceof Error ? e.message : "Couldn't save the rotation. Try again." });
     } finally {
@@ -253,11 +273,35 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h1 className="text-title text-ink sm:text-display">{copy.rotation.title}</h1>
-        <p className="max-w-measure text-body text-ink-muted">{copy.rotation.lead}</p>
-      </div>
+      <FieldPageHeader title={copy.rotation.title} summary={copy.rotation.lead} />
 
+      <Panel as="section" aria-labelledby="quick-crops" className="flex flex-col gap-3 p-4 sm:p-5">
+        <h2 id="quick-crops" className="m-0 text-headline text-ink">{copy.rotation.quickTitle}</h2>
+        <div className="flex flex-wrap gap-2">
+          {chipCropIds.map((id) => {
+            const on = slots.some((x) => x.cropId === id);
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleCrop(id)}
+                className={cn(
+                  "inline-flex min-h-tap cursor-pointer items-center gap-1.5 rounded-pill px-4 py-2 text-label font-medium transition-colors",
+                  on ? "bg-field text-on-field" : "border border-line bg-surface text-ink hover:border-line-strong",
+                )}
+              >
+                {on ? <Icon name="done" size={16} /> : null}
+                {getCropById(id)?.names.common ?? id}
+              </button>
+            );
+          })}
+        </div>
+        <p className="m-0 text-body-sm text-ink-muted">{copy.rotation.quickHelp}</p>
+      </Panel>
+
+      {slots.length > 0 ? (
+      <Disclosure title={copy.rotation.changeDates} hint={summary}>
       <Panel as="div" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
         <Segmented
           legend={copy.rotation.cycleYearsLabel}
@@ -275,6 +319,14 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
       </Panel>
 
       {slots.length > 0 ? <RotationRibbon slots={slots} cycleYears={cycleYears} /> : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="secondary" onClick={handleAddSlot} className="w-full sm:w-fit">
+          <PlusGlyph />
+          {slots.length === 1 ? "Add crop 2" : copy.rotation.addCrop}
+        </Button>
+        {slots.length === 1 ? <p className="m-0 text-body-sm text-ink-muted">Add the next crop grown in this field. Check its suggested dates before saving.</p> : null}
+      </div>
 
       <div className="flex flex-col gap-4">
         {errors._form ? <Alert severity="error">{errors._form}</Alert> : null}
@@ -336,7 +388,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                         {copy.rotation.selectCropPrompt}
                       </MenuItem>
                       {CROPS.map((c) => {
-                        const local = c.names.local?.[0] ? ` · ${c.names.local[0]}` : "";
+                        const local = c.names.local?.[0] ? ` (${c.names.local[0]})` : "";
                         const ref = c.scope === "reference-only" ? " (reference only)" : "";
                         return (
                           <MenuItem key={c.id} value={c.id}>
@@ -433,35 +485,22 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
           })}
         </ol>
 
-        <Button variant="secondary" onClick={handleAddSlot} className="w-full self-start sm:w-fit">
-          <PlusGlyph />
-          {copy.rotation.addCrop}
-        </Button>
       </div>
+      </Disclosure>
+      ) : null}
 
       {/* Actions stay in reach: pinned to the bottom of the screen while the list is long. */}
-      <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-raised px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-lg sm:border sm:p-3 sm:shadow-float">
-        <div className="flex min-h-tap items-center gap-4 max-sm:contents">
-          <Link href={`/fields/${field.id}`} className="hidden text-label text-ink-muted hover:underline sm:inline">
-            Cancel
-          </Link>
-          {saveSuccess ? (
-            <p role="status" className="flex items-center gap-1.5 text-body-sm text-healthy max-sm:w-full">
-              <CheckGlyph />
-              {copy.rotation.savedNotice}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2 max-sm:w-full max-sm:[&>*:last-child]:flex-1">
-          <Button variant="secondary" onClick={() => void handleSave(false)} disabled={saving}>
-            {copy.rotation.saveButton}
-          </Button>
-          <Button variant="primary" onClick={() => void handleSave(true)} disabled={saving}>
-            {copy.rotation.saveAndNext}
-            <ChevronRightGlyph />
-          </Button>
-        </div>
-      </div>
+      {saveSuccess ? (
+        <p role="status" className="flex items-center gap-1.5 text-body-sm text-healthy">
+          <Icon name="done" size={16} />
+          {copy.rotation.savedNotice}
+        </p>
+      ) : null}
+      <ActionBar>
+        <Button variant="primary" size="lg" iconEnd="next" onClick={() => void handleSave(true)} disabled={saving || slots.length === 0}>
+          {copy.rotation.saveAndNext}
+        </Button>
+      </ActionBar>
     </>
   );
 }

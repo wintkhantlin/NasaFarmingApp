@@ -174,6 +174,21 @@ describe("suitability: unknown is not a pass", () => {
     expect(soil.soilGridsAvailable).toBe(true);
   });
 
+  test("farmer's soilOverride sets pH, texture and salinity", () => {
+    const field = syntheticField({ soilOverride: { ph: 6.2, texture: "sandy loam", salinityDsM: 1.8 } });
+    const soil = effectiveSoil(field, {
+      clayPct: 30, sandPct: 30, siltPct: 40, ph: 7.4, socGKg: 12, cecCmolKg: null,
+      bulkDensityKgDm3: null, nitrogenGKg: null, fieldCapacityFrac: null, wiltingPointFrac: null,
+      texture: "clay loam", source: { dataset: "ISRIC SoilGrids v2", resolution: "250 m", depth: "0 to 30 cm" },
+    });
+    expect(soil.ph?.value).toBe(6.2);
+    expect(soil.ph?.from).toBe("farmer");
+    expect(soil.texture?.value).toBe("sandy loam");
+    expect(soil.texture?.from).toBe("farmer");
+    expect(soil.salinityDsM?.value).toBe(1.8);
+    expect(soil.salinityDsM?.note).toBe("your soil test");
+  });
+
   test("a laboratory observation beats a farmer estimate, and a newer one beats an older one", () => {
     const field = syntheticField({
       soilObservations: [
@@ -335,8 +350,8 @@ describe("MCDA", () => {
     expect(res.ranking).toHaveLength(0);
   });
 
-  test("no priorities, no ranking; an infeasible option is not ranked; a tie on a relative scale is reported", () => {
-    expect(rankRotations(inputs([{}, {}, {}]), undefined).status).toBe("no-priorities");
+  test("no priorities means equal weights; an infeasible option is not ranked; a tie on a relative scale is reported", () => {
+    expect(rankRotations(inputs([{}, {}, {}]), undefined).status).toBe("unresolved");
     const res = rankRotations(
       inputs(
         [

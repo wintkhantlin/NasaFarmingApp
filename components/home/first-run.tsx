@@ -1,26 +1,15 @@
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/button";
-import { ChevronRightGlyph, PinGlyph } from "@/components/ui/icons";
+import { ChevronRightGlyph } from "@/components/ui/icons";
+import { Icon } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { copy } from "@/lib/copy/en";
 
 const STEPS = [
-  {
-    step: "1",
-    title: "Mark your field on a map",
-    detail: "Drop a pin, search for a village or town, draw a boundary, or enter coordinates. Location works without GPS.",
-  },
-  {
-    step: "2",
-    title: "Record what you grow now",
-    detail: "Enter your crops and typical planting/harvest dates so the planner can measure your baseline.",
-  },
-  {
-    step: "3",
-    title: "Tell us what matters & compare",
-    detail: "Rank your goals (water, soil, income, feed) and compare options tailored for your region.",
-  },
+  { step: "1", title: "Mark your field on a map" },
+  { step: "2", title: "Tap the crops you grow" },
+  { step: "3", title: "See your answer" },
 ];
 
 /** The first screen a new farmer sees: what this does, three steps, and an authentic look at what a decision looks like. */
@@ -38,19 +27,16 @@ export function FirstRun() {
           <p className="max-w-measure text-body text-ink-muted">{copy.home.emptyBody}</p>
         </div>
 
-        <ol className="m-0 flex list-none flex-col gap-4 p-0">
+        <ol className="m-0 flex list-none flex-col gap-3 p-0">
           {STEPS.map((s) => (
-            <li key={s.step} className="flex items-start gap-3.5 text-body text-ink">
+            <li key={s.step} className="flex items-center gap-3.5 text-body text-ink">
               <span
                 aria-hidden="true"
                 className="tabular grid size-7 shrink-0 place-items-center rounded-pill border border-line-strong bg-surface font-mono text-source text-ink-muted"
               >
                 {s.step}
               </span>
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-label text-ink">{s.title}</span>
-                <span className="text-body-sm text-ink-muted">{s.detail}</span>
-              </div>
+              <span className="text-label text-ink">{s.title}</span>
             </li>
           ))}
         </ol>
@@ -70,7 +56,7 @@ export function FirstRun() {
       <Panel tone="plain" className="flex flex-col gap-3 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
-            <PinGlyph className="text-field" />
+            <Icon name="outline" className="text-field" />
             <span className="text-body-sm font-medium text-ink">Preview: Magway Region</span>
           </div>
           <RiskChip hazard="healthy">Suits sandy loam</RiskChip>

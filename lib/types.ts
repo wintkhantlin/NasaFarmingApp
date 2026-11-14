@@ -32,6 +32,7 @@ export interface SoilOverride {
   ph?: number;
   texture?: TextureClass;
   ocPct?: number;
+  salinityDsM?: number;
   testedOn?: string;
 }
 
@@ -64,7 +65,16 @@ export interface SoilObservation {
 }
 
 export interface FarmConstraints {
-  irrigation?: { access: Irrigation; amountMm?: number };
+  irrigation?: {
+    access: Irrigation;
+    amountMm?: number;
+    /** Pump and delivery figures for the capacity limit of Section 4.4. All three are needed to apply it. */
+    pump?: { rateM3H: number; efficiency: number; hoursAvailable: number };
+  };
+  /** Root-zone depletion at planting, mm (0 = field capacity), as the farmer measured or judged it. Never defaulted. */
+  soilDepletionAtPlantingMm?: number;
+  /** Bunded paddy figures for Section 4.3. Both are needed; neither is defaulted. */
+  paddy?: { bundMm: number; seepagePercolationMmDay: number };
   equipment?: Array<"hand-tools" | "animal-traction" | "two-wheel-tractor" | "tractor" | "seeder" | "harvester">;
   labour?: "low" | "medium" | "high";
   marketAccess?: "poor" | "fair" | "good";
@@ -72,9 +82,23 @@ export interface FarmConstraints {
   excludedCropIds?: string[];
   /** Earliest and latest dates (MM-DD) the farmer can plant. */
   plantingWindow?: { from: string; to: string };
+  /** Crops the farmer knows a buyer for. Unset means the question was not asked. */
+  canSell?: string[];
+  /** Crops the household must grow for its own use. */
+  mustGrow?: string[];
+  /** Calendar months (1 to 12) when labour is stretched. */
+  peakMonths?: number[];
+  land?: { tenure: "owned" | "leased"; leaseYears?: number };
 }
 
+export type SoilSub = "nitrogen" | "erosion" | "organic-matter" | "infiltration";
+export type IncomeSub = "margin" | "market-fit" | "extra-income";
+
 export interface FarmerPriorities {
+  /** Finer choices under "soil". Empty or unset means every soil measure counts. */
+  soil?: SoilSub[];
+  /** Finer choices under "income". */
+  income?: IncomeSub[];
   /** Most important first. */
   order: PriorityId[];
   /** 0 to 1 per priority. Normalised to sum 1 when ranked. */
@@ -88,6 +112,17 @@ export interface CropEconomics {
   priceMmkPerKg?: [low: number, high: number];
   costMmkPerHa?: [low: number, high: number];
   source: string;
+}
+
+export interface FieldAnswer {
+  questionId: string;
+  value: string;
+  at: string;
+}
+
+export interface Recall {
+  year: number;
+  answer: "dry" | "normal" | "wet" | "not-sure";
 }
 
 export interface Field {
@@ -108,10 +143,16 @@ export interface Field {
   /** The farmer confirmed that this point or outline is their field. */
   locationConfirmed?: boolean;
   confirmedAt?: string;
+  /** Set when the farmer archives the field: hidden from lists and Compare, history kept. */
+  archivedAt?: string;
   constraints?: FarmConstraints;
   priorities?: FarmerPriorities;
   economics?: CropEconomics[];
   localNotes?: string;
+  /** Answers to single follow-up questions. Shown as "you told us". */
+  answers?: FieldAnswer[];
+  /** How the farmer remembers each year. Stored beside, never merged into, satellite values. */
+  recall?: Recall[];
   createdAt: string;
   updatedAt: string;
 }

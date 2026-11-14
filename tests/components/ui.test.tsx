@@ -6,7 +6,6 @@ import { render, screen } from "@testing-library/react";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Reading } from "@/components/ui/reading";
 import { Recommendation } from "@/components/ui/recommendation";
-import { Stepper, type StepId, type StepState } from "@/components/ui/stepper";
 
 describe("UI Kit Components (Field Almanac)", () => {
   it("RiskChip enforces never-color-alone rule by always pairing icon and word", () => {
@@ -62,29 +61,5 @@ describe("UI Kit Components (Field Almanac)", () => {
       screen.getByText("Rainfall records show 20+ day dry spells in 7 of the last 10 years."),
     ).toBeInTheDocument();
     expect(screen.getByText("Drought resilience")).toBeInTheDocument();
-  });
-
-  it("Stepper displays 5 steps with their respective states", () => {
-    const states: Record<StepId, StepState> = {
-      location: "done",
-      rotation: "needs-input",
-      profile: "not-started",
-      conditions: "not-started",
-      compare: "not-started",
-    };
-    render(
-      <Stepper
-        fieldId="f-1"
-        current="rotation"
-        states={states}
-      />,
-    );
-    expect(screen.getByText("Location")).toBeInTheDocument();
-    expect(screen.getByText("Your rotation")).toBeInTheDocument();
-    expect(screen.getByText("Your farm")).toBeInTheDocument();
-    expect(screen.getByText("Conditions")).toBeInTheDocument();
-    expect(screen.getByText("Compare")).toBeInTheDocument();
-    expect(screen.getByText("Done")).toBeInTheDocument();
-    expect(screen.getByText("Needs your input")).toBeInTheDocument();
   });
 });

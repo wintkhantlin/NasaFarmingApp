@@ -67,7 +67,7 @@ Greg, a plant-care app, splits Today and Upcoming and puts the amount on each ro
 
 **6. Ask for permissions with something in return, and give managers a map with a panel.**
 The Weather Channel asks for notifications one category at a time, shows what each does, and offers a clear "Keep these notifications off". Its location step is a wall of legal text, though. On desktop, Felt pairs a full map with a left legend panel and a popover for the selected item.
-- *For us:* onboarding in three steps: drop a pin or draw the field, pick the crop and planting date, then choose alert types with an example of each. Location is about the field, not the phone, so a manual pin works without GPS permission. On desktop, put the fields list and legend on the left, the map in the centre, and the selected field's recommendation in a right panel.
+- *For us:* onboarding starts by drawing a box or tracing the field, then adding farm details and crops. A farmer can search or use two corner coordinates without granting GPS permission. On desktop, keep map controls in a compact panel beside the map.
 - *Avoid:* a legal wall before any value is shown, or an account wall before the first recommendation.
 - Refs: [TWC onboarding flow](https://mobbin.com/flows/ae802f49-393f-4a35-957d-cb0cc6b054c3), [Felt map](https://mobbin.com/screens/58a17ddb-ae85-48cf-96d8-aa8c632517d7)
 
@@ -91,7 +91,7 @@ The brief defines the product as a **rotation planner**: choose a field, record 
 
 ```
 Home (your fields)
- └─ Field ──┬─ 1 Location        pin, box or polygon on a map; satellite resolution boxes
+ └─ Field ──┬─ 1 Location        box or polygon on a map
             ├─ 2 Your rotation   ribbon (tablet, desktop) or numbered list (phone)
             ├─ 3 Conditions      climate, water, soil, satellite history
             ├─ 4 Compare         current rotation vs at least two alternatives
@@ -111,17 +111,28 @@ A stepper shows steps 1 to 4 with their state (done, needs input, data loading).
 | 3. Consequence and likelihood | Risks read "what could go wrong, how often, what to check", e.g. "Marginal: not enough rain in 6 of 10 years without irrigation". |
 | 4. Chart with a target band | Water-need and soil readings show the crop's comfortable band, with an in-range verdict in words. |
 | 5. Dated task list | The rotation input: numbered slots with date range and "exact / about / usual time" confidence. |
-| 6. Permissions with something in return | Location is about the field, so a manual pin works with no GPS permission. |
+| 6. Permissions with something in return | Location is about the field, so search and corner coordinates work with no GPS permission. |
 
 ### Screens
 
-- **Home:** list of fields with step status. Empty state: "Drop a pin on your first field".
-- **Location:** map with search, "use my location" and lat/lon entry. Three draw tools: pin, box, field outline. A toggle shows the 250 m, 9 km and 0.1 degree data cells around the field, captioned "What each satellite sees around your field". A save sheet asks for name and irrigation access (none, some, full) and an optional soil test.
+- **Home:** list of fields with step status. Empty state: "Draw your first field".
+- **Location:** map with search, "use my location" and two-corner coordinate entry. Draw a box or trace the field outline; a point alone is not a new field. The save sheet asks only for a field name. After a new field is saved, Farm details collects water access, soil tests and priorities.
 - **Your rotation:** on tablet and desktop, a ribbon with one row per year of the cycle and a month axis starting at the local season start. Crop blocks are dragged and resized; gaps show as bare soil. On phone, a numbered list: "1. Maize, 15 Jun to 10 Oct" with "Add next crop". Picking a crop pre-fills typical dates. A satellite greenness line under the ribbon flags dates that don't match what the satellite saw.
 - **Conditions:** a plain-language summary of the rainy seasons, frost and heat, dry spells; monthly rain against crop water use; soil readings with bands; a "what grows well here" grid; a place for the farmer's own information.
 - **Compare:** a table on desktop (your rotation, then each alternative, row groups for fit, soil health, water and weather, unknowns); on phone, one tab per option with "Compare with now". No single winner badge: labels are factual ("Most reliable in dry years", "Biggest soil benefit").
 - **Option:** the recommendation, a year-by-year strip showing how the rotation would have done in each past year, soil-health benefits and trade-offs against the current rotation, the evidence list, and "Unknowns and things to check".
 - **Report:** a printable one-page summary of the rotations, key evidence and questions to ask locally.
+
+### Simplified farmer path (14 Nov 2026)
+
+The path is now **Place → Crops → Answer**. Farm details are no longer a required step.
+
+- **Place:** the save sheet asks only a name (pre-filled "Field N") and water (rain only, some, irrigated), then goes to Crops.
+- **Crops:** tap the crops you grow. Usual dates are filled in; "Change dates" holds the editor. "See my answer" goes straight to Compare.
+- **Answer:** priorities, prices and soil water that the farmer has not given are filled with typical values and marked **Assumed** (for example "Balanced priorities (assumed) · Change"). Nothing blocks the answer.
+- **Sharpen it:** one card under the answer, "N quick questions could sharpen this", opens one question at a time (what matters most, soil water, standing water, selling nearby, labour). Each answer writes to the same field the full farm form uses. The full form stays as "All farm details" on the field overview.
+- **Navigation:** bottom bar is Fields and Learn. Field tabs are Overview, Crops, Conditions, Compare. Trends sits inside Conditions and Share is a button on Report.
+- **Text:** the judgment line moves to the bottom of Compare. Ranking detail, what-if and gaps sit behind `Disclosure` rows, which open when printed.
 
 ### Persistent framing
 
