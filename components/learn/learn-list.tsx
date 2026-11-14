@@ -3,7 +3,7 @@
 import Dialog from "@mui/material/Dialog";
 import TextField from "@mui/material/TextField";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, Pressable } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
 import { copy } from "@/lib/copy/en";
 
@@ -56,15 +56,14 @@ export function LearnList({ sections }: { sections: Array<{ title: string; items
           <h2 className="text-source text-ink-muted">{s.title}</h2>
           <Panel as="div" className="divide-y divide-line">
             {s.items.map((item) => (
-              <button
+              <Pressable
                 key={item.term}
-                type="button"
                 onClick={() => { setMore(false); setOpen(item); }}
                 className="flex min-h-tap w-full items-center justify-between gap-3 px-4 py-2 text-left text-label text-ink"
               >
                 {item.term}
                 <span aria-hidden className="text-ink-muted">›</span>
-              </button>
+              </Pressable>
             ))}
           </Panel>
         </section>

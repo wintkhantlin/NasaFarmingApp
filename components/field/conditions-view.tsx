@@ -2,10 +2,9 @@
 
 import { ActionBar } from "@/components/ui/action-bar";
 import { Icon } from "@/components/ui/icon";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { MONTHS, RainWaterChart, TemperatureChart } from "@/components/ui/charts";
-import { buttonClass, Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InfoGlyph, ThermometerGlyph } from "@/components/ui/icons";
@@ -115,9 +114,9 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
   if (!field) {
     return (
       <EmptyState title="Field not found" body="This field isn't saved in this browser. Please return to your fields list.">
-        <Link href="/" className={buttonClass("primary")}>
+        <Button href="/" variant="primary">
           Back to your fields
-        </Link>
+        </Button>
       </EmptyState>
     );
   }
@@ -182,9 +181,9 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           <Button variant="primary" onClick={() => setAttempt((n) => n + 1)}>
             {copy.home.retry}
           </Button>
-          <Link href={`/fields/${field.id}/compare`} className={buttonClass("secondary")}>
+          <Button href={`/fields/${field.id}/compare`} variant="secondary">
             {copy.conditions.compareButton}
-          </Link>
+          </Button>
         </EmptyState>
       ) : null}
 
@@ -321,9 +320,9 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                 <p className="m-0 text-body text-ink">No soil map data here.</p>
                 <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.conditions.soilNullWarning}</p>
                 <div>
-                  <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+                  <Button href={`/fields/${field.id}/profile`} variant="secondary">
                     Add a soil test
-                  </Link>
+                  </Button>
                 </div>
               </Panel>
             ) : (
@@ -395,10 +394,10 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           </Panel>
 
           <ActionBar>
-            <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "flex-1", "lg")}>
+            <Button href={`/fields/${field.id}/compare`} variant="primary" className="flex-1" size="lg">
               {copy.conditions.compareButton}
               <Icon name="next" />
-            </Link>
+            </Button>
           </ActionBar>
         </>
       ) : null}

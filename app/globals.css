@@ -2,6 +2,8 @@
 /* Critique · the field flow had complete data but weak priority; this pass makes progress and the next useful action visible before supporting records. */
 /* Hallmark · waive 7b · locked Field Shift light tokens specify white raised surfaces · outdoor field screens need the measured white contrast on raised surfaces and green actions */
 /* Hallmark · waive 26b · no aria-disabled control appears in the field evidence note · Check locally is static field guidance with no interactive states to style */
+/* MUI sits between Tailwind's preflight (base) and its utilities, so utility classes can override MUI. */
+@layer theme, base, mui, components, utilities;
 @import "tailwindcss";
 
 /*

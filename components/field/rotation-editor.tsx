@@ -2,7 +2,6 @@
 
 import { ActionBar } from "@/components/ui/action-bar";
 import { Icon } from "@/components/ui/icon";
-import Link from "next/link";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -11,7 +10,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlusGlyph, ChevronRightGlyph } from "@/components/ui/icons";
 import { Panel } from "@/components/ui/panel";
@@ -534,9 +533,9 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         title="Field not found"
         body="This field isn't saved in your browser storage. Check your saved fields on the home page."
       >
-        <Link href="/" className={buttonClass("primary")}>
+        <Button href="/" variant="primary">
           Back to your fields
-        </Link>
+        </Button>
       </EmptyState>
     );
   }
@@ -553,32 +552,14 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         <div className="flex items-center gap-2">
           <span className="text-label font-semibold text-ink">Choose Mode:</span>
         </div>
-        <div className="flex items-center rounded-lg border border-line bg-surface p-1 shadow-xs">
-          <button
-            type="button"
-            onClick={() => setViewMode("guided")}
-            className={cn(
-              "rounded-md px-3.5 py-1.5 text-label font-medium transition-colors cursor-pointer min-h-tap flex items-center gap-1.5",
-              viewMode === "guided"
-                ? "bg-field text-on-field shadow-xs"
-                : "text-ink-muted hover:text-ink",
-            )}
-          >
+        <ButtonRow aria-label="Choose mode" role="group">
+          <Button variant="choice" aria-pressed={viewMode === "guided"} onClick={() => setViewMode("guided")}>
             🌾 Guided Farmer View
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("advanced")}
-            className={cn(
-              "rounded-md px-3.5 py-1.5 text-label font-medium transition-colors cursor-pointer min-h-tap flex items-center gap-1.5",
-              viewMode === "advanced"
-                ? "bg-field text-on-field shadow-xs"
-                : "text-ink-muted hover:text-ink",
-            )}
-          >
+          </Button>
+          <Button variant="choice" aria-pressed={viewMode === "advanced"} onClick={() => setViewMode("advanced")}>
             🔬 Advanced Detail View
-          </button>
-        </div>
+          </Button>
+        </ButtonRow>
       </div>
 
       {viewMode === "guided" ? (
@@ -609,26 +590,16 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
             <span className="text-source text-ink-muted">Regional crops for {regionName}</span>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <ButtonRow layout="wrap" min="9rem">
           {chipCropIds.map((id) => {
             const on = slots.some((x) => x.cropId === id);
             return (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggleCrop(id)}
-                className={cn(
-                  "inline-flex min-h-tap cursor-pointer items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-label font-medium transition-colors",
-                  on ? "bg-field text-on-field" : "border border-line bg-surface text-ink hover:border-line-strong",
-                )}
-              >
-                {on ? <Icon name="done" size={16} /> : null}
+              <Button key={id} variant="choice" aria-pressed={on} icon={on ? "done" : undefined} onClick={() => toggleCrop(id)}>
                 {getCropById(id)?.names.common ?? id}
-              </button>
+              </Button>
             );
           })}
-        </div>
+        </ButtonRow>
         <p className="m-0 text-body-sm text-ink-muted">
           Tap a crop to add it to your calendar with typical regional dates. Tap again to remove it.
         </p>
@@ -767,7 +738,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                           <Icon name="conditions" size={16} />
                           {transition.message}
                         </span>
-                        <div className="flex flex-wrap gap-2">
+                        <ButtonRow>
                           {isRelayPairEligible(prevSlot.cropId, slot.cropId) ? (
                             <Button
                               type="button"
@@ -795,7 +766,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                           >
                             Start after {shortSlotName(prevSlot)} (+14d)
                           </Button>
-                        </div>
+                        </ButtonRow>
                       </div>
                     ) : null}
 
@@ -843,29 +814,11 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                     {!isFallow ? (
                       <div className="flex flex-col gap-1.5 rounded-md border border-line-subtle bg-surface-sunken p-2.5">
                         <span className="text-source font-medium text-ink-muted">Quick seasonal dates:</span>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => applySeasonPreset(slot, "monsoon")}
-                            className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
-                          >
-                            <span>🌦️ Monsoon (Jun–Oct)</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applySeasonPreset(slot, "winter")}
-                            className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
-                          >
-                            <span>❄️ Winter (Oct–Feb)</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applySeasonPreset(slot, "summer")}
-                            className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
-                          >
-                            <span>☀️ Summer (Feb–May)</span>
-                          </button>
-                        </div>
+                        <ButtonRow>
+                          <Button onClick={() => applySeasonPreset(slot, "monsoon")}>🌦️ Monsoon (Jun–Oct)</Button>
+                          <Button onClick={() => applySeasonPreset(slot, "winter")}>❄️ Winter (Oct–Feb)</Button>
+                          <Button onClick={() => applySeasonPreset(slot, "summer")}>☀️ Summer (Feb–May)</Button>
+                        </ButtonRow>
                       </div>
                     ) : null}
 

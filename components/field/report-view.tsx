@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActionBar } from "@/components/ui/action-bar";
@@ -96,9 +95,9 @@ export function ReportView({ fieldId }: { fieldId: string }) {
   if (!field) {
     return (
       <EmptyState title="Field not found" body="This field isn't saved in this browser. Please return to your fields list.">
-        <Link href="/" className={buttonClass("primary")}>
+        <Button href="/" variant="primary">
           Back to your fields
-        </Link>
+        </Button>
       </EmptyState>
     );
   }
@@ -107,7 +106,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
     return (
       <EmptyState title="Report data is unavailable" body="Your saved field and rotation remain on this device. Check your connection, then retry; no crop choice has been changed.">
         <Button variant="primary" onClick={analysis.retry}>Retry data check</Button>
-        <Link href={`/fields/${fieldId}`} className={buttonClass("secondary")}>Back to field</Link>
+        <Button href={`/fields/${fieldId}`} variant="secondary">Back to field</Button>
       </EmptyState>
     );
   }
@@ -115,8 +114,8 @@ export function ReportView({ fieldId }: { fieldId: string }) {
   if (!field.locationConfirmed || rotations[0]?.source !== "farmer") {
     return (
       <EmptyState title="Confirm your field and crop sequence" body="A field-informed report needs your confirmed location and recorded current crops. Regional examples do not establish your actual rotation.">
-        <Link href={`/fields/${field.id}`} className={buttonClass("primary")}>Review field details</Link>
-        <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Review current crops</Link>
+        <Button href={`/fields/${field.id}`} variant="primary">Review field details</Button>
+        <Button href={`/fields/${field.id}/rotation`} variant="secondary">Review current crops</Button>
       </EmptyState>
     );
   }
@@ -124,9 +123,9 @@ export function ReportView({ fieldId }: { fieldId: string }) {
   if (!comparison) {
     return (
       <EmptyState title="Nothing to report yet" body="The report compares your rotation with other options, so it needs your rotation first.">
-        <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>
+        <Button href={`/fields/${field.id}/rotation`} variant="primary">
           Add your rotation
-        </Link>
+        </Button>
       </EmptyState>
     );
   }

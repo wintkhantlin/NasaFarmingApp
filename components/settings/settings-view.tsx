@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { downloadJson } from "@/lib/download";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { useLocaleStore, type AreaUnit, type Locale } from "@/lib/store/locale-store";
@@ -78,7 +78,7 @@ export function SettingsView() {
       <section aria-labelledby="backup-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
         <h2 id="backup-settings" className="text-headline text-ink">{bilingual.backup}</h2>
         <p className="m-0 max-w-measure text-body-sm text-ink-muted">Version 3 backups include fields, saved rotations and your Plan draft. Restore adds records and replaces matching IDs and the included Plan draft. Keep the file private.</p>
-        <div className="flex flex-wrap gap-2">
+        <ButtonRow>
           <Button variant="secondary" onClick={() => void exportData()} disabled={busy !== null} icon="download">
             {busy === "export" ? "Preparing backup…" : "Export backup (JSON)"}
           </Button>
@@ -86,7 +86,7 @@ export function SettingsView() {
             {busy === "restore" ? "Restoring…" : "Restore backup"}
           </Button>
           <input ref={restoreInput} type="file" accept=".json,application/json" className="sr-only" aria-label="Choose a backup file" onChange={(event) => void restore(event.target.files?.[0])} />
-        </div>
+        </ButtonRow>
         {message ? <p role="status" className="m-0 text-body-sm text-ink-muted">{message}</p> : null}
       </section>
 
@@ -106,13 +106,13 @@ function OptionGroup<T extends string>({ label, value, options, onChange }: { la
   return (
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
       <legend className="text-body-sm text-ink-muted">{label}</legend>
-      <div className="flex flex-wrap gap-2">
+      <ButtonRow layout="wrap">
         {options.map(([key, text]) => (
-          <button key={key} type="button" aria-pressed={value === key} onClick={() => onChange(key)} className={buttonClass(value === key ? "primary" : "secondary", "min-h-tap")}>
+          <Button key={key} aria-pressed={value === key} onClick={() => onChange(key)} variant={value === key ? "primary" : "secondary"}>
             {text}
-          </button>
+          </Button>
         ))}
-      </div>
+      </ButtonRow>
     </fieldset>
   );
 }

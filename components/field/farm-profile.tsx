@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { useEffect, useMemo, useState } from "react";
@@ -9,7 +8,7 @@ import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -147,9 +146,9 @@ export function FarmProfile({ fieldId }: { fieldId: string }) {
   if (!field) {
     return (
       <EmptyState title="Field not found" body="This field isn't saved in this browser.">
-        <Link href="/" className={buttonClass("primary")}>
+        <Button href="/" variant="primary">
           Back to your fields
-        </Link>
+        </Button>
       </EmptyState>
     );
   }

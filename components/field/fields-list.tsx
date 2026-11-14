@@ -6,9 +6,9 @@ import { useEffect, useState } from "react";
 import TextField from "@mui/material/TextField";
 import { FirstRun } from "@/components/home/first-run";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, DownloadGlyph } from "@/components/ui/icons";
+import { ChevronRightGlyph } from "@/components/ui/icons";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { copy } from "@/lib/copy/en";
@@ -121,7 +121,7 @@ export function FieldsList() {
         <Button variant="primary" onClick={() => void load()}>
           {copy.home.retry}
         </Button>
-        <Link href="/plan" className={buttonClass("secondary")}>Explore regional preview</Link>
+        <Button href="/plan" variant="secondary">Explore regional preview</Button>
       </EmptyState>
     );
   }
@@ -177,18 +177,18 @@ export function FieldsList() {
       {undo ? (
         <div role="status" className="fixed inset-x-4 bottom-[calc(var(--tabbar-h)+0.75rem)] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-md bg-ink px-4 py-2 text-body-sm text-surface-raised">
           <span>Archived {undo.name}.</span>
-          <button type="button" className="min-h-tap font-semibold underline" onClick={() => { void update(undo.id, { archivedAt: undefined }); setUndo(null); }}>
+          <Button variant="link" className="!text-surface-raised font-semibold" onClick={() => { void update(undo.id, { archivedAt: undefined }); setUndo(null); }}>
             Undo
-          </button>
+          </Button>
         </div>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4 text-body-sm text-ink-muted">
         <p className="m-0">Your fields and crop data are saved privately in this browser.</p>
-        <div className="flex flex-wrap items-center gap-2">
+        <ButtonRow>
           <Button
-            type="button"
             variant="secondary"
+            icon="download"
             onClick={async () => {
               try {
                 const backup = await exportBackup();
@@ -199,13 +199,11 @@ export function FieldsList() {
                 setBackupMessage("Could not create a backup. Check browser storage and try again.");
               }
             }}
-            className="min-h-tap text-label"
           >
-            <DownloadGlyph />
             Export farm backup (JSON)
           </Button>
-          <label className={buttonClass("secondary", "cursor-pointer min-h-tap text-label")}>
-            <span>Restore backup</span>
+          <Button component="label" variant="secondary" icon="restore">
+            Restore backup
             <input
               type="file"
               accept=".json,application/json"
@@ -223,9 +221,9 @@ export function FieldsList() {
                 }
               }}
             />
-          </label>
-          <Link href="/settings" className={buttonClass("secondary", "min-h-tap text-label")}>Privacy and settings</Link>
-        </div>
+          </Button>
+          <Button href="/settings" variant="secondary" icon="settings">Privacy and settings</Button>
+        </ButtonRow>
         {backupMessage ? <p role="status" className="basis-full m-0 text-source">{backupMessage}</p> : null}
       </div>
     </div>

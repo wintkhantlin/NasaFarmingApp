@@ -68,13 +68,9 @@ export function YourCallMarker({
           <span className="font-medium text-ink">{topic}</span>
         </div>
         {fieldId ? (
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="cursor-pointer text-source text-field underline hover:text-ink"
-          >
+          <Button variant="link" onClick={() => setOpen(!open)} className="!text-source">
             {open ? "Close" : "Not right for my field?"}
-          </button>
+          </Button>
         ) : null}
       </div>
       <p className="m-0 text-ink-muted">{note}</p>

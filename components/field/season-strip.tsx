@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import type { StripYear } from "@/lib/engine/strip";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import type { Field, Recall } from "@/lib/types";
+import { Button, ButtonRow, Pressable } from "@/components/ui/button";
 
 const ANSWERS: Array<{ value: Recall["answer"]; label: string }> = [
   { value: "dry", label: "Dry" },
@@ -35,8 +36,7 @@ export function SeasonStrip({ strip, field }: { strip: StripYear[]; field: Field
       <ol className="m-0 grid list-none grid-cols-5 gap-2 p-0">
         {strip.map((s) => (
           <li key={s.year}>
-            <button
-              type="button"
+            <Pressable
               aria-pressed={open === s.year}
               onClick={() => setOpen(open === s.year ? null : s.year)}
               className={cn(
@@ -53,26 +53,20 @@ export function SeasonStrip({ strip, field }: { strip: StripYear[]; field: Field
               </span>
               <span className="sr-only">{s.stressed === true ? "stressed. Rain fell short or heat at a sensitive stage" : s.stressed === null ? "not known. Data missing" : "no stress found"}</span>
               {answerFor(s.year) ? <span aria-label="You answered" className="absolute bottom-1 right-1 size-1.5 rounded-full bg-ink" /> : null}
-            </button>
+            </Pressable>
           </li>
         ))}
       </ol>
       {open && sel ? (
         <div className="flex flex-col gap-2">
           <p className="m-0 text-body text-ink">How was {open} at your field?</p>
-          <div role="group" aria-label={`How was ${open}`} className="flex flex-wrap gap-2">
+          <ButtonRow layout="wrap" role="group" aria-label={`How was ${open}`}>
             {ANSWERS.map((a) => (
-              <button
-                key={a.value}
-                type="button"
-                aria-pressed={mine === a.value}
-                onClick={() => void save(open, a.value)}
-                className={cn("min-h-tap rounded-md border px-3 text-label", mine === a.value ? "border-field bg-field-soft text-ink" : "border-line bg-surface text-ink")}
-              >
+              <Button key={a.value} variant="choice" aria-pressed={mine === a.value} onClick={() => void save(open, a.value)}>
                 {a.label}
-              </button>
+              </Button>
             ))}
-          </div>
+          </ButtonRow>
           {mine ? (
             <p className="m-0 text-body-sm text-ink-muted">
               You told us {open} was {mine === "not-sure" ? "not remembered" : mine}. The data shows {dataWord(sel)} at village scale.

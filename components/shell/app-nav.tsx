@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, IconButton, Pressable } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -95,20 +96,12 @@ export function SettingsButton() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Settings"
-        aria-haspopup="dialog"
-        className="inline-flex size-tap items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken"
-      >
-        <Icon name="settings" size={22} />
-      </button>
+      <IconButton icon="settings" iconSize={22} label="Settings" aria-haspopup="dialog" onClick={() => setOpen(true)} />
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center print:hidden">
-          <button
-            type="button"
+          <Pressable
+            disableRipple
             tabIndex={-1}
             aria-label="Close settings"
             onClick={() => setOpen(false)}
@@ -122,14 +115,9 @@ export function SettingsButton() {
           >
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
               <h2 className="text-headline text-ink">Settings</h2>
-              <button
-                ref={closeRef}
-                type="button"
-                onClick={() => setOpen(false)}
-                className="inline-flex min-h-tap items-center rounded-md px-3 text-label text-field hover:bg-field-soft"
-              >
+              <Button ref={closeRef} variant="quiet" onClick={() => setOpen(false)}>
                 Done
-              </button>
+              </Button>
             </div>
             <ul className="m-0 flex list-none flex-col px-4 py-0">
               <SettingRow
@@ -145,10 +133,11 @@ export function SettingsButton() {
                 onClick={toggleLocale}
               />
             </ul>
-            <Link href="/settings" onClick={() => setOpen(false)} className="mx-4 mt-2 flex min-h-tap items-center justify-between border-t border-line text-label text-field no-underline hover:underline">
-              More settings, privacy and backup
-              <Icon name="next" size={16} />
-            </Link>
+            <div className="mx-4 mt-2 border-t border-line pt-1">
+              <Button href="/settings" variant="quiet" iconEnd="next" block onClick={() => setOpen(false)} className="justify-between">
+                More settings, privacy and backup
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -169,16 +158,12 @@ function SettingRow({
 }) {
   return (
     <li className="border-t border-line first:border-t-0">
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex min-h-14 w-full items-center gap-3 text-left active:bg-surface-sunken"
-      >
+      <Pressable onClick={onClick} className="flex min-h-14 w-full items-center gap-3 text-left">
         <Icon name={icon} className="text-ink-muted" />
         <span className="flex-1 text-body text-ink">{title}</span>
         <span className="text-label text-field">{value}</span>
         <Icon name="next" size={16} className="text-ink-muted" />
-      </button>
+      </Pressable>
     </li>
   );
 }

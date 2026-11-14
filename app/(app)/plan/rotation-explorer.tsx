@@ -3,7 +3,7 @@
 import Alert from "@mui/material/Alert";
 import TextField from "@mui/material/TextField";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, Pressable } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
 import { cn } from "@/lib/cn";
@@ -350,8 +350,7 @@ function AreaStep({
           <ul className="m-0 divide-y divide-line border-y border-line p-0">
             {results.map((place) => (
               <li key={place.id} className="list-none">
-                <button
-                  type="button"
+                <Pressable
                   onClick={() => onChooseResult(place)}
                   className="flex min-h-14 w-full items-center gap-3 py-3 text-left hover:bg-surface-sunken"
                 >
@@ -361,7 +360,7 @@ function AreaStep({
                     <span className="block text-body-sm text-ink-muted">{place.displayLabel.replace(`${place.name} — `, "")}</span>
                   </span>
                   <Icon name="next" className="shrink-0 text-ink-muted" />
-                </button>
+                </Pressable>
               </li>
             ))}
           </ul>
@@ -375,19 +374,18 @@ function AreaStep({
         </div>
         <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="Region">
           {REGION_IDS.map((regionId) => (
-            <button
+            <Pressable
               key={regionId}
-              type="button"
               aria-pressed={region === regionId}
               onClick={() => onRegionChange(regionId)}
               className={cn(
-                "min-h-14 rounded-md border px-3 text-left",
+                "h-full min-h-14 w-full flex-col items-start justify-center rounded-md border px-3 text-left",
                 region === regionId ? "border-field bg-field-soft text-field" : "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken",
               )}
             >
               <span className="block text-label font-semibold">{REGIONS[regionId].name}</span>
               <span className="block text-source text-ink-muted">{REGIONS[regionId].focus}</span>
-            </button>
+            </Pressable>
           ))}
         </div>
         <Button variant="primary" size="lg" block onClick={onUseTyped} disabled={!region || query.trim().length < 2} iconEnd="next">
@@ -435,8 +433,7 @@ function CropStep({
       <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3" aria-label="Supported crops">
         {crops.map((crop) => crop ? (
           <li key={crop.id}>
-            <button
-              type="button"
+            <Pressable
               onClick={() => onChoose(crop.id)}
               className="group flex min-h-36 w-full flex-col items-start justify-between rounded-md border border-line-strong bg-surface-raised p-4 text-left transition-[background-color,transform] hover:bg-field-soft active:scale-[0.98]"
             >
@@ -447,7 +444,7 @@ function CropStep({
                 <span className="block text-headline text-ink">{crop.names.common}</span>
                 <span lang="my" className="mt-1 block text-body-sm text-ink-muted">{crop.names.local[0] ?? "ဒေသအမည် မရှိသေးပါ"}</span>
               </span>
-            </button>
+            </Pressable>
           </li>
         ) : null)}
       </ul>

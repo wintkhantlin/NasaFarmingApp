@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonRow, Pressable } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
 import { cn } from "@/lib/cn";
@@ -388,13 +388,9 @@ export function FarmerGuidedFlow({
                 <span className="text-label font-semibold text-ink">
                   {areaDisplay ?? "Unspecified"}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setUnit(unit === "acre" ? "ha" : "acre")}
-                  className="rounded-md border border-line bg-surface px-2 py-0.5 text-source text-field font-medium cursor-pointer"
-                >
+                <Button variant="secondary" onClick={() => setUnit(unit === "acre" ? "ha" : "acre")}>
                   Switch to {unit === "acre" ? "Hectares" : "Acres"}
-                </button>
+                </Button>
               </div>
             </div>
             <div>
@@ -443,12 +439,11 @@ export function FarmerGuidedFlow({
                 { id: "reliable_irrigation", label: "Reliable irrigation", sub: "မြောင်းရေ/စက်ရေအပြည့်" },
                 { id: "unknown", label: "Unknown / Not sure", sub: "မသေချာပါ" },
               ].map((opt) => (
-                <button
+                <Pressable
                   key={opt.id}
-                  type="button"
                   onClick={() => setFarmerInputs({ ...farmerInputs, availableWater: opt.id as FarmerWaterAccess })}
                   className={cn(
-                    "flex min-h-tap flex-col items-start rounded-lg border p-3 text-left transition-colors cursor-pointer",
+                    "flex h-full min-h-tap w-full flex-col items-start justify-start rounded-lg border p-3 text-left transition-colors",
                     farmerInputs.availableWater === opt.id
                       ? "border-field bg-field-soft text-ink ring-2 ring-field/30"
                       : "border-line bg-surface hover:bg-surface-sunken",
@@ -456,7 +451,7 @@ export function FarmerGuidedFlow({
                 >
                   <span className="text-body-sm font-semibold">{opt.label}</span>
                   <span className="text-source text-ink-muted mt-0.5">{opt.sub}</span>
-                </button>
+                </Pressable>
               ))}
             </div>
           </div>
@@ -473,12 +468,11 @@ export function FarmerGuidedFlow({
                 { id: "seeder", label: "Direct seeder / drill", sub: "အစေ့ချကိရိယာ" },
                 { id: "unknown", label: "Unknown / Other", sub: "အခြား / မသေချာ" },
               ].map((opt) => (
-                <button
+                <Pressable
                   key={opt.id}
-                  type="button"
                   onClick={() => setFarmerInputs({ ...farmerInputs, equipment: opt.id as FarmerLaborEquipment })}
                   className={cn(
-                    "flex min-h-tap flex-col items-start rounded-lg border p-3 text-left transition-colors cursor-pointer",
+                    "flex h-full min-h-tap w-full flex-col items-start justify-start rounded-lg border p-3 text-left transition-colors",
                     farmerInputs.equipment === opt.id
                       ? "border-field bg-field-soft text-ink ring-2 ring-field/30"
                       : "border-line bg-surface hover:bg-surface-sunken",
@@ -486,7 +480,7 @@ export function FarmerGuidedFlow({
                 >
                   <span className="text-body-sm font-semibold">{opt.label}</span>
                   <span className="text-source text-ink-muted mt-0.5">{opt.sub}</span>
-                </button>
+                </Pressable>
               ))}
             </div>
           </div>
@@ -496,27 +490,22 @@ export function FarmerGuidedFlow({
             <label className="text-label font-semibold text-ink">
               3. Cash budget limit per acre (စိုက်ထုတ်ငွေကန့်သတ်ချက် - ထည့်သွင်းရန် မလိုပါ)
             </label>
-            <div className="flex flex-wrap items-center gap-3">
+            <ButtonRow layout="wrap" min="12rem">
               {[
                 { val: null, label: "No strict limit (ကန့်သတ်ချက်မရှိ)" },
                 { val: 600000, label: "Under 600,000 MMK/acre" },
                 { val: 1000000, label: "Under 1,000,000 MMK/acre" },
               ].map((opt, i) => (
-                <button
+                <Button
                   key={i}
-                  type="button"
+                  variant="choice"
+                  aria-pressed={farmerInputs.budgetMaxMmkHa === opt.val}
                   onClick={() => setFarmerInputs({ ...farmerInputs, budgetMaxMmkHa: opt.val })}
-                  className={cn(
-                    "min-h-tap rounded-pill border px-4 py-2 text-label font-medium transition-colors cursor-pointer",
-                    farmerInputs.budgetMaxMmkHa === opt.val
-                      ? "border-field bg-field text-on-field"
-                      : "border-line bg-surface text-ink hover:border-line-strong",
-                  )}
                 >
                   {opt.label}
-                </button>
+                </Button>
               ))}
-            </div>
+            </ButtonRow>
           </div>
 
           <div className="flex justify-between pt-4 border-t border-line">
@@ -553,12 +542,11 @@ export function FarmerGuidedFlow({
               const selected = farmerInputs.topPriorities.includes(opt.id);
               const rankNum = farmerInputs.topPriorities.indexOf(opt.id) + 1;
               return (
-                <button
+                <Pressable
                   key={opt.id}
-                  type="button"
                   onClick={() => togglePriority(opt.id)}
                   className={cn(
-                    "flex min-h-tap flex-col gap-2 rounded-xl border p-4 text-left transition-all cursor-pointer shadow-xs",
+                    "flex h-full min-h-tap w-full flex-col items-stretch justify-start gap-2 rounded-xl border p-4 text-left transition-all shadow-xs",
                     selected
                       ? "border-field bg-field-soft text-ink ring-2 ring-field/40"
                       : "border-line bg-surface hover:border-line-strong hover:bg-surface-sunken",
@@ -577,7 +565,7 @@ export function FarmerGuidedFlow({
                   </div>
                   <p className="m-0 text-body-sm text-ink font-medium">{opt.titleMy}</p>
                   <p className="m-0 text-source text-ink-muted">{opt.descEn}</p>
-                </button>
+                </Pressable>
               );
             })}
           </div>

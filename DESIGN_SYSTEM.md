@@ -300,6 +300,8 @@ Each component lists **anatomy**, **variants**, **states**, **placement** and **
 | Plain | Text in `accent` | Toolbar actions (Edit, Done, Cancel, Save), links | Done/Save trailing; Cancel leading |
 | Destructive | Text or fill in `danger` | Delete only, inside a confirmation | Never adjacent to the primary action |
 
+**Web implementation (repo rule).** Every button is an MUI `ButtonBase`, so every one has MUI's default touch ripple. Use the components in `components/ui/button.tsx`, never a raw `<button>` or a link styled as one: `Button` (variants `primary`, `secondary`, `quiet`, `destructive`, `link`, `choice` for toggles and options; pass `href` for navigation), `IconButton` (44 pt, always labelled), `Pressable` (free-form card or list row that needs the ripple) and `ButtonRow`. Items in a `ButtonRow` (and in the `ActionBar`) always share one width and one height, whatever their labels, and stack full width on a phone. MUI's styles sit in the `mui` cascade layer (`@layer theme, base, mui, components, utilities`, set in `app/globals.css` and emitted first by `app/providers.tsx`), so Tailwind utilities in `className` still override them.
+
 States: default, pressed (opacity 0.8 or system highlight), loading (label replaced by spinner, width unchanged), unavailable (keep enabled where possible and explain on tap, per the restraint rule; if disabled, show the reason beneath).
 
 ### 10.2 Navigation and structure

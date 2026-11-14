@@ -1,4 +1,5 @@
 import { createTheme } from "@mui/material/styles";
+import NextLink from "next/link";
 
 declare module "@mui/material/styles" {
   interface Palette {
@@ -131,8 +132,9 @@ export const theme = createTheme({
   },
   components: {
     MuiButtonBase: {
+      // MUI's default touch ripple stays on for every button. Links render through Next's Link.
       defaultProps: {
-        disableRipple: true,
+        LinkComponent: NextLink,
       },
     },
     MuiButton: {

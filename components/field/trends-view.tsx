@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -59,7 +58,7 @@ export function TrendsView({ fieldId, embedded = false }: { fieldId: string; emb
   if (!field) {
     return (
       <EmptyState title="Field not found" body="This field isn't saved in this browser.">
-        <Link href="/" className={buttonClass("primary")}>Back to your fields</Link>
+        <Button href="/" variant="primary">Back to your fields</Button>
       </EmptyState>
     );
   }

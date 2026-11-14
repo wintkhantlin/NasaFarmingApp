@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { DrawTool, MapFocus } from "@/components/map/field-map";
 import { MAPBOX_TOKEN, MAPBOX_TOKEN_PROBLEM } from "@/components/map/mapbox-config";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton, Pressable } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
@@ -44,8 +44,7 @@ function ToolTile({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <Pressable
       aria-pressed={selected === undefined ? undefined : selected}
       onClick={onClick}
       disabled={disabled}
@@ -56,7 +55,7 @@ function ToolTile({
     >
       <Icon name={icon} size={22} />
       {label}
-    </button>
+    </Pressable>
   );
 }
 
@@ -278,14 +277,7 @@ export function LocationPicker({ field }: { field?: Field }) {
         {/* Back and search */}
         <section aria-label="Find your field" className={card}>
           <div className="flex items-center gap-1 p-1.5">
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label={field ? `Back to ${field.name}` : "Back to your fields"}
-              className="grid size-tap shrink-0 place-items-center rounded-md text-ink hover:bg-surface-sunken"
-            >
-              <Icon name="back" size={24} />
-            </button>
+            <IconButton icon="back" iconSize={24} onClick={goBack} label={field ? `Back to ${field.name}` : "Back to your fields"} sx={{ color: "var(--color-ink)" }} />
             {hasMap ? (
               <>
                 <label htmlFor={`${id}-search`} className="sr-only">
@@ -308,27 +300,24 @@ export function LocationPicker({ field }: { field?: Field }) {
                   className="min-h-tap min-w-0 flex-1 bg-transparent px-1 text-body text-ink placeholder:text-ink-muted"
                 />
                 {query ? (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
+                  <IconButton
+                    icon="close"
+                    iconSize={18}
+                    label="Clear search"
                     onClick={() => {
                       setQuery("");
                       setResults(null);
                     }}
-                    className="grid size-tap shrink-0 place-items-center rounded-md text-ink-muted hover:bg-surface-sunken"
-                  >
-                    <Icon name="close" size={18} />
-                  </button>
+                  />
                 ) : null}
-                <button
-                  type="button"
-                  aria-label={searching ? "Searching" : "Search"}
+                <IconButton
+                  icon="search"
+                  iconSize={22}
+                  tone="field"
+                  label={searching ? "Searching" : "Search"}
                   onClick={() => void onSearch()}
                   disabled={searching || query.trim().length < 2}
-                  className="grid size-tap shrink-0 place-items-center rounded-md text-field hover:bg-field-soft disabled:opacity-40"
-                >
-                  <Icon name="search" size={22} />
-                </button>
+                />
               </>
             ) : (
               <p className="px-1 text-headline text-ink">{field ? "Edit field" : "Add a field"}</p>
@@ -348,14 +337,13 @@ export function LocationPicker({ field }: { field?: Field }) {
               <ul className="max-h-64 overflow-y-auto border-t border-line">
                 {results.map((p) => (
                   <li key={p.id} className="border-b border-line last:border-b-0">
-                    <button
-                      type="button"
+                    <Pressable
                       onClick={() => pickPlace(p)}
                       className="flex min-h-tap w-full flex-col items-start justify-center px-3 py-2 text-left hover:bg-surface-sunken"
                     >
                       <span className="text-label text-ink">{p.name}</span>
                       {p.context ? <span className="text-body-sm text-ink-muted">{p.context}</span> : null}
-                    </button>
+                    </Pressable>
                   </li>
                 ))}
               </ul>
@@ -488,14 +476,7 @@ export function LocationPicker({ field }: { field?: Field }) {
             <form onSubmit={onSave} noValidate className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-headline text-ink">Name your field</h2>
-                <button
-                  type="button"
-                  aria-label="Back to the map"
-                  onClick={() => setSheetOpen(false)}
-                  className="-mr-2 grid size-tap place-items-center rounded-md text-ink-muted hover:bg-surface-sunken"
-                >
-                  <Icon name="close" size={22} />
-                </button>
+                <IconButton icon="close" iconSize={22} label="Back to the map" onClick={() => setSheetOpen(false)} className="-mr-2" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor={`${id}-name`} className="text-label text-ink">Field name</label>

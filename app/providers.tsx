@@ -4,10 +4,14 @@ import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import { useServerInsertedHTML } from "next/navigation";
 import { useState, useEffect, type ReactNode } from "react";
 import { useLocaleStore } from "@/lib/store/locale-store";
 import { theme } from "@/lib/theme";
+
+/** Same statement as the top of globals.css. It must be the first style emitted, so it goes out as the first global style. */
+const LAYER_ORDER = "@layer theme, base, mui, components, utilities;";
 
 export function Providers({ children }: { children: ReactNode }) {
   const locale = useLocaleStore((s) => s.locale);
@@ -20,6 +24,9 @@ export function Providers({ children }: { children: ReactNode }) {
     let inserted: string[] = [];
     cache.insert = (...args) => {
       const serialized = args[1];
+      // MUI styles go in the `mui` cascade layer, below Tailwind's `components` and `utilities` layers
+      // (order set in globals.css), so a className on an MUI control can still override it.
+      if (!/^@layer\s+[^{]*$/.test(serialized.styles)) serialized.styles = `@layer mui {${serialized.styles}}`;
       if (cache.inserted[serialized.name] === undefined) {
         inserted.push(serialized.name);
       }
@@ -38,7 +45,7 @@ export function Providers({ children }: { children: ReactNode }) {
     if (names.length === 0) {
       return null;
     }
-    let styles = "";
+    let styles = LAYER_ORDER;
     for (const name of names) {
       styles += cache.inserted[name];
     }
@@ -56,6 +63,8 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <CacheProvider value={cache}>
       <ThemeProvider theme={theme}>
+        {/* First global style, before CssBaseline: fixes the layer order so MUI sits above Tailwind's preflight and below its utilities. */}
+        <GlobalStyles styles={LAYER_ORDER} />
         <CssBaseline enableColorScheme={false} />
         {children}
       </ThemeProvider>

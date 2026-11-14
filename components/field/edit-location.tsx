@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 import { LocationPicker } from "@/components/field/location-picker";
-import { buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFieldsStore } from "@/lib/store/fields-store";
@@ -22,9 +21,9 @@ export function EditLocation({ fieldId }: { fieldId: string }) {
     return (
       <div className="mx-auto flex h-full max-w-xl flex-col justify-center p-4">
         <EmptyState title="This field isn't saved in this browser" body="Fields are stored on the device where you added them.">
-          <Link href="/" className={buttonClass("primary")}>
+          <Button href="/" variant="primary">
             Back to your fields
-          </Link>
+          </Button>
         </EmptyState>
       </div>
     );

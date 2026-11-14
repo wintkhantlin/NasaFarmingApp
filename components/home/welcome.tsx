@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/shell/brand-mark";
 import { Button } from "@/components/ui/button";
@@ -76,7 +75,7 @@ export function Welcome() {
             If Myanmar text looks wrong, your phone may use an older Myanmar font. Switch to Unicode for correct text.
           </p>
         ) : null}
-        <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">Learn about data / ဒေတာအကြောင်း လေ့လာရန်</Link>
+        <Button href="/about/data" variant="quiet" className="self-start">Learn about data / ဒေတာအကြောင်း လေ့လာရန်</Button>
       </section>
 
       <div className="mt-auto">

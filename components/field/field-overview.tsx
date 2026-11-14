@@ -11,7 +11,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { FieldPageHeader } from "@/components/field/field-page-header";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -97,7 +97,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   if (!field) {
     return (
       <EmptyState title="This field isn't saved in this browser" body="Fields are stored on the device where you added them.">
-        <Link href="/" className={buttonClass("primary")}>Back to your fields</Link>
+        <Button href="/" variant="primary">Back to your fields</Button>
       </EmptyState>
     );
   }
@@ -265,10 +265,10 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
           </span>
         }
         action={
-          <Link href={boundaryHref} className={buttonClass("secondary", "gap-1.5")}>
+          <Button href={boundaryHref} variant="secondary" className="gap-1.5">
             <Icon name="outline" size={16} />
             <span>{boundaryLabel}</span>
-          </Link>
+          </Button>
         }
       />
 
@@ -280,10 +280,10 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
             <h2 className="text-headline text-ink">{next.title}</h2>
             <p className="max-w-measure text-body text-ink-muted">{next.body}</p>
           </div>
-          <Link href={next.href} className={buttonClass("primary")}>
+          <Button href={next.href} variant="primary">
             <Icon name={next.icon} />
             <span>{next.cta}</span>
-          </Link>
+          </Button>
         </div>
         <div className="flex flex-col gap-2 border-t border-line pt-3">
           <div className="flex items-center justify-between text-body-sm text-ink-muted">
@@ -431,19 +431,13 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                   </Link>
                 }
               />
-              <div role="group" aria-label="Detail level" className="inline-flex self-start rounded-md border border-line bg-surface-sunken p-0.5 text-body-sm">
+              <ButtonRow role="group" aria-label="Detail level" className="self-start">
                 {(["simple", "technical"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    aria-pressed={detail === m}
-                    onClick={() => setDetail(m)}
-                    className={`min-h-8 rounded px-3 capitalize ${detail === m ? "bg-surface-raised font-medium text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}
-                  >
+                  <Button key={m} variant="choice" aria-pressed={detail === m} onClick={() => setDetail(m)} className="capitalize">
                     {m}
-                  </button>
+                  </Button>
                 ))}
-              </div>
+              </ButtonRow>
               <dl className="m-0 flex flex-col divide-y divide-line">
                 {rows.map((r) => {
                   const value = detail === "simple" ? r.simple : r.technical;
@@ -472,14 +466,14 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
         <summary className="min-h-tap cursor-pointer content-center text-label text-ink-muted hover:text-ink">
           Field options
         </summary>
-        <div className="flex flex-wrap items-center gap-3 pb-3 pt-2">
+        <ButtonRow className="pb-3 pt-2">
           <Button variant="secondary" icon={field.archivedAt ? "restore" : "archive"} onClick={handleArchive}>
             {field.archivedAt ? "Restore field" : "Archive field"}
           </Button>
           <Button variant="destructive" icon="remove" onClick={() => setRemoveOpen(true)}>
             {copy.overview.removeTitle}
           </Button>
-        </div>
+        </ButtonRow>
       </details>
 
       {/* Delete Field Dialog */}
@@ -498,12 +492,14 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
           {removeError ? <Alert severity="error" sx={{ mt: 2 }}>{removeError}</Alert> : null}
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button variant="secondary" onClick={() => setRemoveOpen(false)} disabled={removing}>
-            {copy.overview.removeCancel}
-          </Button>
-          <Button variant="primary" onClick={handleRemove} disabled={removing}>
-            {copy.overview.removeConfirm}
-          </Button>
+          <ButtonRow layout="fill">
+            <Button variant="secondary" onClick={() => setRemoveOpen(false)} disabled={removing}>
+              {copy.overview.removeCancel}
+            </Button>
+            <Button variant="primary" onClick={handleRemove} disabled={removing}>
+              {copy.overview.removeConfirm}
+            </Button>
+          </ButtonRow>
         </DialogActions>
       </Dialog>
     </>

@@ -9,7 +9,7 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import TextField from "@mui/material/TextField";
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, Pressable } from "@/components/ui/button";
 import { getCropById } from "@/lib/data/crops";
 import { REGIONS } from "@/lib/data/regions";
 import { adaptPlanToFieldSlot } from "@/lib/plan/refinement-adapter";
@@ -126,7 +126,7 @@ function TopsoilEditor({ value, fieldRef, onChange }: { value: import("@/lib/sto
   const cards = [{ id: "very-wet", label: "Very wet / oozing", description: "Visible water or shine; water squeezes out.", Icon: Droplets }, { id: "moist", label: "Moist / moldable", description: "Holds together; feel depends on texture.", Icon: Hand }, { id: "dry", label: "Dry / crumbly", description: "Crumbles or feels hard, depending on texture.", Icon: Wind }, { id: "unknown", label: "Don't know / cannot check", description: "Keep the observation unknown.", Icon: CircleHelp }] as const;
   return <fieldset className="space-y-4"><legend className="text-headline">How does the topsoil feel?</legend>
     <p className="text-body-sm">Observation for area {fieldRef}. A village reference is not a confirmed field.</p>
-    <div className="grid grid-cols-2 gap-2">{cards.map(({ id, label, description, Icon }) => <button key={id} type="button" aria-pressed={v.feel === id} onClick={() => onChange({ ...v, feel: id })} className="flex min-w-0 flex-col items-start gap-2 rounded-lg border border-line bg-surface p-3 text-left text-ink focus-visible:outline-2 focus-visible:outline-field"><Icon size={32} aria-hidden="true" /><strong>{label}</strong><span className="text-body-sm">{description}</span></button>)}</div>
+    <div className="grid grid-cols-2 gap-2">{cards.map(({ id, label, description, Icon }) => <Pressable key={id} type="button" aria-pressed={v.feel === id} onClick={() => onChange({ ...v, feel: id })} className="flex min-w-0 flex-col items-start gap-2 rounded-lg border border-line bg-surface p-3 text-left text-ink focus-visible:outline-2 focus-visible:outline-field"><Icon size={32} aria-hidden="true" /><strong>{label}</strong><span className="text-body-sm">{description}</span></Pressable>)}</div>
     <TextField label="Field name or local identifier (optional)" value={v.fieldRef} onChange={e => onChange({ ...v, fieldRef: e.target.value })} fullWidth />
     <TextField select label="When was this observed?" value={v.context} onChange={e => onChange({ ...v, context: e.target.value as typeof v.context })} fullWidth slotProps={{ select: { native: true } }}>{["unknown", "now", "at-planting", "remembered"].map(x => <option key={x} value={x}>{x}</option>)}</TextField>
     <DateEditor label="Observation" value={v.observedOn} onChange={observedOn => onChange({ ...v, observedOn })} />

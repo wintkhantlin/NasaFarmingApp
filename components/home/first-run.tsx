@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { buttonClass } from "@/components/ui/button";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { ChevronRightGlyph } from "@/components/ui/icons";
 import { Icon } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
@@ -41,15 +40,15 @@ export function FirstRun() {
           ))}
         </ol>
 
-        <div className="flex flex-wrap gap-3 pt-1">
-          <Link href="/fields/new" className={buttonClass("primary")}>
+        <ButtonRow className="pt-1">
+          <Button href="/fields/new" variant="primary">
             {copy.home.addField}
             <ChevronRightGlyph />
-          </Link>
-          <Link href="/about/data" className={buttonClass("secondary")}>
+          </Button>
+          <Button href="/about/data" variant="secondary">
             About the data
-          </Link>
-        </div>
+          </Button>
+        </ButtonRow>
       </div>
 
       {/* A clean sample comparison without fake window chrome or card-in-card */}

@@ -14,7 +14,7 @@ import { applyScenario, NO_SCENARIO, isNeutral, type Scenario } from "@/lib/engi
 import { whatIfResult } from "@/lib/engine/what-if";
 import { knownCount, seasonStrip, stressedCount } from "@/lib/engine/strip";
 import { checkLimits, type LimitCheck } from "@/lib/engine/limits";
-import { buttonClass } from "@/components/ui/button";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { InfoGlyph } from "@/components/ui/icons";
 import { Disclosure } from "@/components/ui/disclosure";
 import { JudgmentNote } from "@/components/ui/judgment-note";
@@ -240,9 +240,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       <Panel as="section" role="alert" className="flex flex-col items-start gap-3 p-5">
         <h1 className="m-0 text-title text-ink">Field not found</h1>
         <p className="m-0 max-w-measure text-body text-ink-muted">This field is not saved in this browser. Go back to your fields list to open a saved one.</p>
-        <Link href="/" className={buttonClass("primary")}>
+        <Button href="/" variant="primary">
           Back to your fields
-        </Link>
+        </Button>
       </Panel>
     );
   }
@@ -261,18 +261,18 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           </div>
         ) : null}
         {display.gaps.length > 0 ? <ul className="m-0 list-disc space-y-2 pl-5 text-body-sm text-ink-muted">{display.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul> : null}
-        {comparison && display.state === "data-unavailable" ? <>
-          <Link href={`/fields/${field.id}/location`} className={buttonClass("secondary")}>Check field location</Link>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Review crops and dates</Link>
-          <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Review water and field details</Link>
-          <Link href="/plan" className={buttonClass("secondary")}>See regional examples</Link>
-        </> : null}
+        {comparison && display.state === "data-unavailable" ? <ButtonRow layout="wrap" min="12rem">
+          <Button href={`/fields/${field.id}/location`} variant="secondary">Check field location</Button>
+          <Button href={`/fields/${field.id}/rotation`} variant="primary">Review crops and dates</Button>
+          <Button href={`/fields/${field.id}/profile`} variant="secondary">Review water and field details</Button>
+          <Button href="/plan" variant="secondary">See regional examples</Button>
+        </ButtonRow> : null}
         {display.state === "field-incomplete" ? (
-          <Link href={needsLocation ? `/fields/${field.id}/location` : `/fields/${field.id}/rotation`} className={buttonClass("primary")}>
+          <Button href={needsLocation ? `/fields/${field.id}/location` : `/fields/${field.id}/rotation`} variant="primary">
             {needsLocation ? "Confirm field location" : "Tell us what grows here now"}
-          </Link>
+          </Button>
         ) : display.state === "stale" ? null : (
-          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>Try loading again</button>
+          <Button onClick={analysis.retry} variant="secondary">Try loading again</Button>
         )}
         {savedPlan && needsCurrentCrops ? <p className="m-0 text-body-sm text-ink-muted">Your saved plan stays in this browser while you add this information.</p> : null}
       </Panel>
@@ -394,10 +394,10 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       <section className="flex flex-col gap-3 border-b border-line pb-5" aria-label="Comparison summary">
         <h2 className="m-0 text-headline text-ink">{answerHeadline}</h2>
         <p className="m-0 max-w-measure text-body-sm text-ink-muted">{answerReason}</p>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Change my crops</Link>
-          <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Water, budget & priorities</Link>
-        </div>
+        <ButtonRow>
+          <Button href={`/fields/${field.id}/rotation`} variant="secondary">Change my crops</Button>
+          <Button href={`/fields/${field.id}/profile`} variant="secondary">Water, budget & priorities</Button>
+        </ButtonRow>
       </section>
 
       <Disclosure title="How we checked these choices" hint={display.state === "comparable" ? "Ready" : "Some information is missing"}>
@@ -413,15 +413,15 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </ul>
         {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">More information is still loading. You can review what is ready now.</p> : null}
         {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">You are seeing previously saved information because a refresh is not available.</p> : null}
-        {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Try loading again</button> : null}
+        {display.state === "partial-evidence" || display.state === "unresolved" ? <Button onClick={analysis.retry} variant="secondary" className="self-start">Try loading again</Button> : null}
       </Disclosure>
 
       {hasOwnRotation && comparison.mcda.assumedPriorities ? (
         <p className="m-0 flex flex-wrap items-center gap-x-2 text-body-sm text-ink-muted">
           <span className="rounded-pill border border-line bg-surface px-2.5 py-1 text-source text-ink">{copy.compare.assumedPriorities}</span>
-          <Link href={`/fields/${field.id}/questions/priority`} className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
+          <Button href={`/fields/${field.id}/questions/priority`} variant="link">
             {copy.compare.assumedChange}
-          </Link>
+          </Button>
         </p>
       ) : null}
 
@@ -429,9 +429,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-3 p-4 sm:p-5">
           <h2 className="m-0 text-headline text-ink">{copy.compare.noRotationTitle}</h2>
           <p className="m-0 max-w-measure text-body text-ink-muted">{copy.compare.noRotationBody}</p>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>
+          <Button href={`/fields/${field.id}/rotation`} variant="secondary">
             {copy.compare.noRotationAction}
-          </Link>
+          </Button>
         </Panel>
       ) : null}
 
@@ -444,25 +444,25 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             {comparison.region === "unsupported" ? copy.compare.unsupportedBody : copy.compare.shortfallBody}
           </p>
           {comparison.region !== "unsupported" && hasAlternatives ? (
-            <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+            <Button href={`/fields/${field.id}/profile`} variant="secondary">
               {copy.compare.shortfallAction}
-            </Link>
+            </Button>
           ) : null}
         </Panel>
       ) : null}
 
       {!hasAlternatives ? (
         comparison.region === "unsupported" ? (
-          <Link href={`/fields/${field.id}/conditions`} className={buttonClass("secondary", "self-start")}>
+          <Button href={`/fields/${field.id}/conditions`} variant="secondary" className="self-start">
             {copy.compare.unsupportedAction}
-          </Link>
+          </Button>
         ) : (
           <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-2 p-4 sm:p-5">
             <h2 className="m-0 text-headline text-ink">{copy.compare.noAlternativesTitle}</h2>
             <p className="m-0 max-w-measure text-body text-ink-muted">{copy.compare.noAlternativesBody(place)}</p>
-            <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+            <Button href={`/fields/${field.id}/profile`} variant="secondary">
               {copy.compare.shortfallAction}
-            </Link>
+            </Button>
           </Panel>
         )
       ) : null}
@@ -488,9 +488,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
               <p className="m-0 max-w-measure text-body-sm text-ink">{copy.compare.weatherMissingBody}</p>
             </div>
           </div>
-          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>
+          <Button onClick={analysis.retry} variant="secondary">
             {copy.home.retry}
-          </button>
+          </Button>
         </Panel>
       ) : null}
 
@@ -615,9 +615,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             <div className="flex flex-col items-start gap-2">
               <p className="m-0 max-w-measure text-body text-ink">{copy.compare.rankingNone}</p>
               <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.compare.rankingNoneBody}</p>
-              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+              <Button href={`/fields/${field.id}/profile`} variant="secondary">
                 {copy.compare.needProfile}
-              </Link>
+              </Button>
             </div>
           ) : null}
           {comparison.mcda.status === "ranked" && display.state === "comparable" ? (
@@ -748,15 +748,15 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
 
       <div className="flex flex-col items-start gap-3 border-t border-line pt-5 print:hidden">
         <h2 className="m-0 text-headline text-ink">Choose your next step</h2>
-        <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
+        <Button href={`/fields/${field.id}/report`} variant="primary" className="w-full sm:w-auto" size="lg">
           Open farmer summary
           <Icon name="next" />
-        </Link>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary")}>Keep my current crops</button>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Edit crops and dates</Link>
-          <button type="button" onClick={() => { setDepth("reasons"); document.getElementById("options-title")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={buttonClass("secondary")}>See why</button>
-        </div>
+        </Button>
+        <ButtonRow>
+          <Button onClick={() => setKeepingMine(true)} variant="secondary">Keep my current crops</Button>
+          <Button href={`/fields/${field.id}/rotation`} variant="secondary">Edit crops and dates</Button>
+          <Button onClick={() => { setDepth("reasons"); document.getElementById("options-title")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} variant="secondary">See why</Button>
+        </ButtonRow>
         {keepingMine ? <p role="status" className="m-0 text-body-sm text-ink">Your current crops are unchanged. You can return and edit them later.</p> : null}
       </div>
     </>

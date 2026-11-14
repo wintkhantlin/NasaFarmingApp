@@ -1,3 +1,4 @@
+import { ButtonRow } from "./button";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
@@ -19,7 +20,7 @@ export function EmptyState({ title, body, children, className }: EmptyStateProps
     >
       <h2 className="text-balance text-title text-ink">{title}</h2>
       <p className="m-0 max-w-measure text-body text-ink-muted">{body}</p>
-      {children ? <div className="flex flex-wrap gap-2 pt-2">{children}</div> : null}
+      {children ? <ButtonRow className="pt-2">{children}</ButtonRow> : null}
     </section>
   );
 }

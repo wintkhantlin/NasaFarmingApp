@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button, Pressable } from "@/components/ui/button";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
@@ -29,7 +29,7 @@ export function QuestionForm({ fieldId, questionId }: { fieldId: string; questio
   if (!field || !question) {
     return (
       <EmptyState title="Question not found" body="This question or field isn't saved in this browser.">
-        <Link href="/" className={buttonClass("primary")}>Back to your fields</Link>
+        <Button href="/" variant="primary">Back to your fields</Button>
       </EmptyState>
     );
   }
@@ -79,9 +79,8 @@ function QuestionBody({ field, question }: { field: Field; question: Question })
           {question.choices.map((c) => {
             const selected = value === c.value;
             return (
-              <button
+              <Pressable
                 key={c.value}
-                type="button"
                 role="radio"
                 aria-checked={selected}
                 onClick={() => { setError(null); setValue(c.value); }}
@@ -93,7 +92,7 @@ function QuestionBody({ field, question }: { field: Field; question: Question })
                   {selected ? <Icon name="done" size={12} /> : null}
                 </span>
                 {c.label}
-              </button>
+              </Pressable>
             );
           })}
         </div>

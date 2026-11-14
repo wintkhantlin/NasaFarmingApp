@@ -2,6 +2,7 @@
 
 import Slider from "@mui/material/Slider";
 import { useId } from "react";
+import { Button, ButtonRow } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { StatusTag } from "@/components/ui/status";
@@ -49,17 +50,14 @@ export function WhatIfBanner({ scenario, recorded, onReset }: { scenario: Scenar
         <a href="#what-if" className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
           {t.activeAdjust}
         </a>
-        <button type="button" onClick={onReset} className="min-h-tap cursor-pointer border-0 bg-transparent p-0 text-label text-field underline hover:text-ink">
+        <Button variant="link" onClick={onReset}>
           {t.reset}
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
-const pill = "min-h-tap cursor-pointer rounded-pill px-3 py-1.5 text-label font-medium transition-colors";
-const pillOn = "bg-field text-on-field";
-const pillOff = "border border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink";
 
 function TestSlider({
   label,
@@ -246,23 +244,22 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
           <span className="text-label text-ink" id="whatif-quick">
             {t.quick}
           </span>
-          <div role="group" aria-labelledby="whatif-quick" className="flex flex-wrap gap-2">
+          <ButtonRow layout="wrap" role="group" aria-labelledby="whatif-quick">
             {PRESETS.map((p) => {
               const on = preset?.id === p.id;
               return (
-                <button
+                <Button
                   key={p.id}
-                  type="button"
+                  variant="choice"
                   aria-pressed={on}
                   title={t.presets[p.id as keyof typeof t.presets].hint}
                   onClick={() => onChange({ ...scenario, ...(on ? WEATHER_OFF : p.change) })}
-                  className={cn(pill, on ? pillOn : pillOff)}
                 >
                   {t.presets[p.id as keyof typeof t.presets].label}
-                </button>
+                </Button>
               );
             })}
-          </div>
+          </ButtonRow>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -297,32 +294,22 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
           <span className="text-label text-ink" id="whatif-water">
             {t.water}
           </span>
-          <div role="group" aria-labelledby="whatif-water" className="flex flex-wrap gap-2">
+          <ButtonRow layout="wrap" role="group" aria-labelledby="whatif-water">
             {(["none", "supplemental", "full"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={supply === mode}
-                onClick={() => onChange({ ...scenario, irrigation: mode === recorded ? null : mode })}
-                className={cn(pill, supply === mode ? pillOn : pillOff)}
-              >
+              <Button key={mode} variant="choice" aria-pressed={supply === mode} onClick={() => onChange({ ...scenario, irrigation: mode === recorded ? null : mode })}>
                 {copy.irrigation[mode]}
-              </button>
+              </Button>
             ))}
-          </div>
+          </ButtonRow>
           <p className={cn("m-0 text-body-sm", scenario.irrigation !== null ? "font-medium text-ink" : "text-ink-muted")}>
             {scenario.irrigation !== null ? t.waterTest(copy.irrigation[scenario.irrigation]) : t.waterRecorded(copy.irrigation[recorded])}
           </p>
         </div>
 
         {active ? (
-          <button
-            type="button"
-            onClick={() => onChange(NO_SCENARIO)}
-            className="min-h-tap cursor-pointer self-start border-0 bg-transparent p-0 text-label text-field underline hover:text-ink"
-          >
+          <Button variant="link" onClick={() => onChange(NO_SCENARIO)} className="self-start">
             {t.reset}
-          </button>
+          </Button>
         ) : null}
 
         {result ? (
