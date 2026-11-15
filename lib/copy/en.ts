@@ -65,7 +65,6 @@ export const copy = {
     learnData: "Learn about data",
     continue: "OK, continue",
     offline: "You are offline. Data will load when you connect.",
-    zawgyi: "If the letters look broken, change the font style in your phone settings.",
   },
 
   appNav: {

@@ -63,7 +63,6 @@ export const copyMy = {
     learnData: "ဒေတာအကြောင်း လေ့လာရန်",
     continue: "ကောင်းပါပြီ၊ ဆက်သွားမည်", // TODO native review
     offline: "အင်တာနက်မရှိပါ။ ချိတ်ဆက်သောအခါ ဒေတာရရှိပါမည်။",
-    zawgyi: "စာလုံးများ ကွဲနေပါက ဖုန်းဆက်တင်တွင် စာလုံးပုံစံ (font) ပြောင်းပါ။", // TODO native review
   },
 
   // TODO native review: whole `appNav` block.

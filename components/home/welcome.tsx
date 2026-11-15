@@ -7,7 +7,7 @@ import { BrandMark } from "@/components/shell/brand-mark";
 import { FlowNav } from "@/components/ui/flow-nav";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
-import { getAppCopy, useAppCopy, useLocaleStore, type Locale } from "@/lib/store/locale-store";
+import { useAppCopy, useLocaleStore, type Locale } from "@/lib/store/locale-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
 
 const LANGS: Array<{ value: Locale; label: string }> = [
@@ -15,7 +15,6 @@ const LANGS: Array<{ value: Locale; label: string }> = [
   { value: "en", label: "English" },
 ];
 
-/** Old Zawgyi fonts draw Unicode Myanmar wrongly. A tiny canvas probe is not reliable, so we only offer the hint. */
 export function Welcome() {
   const router = useRouter();
   const text = useAppCopy();
@@ -24,8 +23,6 @@ export function Welcome() {
   const setLocale = useLocaleStore((s) => s.setLocale);
   const accept = useSettingsStore((s) => s.acceptDataNotice);
   const [offline, setOffline] = useState(false);
-  const zawgyiMy = getAppCopy("my").welcome.zawgyi;
-  const zawgyiEn = getAppCopy("en").welcome.zawgyi;
   useEffect(() => hydrateLocale(), [hydrateLocale]);
   useEffect(() => {
     const sync = () => setOffline(!navigator.onLine);
@@ -101,14 +98,6 @@ export function Welcome() {
           </details>
         </div>
         {offline ? <p className="m-0 text-pretty text-body-sm text-ink-muted">{text.welcome.offline}</p> : null}
-        {/* Shown in the active language: English or Burmese, never mixed together. */}
-        <div className="flex flex-col gap-1 rounded-md border border-unknown-border/30 bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
-          {locale === "my" ? (
-            <p lang="my" className="m-0 text-pretty leading-relaxed">{zawgyiMy}</p>
-          ) : (
-            <p lang="en" className="m-0 text-pretty">{zawgyiEn}</p>
-          )}
-        </div>
         <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">{text.welcome.learnData}</Link>
       </section>
 

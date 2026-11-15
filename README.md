@@ -1,52 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Green Ally
 
-## Getting Started
+Green Ally helps farmers in Myanmar map a field, record what they grow, and compare crop plans. It brings field records together with weather, soil, satellite, and local crop information, and explains where the data is uncertain. It supports farmer judgment; it does not make the decision for them.
 
-Install dependencies after cloning or pulling updates, then run the development server:
+Repository: <https://github.com/wintkhantlin/green-ally>
+
+## What it does
+
+- Add a field by searching for a Myanmar place, selecting a map location, or entering coordinates.
+- Record crops and farm details, then compare the current plan with alternatives.
+- Review the environmental data, sources, and limitations behind each comparison.
+- Keep field records in the browser on the farmer's device. The field location is sent to external data services to retrieve map, weather, and soil information.
+
+## Requirements
+
+- [Bun](https://bun.sh/) 1.4.3 or compatible
+- Node.js supported by Next.js 16
+- A public Mapbox token for map tiles and place search. Without it, fields can still be entered with coordinates.
+- Optional NASA Earthdata credentials for services that require authentication. See `.env.example`.
+
+## Run locally
 
 ```bash
-npm install
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set `NEXT_PUBLIC_MAPBOX_TOKEN` in `.env.local` to enable the map and place search. Other data-provider settings are optional; unavailable providers are reported by the app rather than silently replaced.
 
-## Crop rotation explorer & Farmer-Centered System
+Start the development server:
 
-The [Rotation Planner](http://localhost:3000/fields/[fieldId]/rotation) and [Rotation Explorer](http://localhost:3000/plan) use the verified TypeScript engine in `lib/rotation/engine.ts` and `lib/engine/`. Run the app with `npm run dev`; no separate API server is needed.
+```bash
+bun run dev
+```
 
-The crop rotation system includes:
-- **Dual-View Experience:** A mobile-first 5-step **Guided Farmer View** (Field $\rightarrow$ Constraints $\rightarrow$ Priorities $\rightarrow$ Compare $\rightarrow$ My Plan) and an **Advanced Timeline View** with multi-month calendar visual ribbons.
-- **Relay Broadcast (*Ye-pyan*) Support:** Legitimate pre-harvest sowing (up to -12d gap) for eligible lowland rice $\rightarrow$ pulse pairings, with 1-click snap repairs.
-- **Honest Moisture Clock:** Transparent post-paddy seedbed workable window reporting "Check topsoil moisture and drainage before sowing" when unconfirmed (never a fake calendar countdown).
-- **Physical Hydrology & Mass Conservation:** Non-overlapping 3-zone hydrology ledger ($Z_1, Z_2, Z_3$) adhering strictly to mass conservation ($\le 10^{-9}\text{ mm/d}$ residual).
-- **Water-Sensitive Economics:** Sourced FAO 33/66 $K_y$ factors; uncalibrated pulses marked `UNQUANTIFIED`; break-even yield returns null and viable: false when $P \le c_{\text{var}}$; cash-at-risk exposed.
-- **Data Truthfulness & Provenance:** Full documentation in [`docs/rotation-data-provenance.md`](docs/rotation-data-provenance.md). Coarse satellite data (SMAP 9 km, NASA POWER ~50 km) is strictly labeled as regional context and never claimed as measured in the farmer's field.
+Open <http://localhost:3000>.
 
-See [`docs/rotation-upgrade-handoff.md`](docs/rotation-upgrade-handoff.md) and [`docs/rotation-upgrade-audit.md`](docs/rotation-upgrade-audit.md) for full architecture and test reports. Run the test suites with `npm test` and `npm run test:rotation`.
+## Checks
 
+```bash
+bun run test
+bun run typecheck
+bun run build
+```
 
-The home page is in `app/(app)/page.tsx`; the rotation explorer is in `app/plan/`.
+## Project layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/` - Next.js routes and API handlers
+- `components/` - user interface
+- `lib/` - geospatial, data-provider, and crop-planning logic
+- `tests/` - unit and component tests
