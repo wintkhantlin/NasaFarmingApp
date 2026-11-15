@@ -44,6 +44,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${myanmar.variable} h-full antialiased`}
+      // Extensions can inject attributes/classes into <html> before hydration.
+      // Suppress the root warning; React does not patch this external mutation.
+      suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
         <Providers>{children}</Providers>
