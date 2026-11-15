@@ -1,11 +1,13 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it } from "vitest";
-import { render, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, within } from "@testing-library/react";
 import { PestsContent } from "@/components/field/pests-view";
 import { pestOutlook } from "@/lib/engine/pest-outlook";
 import { rotation, slot } from "../helpers/synthetic";
+
+afterEach(cleanup);
 
 describe("PestsContent", () => {
   it("leads with what to watch and shows carry-over with its evidence", () => {
