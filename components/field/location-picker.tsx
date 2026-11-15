@@ -1,5 +1,8 @@
 "use client";
 
+import { TownshipPicker, type AreaSelection } from "@/components/geospatial-farmer/township-picker";
+import { parseTownships, townshipBounds, contextAtPoint, type Townships } from "@/lib/geospatial-farmer/geospatial/townships";
+import { centroid } from "@/lib/geo/shapes";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
@@ -77,6 +80,28 @@ export function LocationPicker({ field }: { field?: Field }) {
   const hasMap = Boolean(MAPBOX_TOKEN);
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
+
+  const [boundaries, setBoundaries] = useState<Townships | null>(null);
+  const [boundaryError, setBoundaryError] = useState<string | null>(null);
+  const [areaSelection, setAreaSelection] = useState<AreaSelection>({ region: field?.administrativeContext?.ST_PCODE ?? "", district: field?.administrativeContext?.DT_PCODE ?? "", township: field?.administrativeContext?.TS_PCODE ?? "" });
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/study-area/boundaries", { signal: controller.signal }).then(async (res) => {
+      if (!res.ok) throw new Error("Boundaries unavailable");
+      return parseTownships(await res.json());
+    }).then(setBoundaries).catch(() => {
+      if (!controller.signal.aborted) setBoundaryError("Township boundaries are unavailable. Search for your village or mark your field with coordinates.");
+    });
+    return () => controller.abort();
+  }, []);
+  function selectArea(next: AreaSelection) {
+    setAreaSelection(next);
+    if (!boundaries) return;
+    const features = boundaries.features.filter(({ properties: p }) => next.township ? p.TS_PCODE === next.township : next.district ? p.DT_PCODE === next.district : next.region ? p.ST_PCODE === next.region : true);
+    if (!features.length) return;
+    const bbox = townshipBounds({ type: "FeatureCollection", features });
+    flyTo([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], 10, bbox);
+  }
 
   const fieldCount = useFieldsStore((s) => s.fields.length);
   const [name, setName] = useState(field?.name ?? "");
@@ -217,12 +242,16 @@ export function LocationPicker({ field }: { field?: Field }) {
     const finalName = name.trim() || `Field ${fieldCount + 1}`;
     if (!geometry || geometry.type !== "Polygon" || !canContinue) return setSaveError("Draw a box or trace the field outline before saving.");
     if (crosses) return setSaveError(copy.validation.outlineCrosses);
+    const administrativeContext = boundaries ? contextAtPoint(boundaries, centroid(geometry)) : field?.geometry === geometry ? field.administrativeContext : undefined;
+    if (areaSelection.township && (!boundaries || administrativeContext?.TS_PCODE !== areaSelection.township)) {
+      return setSaveError("Your field location is outside the selected township, on its edge, or cannot be matched uniquely. Adjust your field or change the township selection.");
+    }
     setSaving(true);
     setSaveError(null);
     try {
       const saved = field
-        ? await update(field.id, { name: finalName, geometry, locationConfirmed: true })
-        : await add({ name: finalName, geometry, irrigation: "none", locationConfirmed: true });
+        ? await update(field.id, { name: finalName, geometry, administrativeContext, locationConfirmed: true })
+        : await add({ name: finalName, geometry, administrativeContext, irrigation: "none", locationConfirmed: true });
       router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/profile`);
     } catch (err) {
       setSaving(false);
@@ -251,6 +280,8 @@ export function LocationPicker({ field }: { field?: Field }) {
       <div className="absolute inset-0">
         {hasMap ? (
           <FieldMap
+            boundaries={boundaries}
+            selectedTownship={areaSelection.township}
             token={MAPBOX_TOKEN}
             geometry={geometry}
             tool={tool}
@@ -275,6 +306,7 @@ export function LocationPicker({ field }: { field?: Field }) {
 
       {/* Controls float over the map: along the top on a phone, down the left side on a desktop. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex max-h-full flex-col gap-2 overflow-y-auto p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] lg:bottom-0 lg:right-auto lg:w-[26rem] lg:gap-3 lg:p-4">
+        <TownshipPicker data={boundaries} selection={areaSelection} onChange={selectArea} error={boundaryError} />
         {/* Back and search */}
         <section aria-label="Find your field" className={card}>
           <div className="flex items-center gap-1 p-1.5">

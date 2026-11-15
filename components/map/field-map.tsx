@@ -18,6 +18,8 @@ import { centroid } from "@/lib/geo/shapes";
 import type { FieldGeometry, LngLat } from "@/lib/types";
 import { MAPBOX_STYLE } from "./mapbox-config";
 
+import type { Townships } from "@/lib/geospatial-farmer/geospatial/townships";
+
 export type DrawTool = "box" | "outline";
 
 const MODE_FOR_TOOL: Record<DrawTool, string> = { box: "rectangle", outline: "polygon" };
@@ -33,6 +35,8 @@ export interface MapFocus {
 }
 
 export interface FieldMapProps {
+  boundaries?: Townships | null;
+  selectedTownship?: string;
   token: string;
   geometry: FieldGeometry | null;
   /** The shape being drawn now, or null when nothing is being drawn. */
@@ -86,6 +90,7 @@ const boxRing = (b: Box): LngLat[] => [
 
 /** The Mapbox satellite map where a field is boxed or outlined. Point mode remains for older saved fields. */
 export function FieldMap({
+  boundaries, selectedTownship,
   token,
   geometry,
   tool,
@@ -220,7 +225,7 @@ export function FieldMap({
     } else {
       map.flyTo({ center: focus.center, zoom: focus.zoom ?? 15, duration: 1200 });
     }
-  }, [focus]);
+  }, [focus, ready]);
 
   const footprints = useMemo(() => {
     if (!showFootprints || !geometry) return null;
@@ -254,6 +259,11 @@ export function FieldMap({
       style={{ width: "100%", height: "100%" }}
       attributionControl
     >
+      {boundaries ? <Source id="study-townships" type="geojson" data={boundaries}>
+        <Layer id="township-context" type="line" paint={{ "line-color": "#fbfaf6", "line-width": 1.5, "line-opacity": 0.7 }} />
+        <Layer id="township-selected-fill" type="fill" filter={["==", ["get", "TS_PCODE"], selectedTownship ?? ""]} paint={{ "fill-color": "#2e5e3a", "fill-opacity": 0.15 }} />
+        <Layer id="township-selected-line" type="line" filter={["==", ["get", "TS_PCODE"], selectedTownship ?? ""]} paint={{ "line-color": "#fbfaf6", "line-width": 4 }} />
+      </Source> : null}
       {footprints ? (
         <Source id="satellite-footprints" type="geojson" data={footprints}>
           <Layer id="fp-modis" type="line" filter={["==", ["get", "kind"], "modis"]} paint={{ "line-color": "#fbfaf6", "line-width": 2 }} />

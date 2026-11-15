@@ -190,6 +190,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const ocMeaning = (oc: number) => (oc < 1 ? "low organic matter" : oc < 2 ? "moderate organic matter" : "good organic matter");
   const salMeaning = (ds: number) => (ds < 2 ? "no salt problem" : ds < 4 ? "slightly salty" : "salty, hurts sensitive crops");
 
+  const admin = field.administrativeContext;
   type Row = { label: string; simple: string; technical: string; hint?: string };
   const rows: Row[] = [
     {
@@ -200,8 +201,10 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
     },
     {
       label: "Region",
-      simple: regionName ?? "",
-      technical: regionName ? `${regionName} · ${formatPoint(field.centroid)}` : "",
+      simple: admin ? `${admin.TS}${admin.TS_MMR ? ` (${admin.TS_MMR})` : ""}, ${admin.ST}` : (regionName ?? ""),
+      technical: admin
+        ? `${admin.TS} (${admin.TS_PCODE}), ${admin.DT} (${admin.DT_PCODE}), ${admin.ST} (${admin.ST_PCODE}) · ${formatPoint(field.centroid)}`
+        : (regionName ? `${regionName} · ${formatPoint(field.centroid)}` : ""),
       hint: "Outside the regions covered so far",
     },
     {

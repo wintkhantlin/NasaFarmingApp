@@ -25,6 +25,7 @@ export interface NewField {
   constraints?: Field["constraints"];
   priorities?: Field["priorities"];
   economics?: Field["economics"];
+  administrativeContext?: Field["administrativeContext"];
   localNotes?: string;
   answers?: Field["answers"];
   recall?: Field["recall"];
@@ -80,6 +81,7 @@ export function createRepository(storage: KeyValueStorage) {
       constraints: input.constraints,
       priorities: input.priorities,
       economics: input.economics,
+      administrativeContext: input.administrativeContext,
       localNotes: input.localNotes,
       createdAt: stamp,
       updatedAt: stamp,
