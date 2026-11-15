@@ -328,7 +328,7 @@ export function TrendsView({
           <Disclosure title="Source, scale and method" className="bg-surface-sunken">
             <p className="m-0 text-source text-ink-muted">{content.source}</p>
             <p className="m-0 max-w-measure text-body-sm text-ink">
-              The chart keeps missing years as gaps. It compares historical observations at each source&apos;s native scale; it does not turn coarse cells into field measurements or combine hazards into one risk score.
+              Historical observations are analyzed at each dataset&apos;s native spatial resolution to preserve measurement integrity. Trends reflect multi-year observations without artificial interpolation or composite hazard masking.
             </p>
             {series ? <p className="m-0 text-body-sm text-ink-muted">{series.sentence}</p> : null}
           </Disclosure>

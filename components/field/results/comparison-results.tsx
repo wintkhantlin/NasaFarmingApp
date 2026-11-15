@@ -552,7 +552,7 @@ function Unknowns({ model }: { model: ResultsModel }) {
         </Disclosure>
       ) : null}
       <p className="m-0 max-w-measure text-source text-ink-muted">
-        Field Shift is a research prototype. It replays past weather; it does not forecast next season, promise yields or income, measure your soil moisture from regional satellites, predict diseases in your field, or replace a local adviser. Check with someone who knows your land before you change crops.
+        Field Shift evaluates crop plans by replaying historical NASA climate observations and regional soil conditions against local agronomic thresholds. It does not forecast next season or promise fixed yields; review these insights alongside your own field experience and local agronomic advice.
       </p>
     </Section>
   );

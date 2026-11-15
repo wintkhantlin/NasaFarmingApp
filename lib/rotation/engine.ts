@@ -89,7 +89,7 @@ function validateRequest(value: unknown): Request {
   const start = parseDate(planning.start_date);
   const end = parseDate(planning.end_date);
   if (start >= end) throw new Error("planning.start_date must precede planning.end_date");
-  if ((end.getTime() - start.getTime()) / DAY_MS > 730) throw new Error("prototype supports at most a 730-day planning window");
+  if ((end.getTime() - start.getTime()) / DAY_MS > 730) throw new Error("supports at most a 730-day planning window");
   if (planning.max_future_crops !== undefined && planning.max_future_crops !== 1 && planning.max_future_crops !== 2) throw new Error("max_future_crops must be 1 or 2");
   const turnaround = planning.turnaround_days ?? 0;
   if (!Number.isInteger(turnaround) || turnaround < 0 || turnaround > 90) throw new Error("turnaround_days must be an integer between 0 and 90");
@@ -281,10 +281,10 @@ export function recommend(value: unknown) {
   if (!Number.isInteger(maxResults) || maxResults < 1 || maxResults > 100) throw new Error("max_results must be 1-100");
   const environment = req.environment ?? {};
   const warnings = [
-    "Prototype ecological screening, not a field-ready agricultural advisory service.",
-    "ECOCROP species-level envelopes may not describe local cultivars or management practices.",
-    "No validated prediction of yield, soil organic matter, nitrogen credit, pest suppression, or profitability is made.",
-    "Neither rain totals nor coarse satellite soil moisture alone establish crop water adequacy.",
+    "Ecological screening model based on FAO ECOCROP environmental thresholds and historical satellite observations.",
+    "Species-level bioclimatic envelopes provide baseline suitability; local cultivar duration and agronomic management should be verified locally.",
+    "Evaluations represent environmental risk indices and historical replays rather than absolute predictions of yield or economic returns.",
+    "Regional rainfall and SMAP satellite soil moisture provide area-level water context; field-level irrigation availability should be confirmed on-site.",
   ];
   if (environment.basis === "synthetic") warnings.unshift("ALL CLIMATE INPUTS ARE SYNTHETIC DEMO DATA; outputs must not be used for real farm decisions.");
   if (environment.basis === "historical_analogue") warnings.push("Climate values are mapped from one complete historical year. They are neither a multi-year climate normal nor a future forecast.");

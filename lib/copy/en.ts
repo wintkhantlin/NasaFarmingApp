@@ -110,6 +110,7 @@ export const copy = {
     locateDenied: "We couldn't get your location. You can just tap the map; sharing location is optional.",
     mapDown: "The map isn't loading. Check your internet and try again.",
     retry: "Retry",
+    retryBoundaries: "Retry township boundaries",
     nameYourField: "Name your field",
     backToMap: "Back to the map",
     fieldName: "Field name",

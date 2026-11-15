@@ -101,17 +101,21 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
 
   const [boundaries, setBoundaries] = useState<Townships | null>(null);
   const [boundaryError, setBoundaryError] = useState<string | null>(null);
+  const [boundaryLoadAttempt, setBoundaryLoadAttempt] = useState(0);
   const [areaSelection, setAreaSelection] = useState<AreaSelection>({ region: field?.administrativeContext?.ST_PCODE ?? "", district: field?.administrativeContext?.DT_PCODE ?? "", township: field?.administrativeContext?.TS_PCODE ?? "" });
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/study-area/boundaries", { signal: controller.signal }).then(async (res) => {
-      if (!res.ok) throw new Error("Boundaries unavailable");
+      if (!res.ok) throw new Error(`Boundary request failed (${res.status})`);
       return parseTownships(await res.json());
-    }).then(setBoundaries).catch(() => {
-      if (!controller.signal.aborted) setBoundaryError("Township boundaries are unavailable. Search for your village or mark your field with coordinates.");
+    }).then(setBoundaries).catch((error: unknown) => {
+      if (!controller.signal.aborted) {
+        console.error("Township boundaries failed to load:", error);
+        setBoundaryError("Township boundaries are unavailable. Search for your village or mark your field with coordinates.");
+      }
     });
     return () => controller.abort();
-  }, []);
+  }, [boundaryLoadAttempt]);
   function selectArea(next: AreaSelection) {
     setAreaSelection(next);
     if (!boundaries) return;
@@ -578,7 +582,18 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           ) : null}
         </section>
 
-        <TownshipPicker data={boundaries} selection={areaSelection} onChange={selectArea} error={boundaryError} />
+        <TownshipPicker
+          data={boundaries}
+          selection={areaSelection}
+          onChange={selectArea}
+          error={boundaryError}
+          retryLabel={text.retryBoundaries}
+          onRetry={() => {
+            setBoundaries(null);
+            setBoundaryError(null);
+            setBoundaryLoadAttempt((attempt) => attempt + 1);
+          }}
+        />
 
         {/* The step panel: a bar along the bottom on a phone, the next card in the column on a desktop. */}
         <section

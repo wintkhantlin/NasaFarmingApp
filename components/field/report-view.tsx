@@ -462,16 +462,16 @@ export function ReportView({ fieldId }: { fieldId: string }) {
             </p>
             <ol className="m-0 flex list-decimal flex-col gap-2 pl-5 text-body-sm text-ink">
               <li>
-                <span className="font-medium">Water on your field:</span> SMAP soil moisture is a 9 km grid cell and cannot see your well, irrigation canal, or low-lying corner.
+                <span className="font-medium">Water on your field:</span> SMAP regional root-zone moisture (9 km resolution) provides area context; confirm on-site well supply, canal access, and drainage.
               </li>
               <li>
-                <span className="font-medium">Soil fertility:</span> The soil map is 250 m global resolution. Your local soil test or field history beats it.
+                <span className="font-medium">Soil fertility:</span> SoilGrids (250 m resolution) provides baseline estimates; field soil tests or local parcel history provide definitive site data.
               </li>
               <li>
-                <span className="font-medium">Pests and disease:</span> NASA data cannot identify pest pressure or verify that a sequence breaks pest lifecycles.
+                <span className="font-medium">Pests and disease:</span> NASA climate data flags conditions favoring disease; scout fields directly to confirm pest pressure and rotation breaks.
               </li>
               <li>
-                <span className="font-medium">Markets, prices, and labour:</span> No satellite can see your buyer, market prices, or harvest workforce availability.
+                <span className="font-medium">Markets, prices, and labour:</span> Confirm local buyer agreements, wholesale commodity prices, and harvest workforce availability directly.
               </li>
               <li>
                 <span className="font-medium">Variety and sowing dates:</span> Sowing calendars are generic species baselines; tune dates to local varieties and monsoon arrival.
@@ -483,7 +483,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
               ) : null}
               {field.region === "shan" ? (
                 <li>
-                  <span className="font-medium">Slope and erosion:</span> Regional weather grids cannot resolve steep slope runoff or microclimates in mountain valleys.
+                  <span className="font-medium">Slope and erosion:</span> Regional climate grids provide township-level baselines; assess local slope runoff and valley microclimates on-site.
                 </li>
               ) : null}
             </ol>
@@ -515,7 +515,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
 
         <footer className="flex flex-col gap-1 border-t border-line pt-4 text-source text-ink-muted">
           <p className="m-0">{copy.judgment.short} {copy.judgment.long}</p>
-          <p className="m-0">Model limitations: regional weather and soil maps are not field measurements; the report cannot verify seed supply, buyer, labour, pests, drainage or a crop variety.</p>
+          <p className="m-0">Decision scope: regional weather and digital soil maps provide baseline screening; verify seed availability, market channels, labor, and crop variety suitability with local advisers.</p>
           <p className="tabular m-0 font-mono">
             Data: NASA POWER daily (UTC days, {comparison.baseline.startYear} to {comparison.baseline.endYear}); rainfall from {comparison.rain.primary === "R" ? "GPM IMERG" : comparison.rain.primary === "P" ? "NASA POWER" : "no source"}; ISRIC SoilGrids v2 250 m (not NASA). Processed {comparison.processedAt.slice(0, 10)}.
           </p>

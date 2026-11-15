@@ -134,13 +134,12 @@ it("validates the production 330-township geoBoundaries gbOpen dataset", async (
   expect(states.size).toBeGreaterThanOrEqual(14);
 });
 
-it("serves production boundaries successfully through the API endpoint", async () => {
+it("serves parseable production boundaries through the API endpoint", async () => {
   const { GET } = await import("@/app/api/study-area/boundaries/route");
-  const req = new Request("http://localhost/api/study-area/boundaries", {
-    headers: { "accept-encoding": "gzip" },
-  });
-  const res = await GET(req);
+  const res = await GET();
   expect(res.status).toBe(200);
   expect(res.headers.get("content-type")).toBe("application/geo+json");
-  expect(res.headers.get("content-encoding")).toBe("gzip");
+  expect(res.headers.get("content-encoding")).toBeNull();
+  const body = await res.json();
+  expect(body.features).toHaveLength(330);
 });

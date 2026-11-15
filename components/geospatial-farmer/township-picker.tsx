@@ -13,11 +13,15 @@ export function TownshipPicker({
   selection,
   onChange,
   error,
+  retryLabel,
+  onRetry,
 }: {
   data: Townships | null;
   selection: AreaSelection;
   onChange: (selection: AreaSelection) => void;
   error: string | null;
+  retryLabel?: string;
+  onRetry?: () => void;
 }) {
   const rows = data?.features.map((f) => f.properties) ?? [];
   const options = (items: typeof rows, code: "ST_PCODE" | "DT_PCODE" | "TS_PCODE", name: "ST" | "DT" | "TS") =>
@@ -34,15 +38,22 @@ export function TownshipPicker({
   return (
     <details
       className="pointer-events-auto rounded-lg border border-line bg-surface-raised px-3 shadow-float"
-      open={Boolean(selection.region) ? true : undefined}
+      open={selection.region || error ? true : undefined}
     >
       <summary className="flex min-h-tap cursor-pointer items-center text-label font-medium text-ink">
         {selectedTownship ? `${selectedTownship.TS}, ${selectedTownship.ST}` : "Browse by township"}
       </summary>
       {error ? (
-        <p role="status" className="border-t border-line py-3 text-body-sm text-ink-muted">
-          {error}
-        </p>
+        <>
+          <p role="status" className="border-t border-line py-3 text-body-sm text-ink-muted">
+            {error}
+          </p>
+          {onRetry ? (
+            <button type="button" onClick={onRetry} className="mb-3 min-h-tap rounded-sm border border-line-strong px-3 text-label text-ink">
+              {retryLabel ?? "Retry"}
+            </button>
+          ) : null}
+        </>
       ) : !data ? (
         <p role="status" className="border-t border-line py-3 text-body-sm text-ink-muted">
           Loading township boundaries…

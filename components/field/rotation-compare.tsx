@@ -293,7 +293,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       : "This option ranks highest among the choices we checked."
     : display.headline;
   const answerReason = bestOption
-    ? `${bestOption.rotation.slots.map((slot) => slotName(slot)).join(" → ")} ranks highest for your selected priorities.${suggestedSowDate ? ` Suggested sow date for the last crop: ${suggestedSowDate}.` : ""} This is not a guarantee; check dates, water and local conditions before planting.`
+    ? `${bestOption.rotation.slots.map((slot) => slotName(slot)).join(" → ")} ranks highest for your selected priorities.${suggestedSowDate ? ` Suggested sow date for the last crop: ${suggestedSowDate}.` : ""} Verify local planting dates, water availability, and field conditions before planting.`
     : display.detail;
 
 

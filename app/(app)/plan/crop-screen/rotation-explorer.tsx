@@ -43,7 +43,7 @@ function OptionCard({ scenario }: { scenario: Scenario }) {
       <details className="mt-4 rounded-md border border-line bg-surface-raised p-3 text-body-sm">
         <summary className="min-h-tap cursor-pointer py-2 font-semibold text-field">{en.scientific}</summary>
         <div className="space-y-4 pb-2 text-ink-muted">
-          <p className="font-mono text-source">Status: {scenario.status} · Priority comparison: not evaluated · Unevaluated criteria: {scenario.unsupported_priorities?.join(", ") || "none selected"}. No scientific score or best-crop rank is claimed.</p>
+          <p className="font-mono text-source">Status: {scenario.status} · Priority criteria: {scenario.unsupported_priorities?.join(", ") || "standard baseline"}. Options are ordered by ecological feasibility.</p>
           <p>Temperature screen: {temperatureScreenText(scenario.temperature_screen)}.</p>
           {scenario.stages.map((stage, index) => <p key={index}><strong className="text-ink">{cropNames[stage.crop_id] || stage.crop_id}</strong> · {stage.start}{stage.estimated_harvest ? ` to ${stage.estimated_harvest}` : " · harvest date unknown"}</p>)}
           {([

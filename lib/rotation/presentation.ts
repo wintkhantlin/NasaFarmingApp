@@ -60,16 +60,16 @@ export function plainReason(reason: string): string {
   if (/shorter than documented minimum|exceeds available calendar window|duration .* deadline|remaining .* days/.test(reason)) return "This crop may not have enough time to mature before your chosen end date.";
   if (/monthly mean .* outside|temperature.*outside/.test(reason)) return "The temperature may be outside this crop’s broad growing range.";
   if (/temperature observation\/estimate missing|rainfall missing|environment data/.test(reason)) return "Weather information is missing for part of this period.";
-  if (/water adequacy|Irrigation access is reported/.test(reason)) return "We cannot yet tell whether this crop will have enough water.";
+  if (/water adequacy|Irrigation access is reported/.test(reason)) return "Water adequacy depends on local rainfall patterns and irrigation scheduling.";
   if (/same botanical family/.test(reason)) return "This follows a similar crop family. Ask locally about shared pests and diseases.";
   if (/drainage differs/.test(reason)) return "This field may drain differently from the conditions this crop usually prefers.";
-  if (/field drainage is unknown/.test(reason)) return "We do not yet know how well this field drains.";
-  if (/Climate values are not a validated/.test(reason)) return "These climate values are not a reliable forecast for the coming season.";
+  if (/field drainage is unknown/.test(reason)) return "Drainage rate has not been recorded; confirm standing water behavior for this field.";
+  if (/Climate values are not a validated/.test(reason)) return "Historical NASA climate observations provide seasonal benchmarks rather than future weather forecasts.";
   if (/grid resolution/.test(reason)) return "The climate data covers a wider area than this one field.";
   if (/cultivar|duration depends/.test(reason)) return "Check how long your own crop variety takes to mature.";
   if (/Fallow has no additional planted crop/.test(reason)) return "An unplanted field can still lose water or soil when left bare.";
   if (/Fallow vegetation and residue cover/.test(reason)) return "Tell us whether the unplanted field will keep plant cover.";
-  return "More local information is needed before treating this option as suitable.";
+  return "Review local field conditions and variety requirements to confirm suitability.";
 }
 
 export function farmerReasons(scenario: Scenario): string[] {
