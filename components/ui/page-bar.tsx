@@ -27,7 +27,7 @@ export function PageBar({
           href={backHref}
           className="-ml-2 inline-flex min-h-tap max-w-[70%] items-center gap-0.5 rounded-md pr-3 pl-1 text-label text-field no-underline hover:bg-field-soft active:bg-field-soft"
         >
-          <Icon name="back" size={22} />
+          <Icon name="back" size={26} strokeWidth={2.4} />
           <span className="truncate">{backLabel ?? "Back"}</span>
         </Link>
       ) : (

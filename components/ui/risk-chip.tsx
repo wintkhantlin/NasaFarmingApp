@@ -56,7 +56,7 @@ export function RiskChip({
         border: `1px solid color-mix(in srgb, ${tone.fg} 25%, transparent)`,
         backgroundColor: tone.bg,
         color: tone.fg,
-        fontSize: "var(--text-label)",
+        fontSize: "var(--text-body-sm)",
         fontWeight: 500,
         lineHeight: 1.25,
         py: "4px",

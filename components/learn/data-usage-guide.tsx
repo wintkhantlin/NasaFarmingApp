@@ -290,7 +290,7 @@ export function DataUsageGuide() {
       {/* Lead Section */}
       <Panel tone="field" radius="lg" className="flex flex-col gap-3 p-4 sm:p-6">
         <div className="flex flex-col gap-1">
-          <span className="text-source font-semibold uppercase tracking-wider text-field">
+          <span className="text-body-sm font-semibold uppercase tracking-wider text-field">
             {isBurmese ? "ဒေတာနှင့် သိပ္ပံဆိုင်ရာ ရှင်းလင်းချက်" : "Data & Methodology"}
           </span>
           <h2 className="text-title text-ink">
@@ -336,7 +336,7 @@ export function DataUsageGuide() {
             </div>
             <Link
               href="/about/data"
-              className="inline-flex min-h-tap items-center gap-1 text-label text-field hover:underline"
+              className="inline-flex min-h-tap items-center gap-1 text-body-sm text-field hover:underline"
             >
               <span>{isBurmese ? "နည်းပညာပိုင်းဆိုင်ရာ အခြေအနေ ကြည့်ရန်" : "API adapter connection status"}</span>
               <Icon name="next" size={16} />
@@ -345,40 +345,40 @@ export function DataUsageGuide() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {DATA_SOURCES.map((ds) => (
-              <Panel key={ds.id} as="article" className="flex flex-col justify-between gap-3 p-4 sm:p-5">
+              <Panel key={ds.id} as="article" className="flex flex-col justify-between gap-3 p-4 sm:p-5 transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-xs">
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-field-soft text-field">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-field/20 bg-field-soft text-field shadow-xs">
                       <Icon name={ds.icon} size={20} />
                     </span>
-                    <span className="rounded-pill border border-line bg-surface-sunken px-2 py-0.5 text-source font-medium text-ink-muted">
+                    <span className="rounded-pill border border-line bg-surface-sunken px-2.5 py-0.5 text-body-sm font-medium text-ink-muted">
                       {isBurmese ? ds.badge.my : ds.badge.en}
                     </span>
                   </div>
 
                   <div>
-                    <h4 className="m-0 text-label font-semibold text-ink">
+                    <h4 className="m-0 text-body-sm font-semibold text-ink">
                       {isBurmese ? ds.name.my : ds.name.en}
                     </h4>
-                    <span className="text-source text-ink-muted font-mono">{ds.resolution}</span>
+                    <span className="text-body-sm text-ink-muted font-mono">{ds.resolution}</span>
                   </div>
 
                   <div className="flex flex-col gap-1 border-t border-line/60 pt-2 text-body-sm">
-                    <span className="text-source font-semibold text-ink">
+                    <span className="text-body-sm font-semibold text-ink">
                       {isBurmese ? "ပါဝင်သော အချက်အလက်များ:" : "What it provides:"}
                     </span>
                     <p className="m-0 text-ink-muted">{isBurmese ? ds.whatData.my : ds.whatData.en}</p>
                   </div>
 
                   <div className="flex flex-col gap-1 border-t border-line/60 pt-2 text-body-sm">
-                    <span className="text-source font-semibold text-field">
+                    <span className="text-body-sm font-semibold text-field">
                       {isBurmese ? "Field Shift တွင် အသုံးပြုပုံ:" : "How Field Shift uses it:"}
                     </span>
                     <p className="m-0 text-ink">{isBurmese ? ds.howUsed.my : ds.howUsed.en}</p>
                   </div>
                 </div>
 
-                <div className="border-t border-line pt-2 text-source text-ink-muted">
+                <div className="border-t border-line pt-2 text-body-sm text-ink-muted">
                   <span>{ds.sourceOrg}</span>
                 </div>
               </Panel>
@@ -403,17 +403,17 @@ export function DataUsageGuide() {
 
           <div className="flex flex-col gap-4">
             {METHODOLOGY_STEPS.map((m) => (
-              <Panel key={m.step} as="article" className="flex flex-col gap-3 p-4 sm:p-5">
+              <Panel key={m.step} as="article" className="flex flex-col gap-3.5 p-4 sm:p-5 transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-xs">
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line pb-2.5">
                   <div className="flex items-center gap-2.5">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-pill bg-field font-mono text-source font-bold text-on-field">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-pill bg-field font-mono text-body-sm font-bold text-on-field shadow-xs">
                       {m.step}
                     </span>
                     <h4 className="m-0 text-headline font-semibold text-ink">
                       {isBurmese ? m.title.my : m.title.en}
                     </h4>
                   </div>
-                  <span className="flex items-center gap-1.5 text-source text-field font-medium">
+                  <span className="flex items-center gap-1.5 text-body-sm text-field font-medium">
                     <Icon name={m.icon} size={16} />
                     <span>Step {m.step}</span>
                   </span>
@@ -423,15 +423,15 @@ export function DataUsageGuide() {
                   {isBurmese ? m.summary.my : m.summary.en}
                 </p>
 
-                <div className="grid gap-3 rounded-md bg-surface-sunken p-3.5 sm:grid-cols-2 text-body-sm">
+                <div className="grid gap-3 rounded-md border border-line/60 bg-surface-sunken p-3.5 sm:grid-cols-2 text-body-sm">
                   <div className="flex flex-col gap-1">
-                    <span className="text-source font-semibold text-ink-muted uppercase tracking-wide">
+                    <span className="text-body-sm font-semibold text-ink-muted uppercase tracking-wide">
                       {isBurmese ? "အသုံးပြုသော ဒေတာ" : "Data inputs used"}
                     </span>
-                    <span className="font-mono text-ink text-source">{m.dataInputs}</span>
+                    <span className="font-mono text-ink text-body-sm">{m.dataInputs}</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-source font-semibold text-field uppercase tracking-wide">
+                    <span className="text-body-sm font-semibold text-field uppercase tracking-wide">
                       {isBurmese ? "တောင်သူအတွက် အကျိုးကျေးဇူး" : "Farmer benefit"}
                     </span>
                     <span className="text-ink font-medium">{isBurmese ? m.farmerBenefit.my : m.farmerBenefit.en}</span>
@@ -439,7 +439,7 @@ export function DataUsageGuide() {
                 </div>
 
                 <div className="flex flex-col gap-1 text-body-sm">
-                  <span className="text-source font-semibold text-ink-muted">
+                  <span className="text-body-sm font-semibold text-ink-muted">
                     {isBurmese ? "သိပ္ပံနည်းကျ တွက်ချက်မှု အသေးစိတ်:" : "Scientific method in detail:"}
                   </span>
                   <p className="m-0 text-ink-muted leading-relaxed">
@@ -454,11 +454,11 @@ export function DataUsageGuide() {
 
       {/* Trust & Verification Note */}
       <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 sm:p-5 text-body-sm text-ink-muted">
-        <div className="flex items-center gap-2 text-label font-semibold text-ink">
+        <div className="flex items-center gap-2 text-body-sm font-semibold text-ink">
           <Icon name="info" size={18} className="text-field" />
           <span>{isBurmese ? "ဒေတာအသုံးပြုမှုဆိုင်ရာ အခြေခံမူများ" : "Core Principles of Data Use"}</span>
         </div>
-        <ul className="m-0 flex flex-col gap-1.5 pl-5 text-source text-ink-muted">
+        <ul className="m-0 flex flex-col gap-1.5 pl-5 text-body-sm text-ink-muted">
           <li>
             <strong>{isBurmese ? "အတိတ်အချက်အလက်ကိုသာ စစ်ဆေးသည် (ကြိုတင်မခန့်မှန်းပါ):" : "Historical replay, not forecasting:"}</strong>{" "}
             {isBurmese

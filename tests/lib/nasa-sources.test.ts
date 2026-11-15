@@ -6,7 +6,7 @@ import { parsePowerDaily, powerDailyUrl } from "../../lib/nasa/power";
 import { fillValueOf, layerMeta, scaleOf } from "../../lib/nasa/appeears/products";
 import { detectDelivery, toPhysical } from "../../lib/nasa/appeears/scale";
 import { parseBundleFileName, parseSmapCsv, smapWindowStats } from "../../lib/nasa/appeears/results";
-import { ecostressEtTask, ecostressLstTask, modisAreaTask, smapPointTask, srtmAreaTask, hlsAreaTask, appeearsDate, SMAP_SAFE_END } from "../../lib/nasa/appeears/tasks";
+import { ecostressEtTask, ecostressLstTask, ecostressMetTask, modisAreaTask, smapPointTask, srtmAreaTask, hlsAreaTask, appeearsDate, SMAP_SAFE_END } from "../../lib/nasa/appeears/tasks";
 import { decodeFmask } from "../../lib/nasa/qa/hls-fmask";
 import { decodeViQuality, viUsable } from "../../lib/nasa/qa/modis-vi";
 import { ecostressClear, ecostressLstUsable } from "../../lib/nasa/qa/ecostress";
@@ -146,6 +146,7 @@ describe("AppEEARS metadata, scaling and tasks", () => {
     expect(modisAreaTask(area).params.layers.map((layer) => layer.product)).toEqual(Array(5).fill("MOD13Q1.061"));
     expect(ecostressLstTask(area).params.layers.map((layer) => layer.layer)).toEqual(["LST", "LST_err", "QC", "cloud", "water"]);
     expect(ecostressEtTask(area).params.layers.map((layer) => layer.layer)).toEqual(["ETdaily", "ETinstUncertainty", "cloud", "water"]);
+    expect(ecostressMetTask(area).params.layers.map((layer) => layer.layer)).toEqual(["Ta", "RH", "cloud", "water"]);
   });
 
   test("SMAP CSV becomes daily means with valid counts; fill stays missing", () => {

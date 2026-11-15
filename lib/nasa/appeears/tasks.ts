@@ -1,5 +1,5 @@
 import type { FieldGeometry, LngLat } from "../../types";
-import { ECOSTRESS_ET_LAYERS, ECOSTRESS_LST_LAYERS, HLS_LAYERS, MODIS_LAYERS, SMAP_LAYERS, SRTM_LAYER, type ProductId } from "./products";
+import { ECOSTRESS_ET_LAYERS, ECOSTRESS_LST_LAYERS, ECOSTRESS_MET_LAYERS, HLS_LAYERS, MODIS_LAYERS, SMAP_LAYERS, SRTM_LAYER, type ProductId } from "./products";
 
 /**
  * Builders for AppEEARS task bodies. Dates use MM-DD-YYYY. GeoJSON coordinates are longitude, latitude.
@@ -7,7 +7,7 @@ import { ECOSTRESS_ET_LAYERS, ECOSTRESS_LST_LAYERS, HLS_LAYERS, MODIS_LAYERS, SM
  */
 
 export type PointTaskKind = "smap";
-export type AreaTaskKind = "hls" | "srtm" | "modis" | "ecostress-lst" | "ecostress-et";
+export type AreaTaskKind = "hls" | "srtm" | "modis" | "ecostress-lst" | "ecostress-et" | "ecostress-met";
 export type TaskKind = PointTaskKind | AreaTaskKind;
 
 /** "2025-03-07" to "03-07-2025". */
@@ -86,6 +86,7 @@ export const hlsAreaTask = (i: AreaTaskInput) => areaTask(i, HLS_LAYERS.map((lay
 export const modisAreaTask = (i: AreaTaskInput) => areaTask(i, MODIS_LAYERS.map((layer) => ({ product: "MOD13Q1.061", layer })));
 export const ecostressLstTask = (i: AreaTaskInput) => areaTask(i, ECOSTRESS_LST_LAYERS.map((layer) => ({ product: "ECO_L2T_LSTE.002", layer })));
 export const ecostressEtTask = (i: AreaTaskInput) => areaTask(i, ECOSTRESS_ET_LAYERS.map((layer) => ({ product: "ECO_L3T_JET.002", layer })));
+export const ecostressMetTask = (i: AreaTaskInput) => areaTask(i, ECOSTRESS_MET_LAYERS.map((layer) => ({ product: "ECO_L3T_MET.002", layer })));
 
 /**
  * SRTM is static: one acquisition (February 2000), requested on its own and cached for good.

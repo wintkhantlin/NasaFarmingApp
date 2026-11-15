@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { geometrySchema } from "@/lib/schemas/field";
-import { advance, type EcostressData, type HlsData, type ModisData, type SmapData, type SrtmData } from "@/lib/server/remote-sensing";
+import { advance, type EcostressData, type EcostressMetData, type HlsData, type ModisData, type SmapData, type SrtmData } from "@/lib/server/remote-sensing";
+
+export const maxDuration = 60;
 
 /**
  * Moves the AppEEARS jobs for this field forward and reports where each one is. The browser calls
@@ -23,13 +25,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ fie
   if (!geometry.success || !centroid) return NextResponse.json({ error: "Missing or invalid geometry." }, { status: 400 });
 
   const field = { id: fieldId, geometry: geometry.data, centroid };
-  const [smap, hls, srtm, modis, ecostressLst, ecostressEt] = await Promise.all([
+  const [smap, hls, srtm, modis, ecostressLst, ecostressEt, ecostressMet] = await Promise.all([
     advance<SmapData>("smap", field),
     advance<HlsData>("hls", field),
     advance<SrtmData>("srtm", field),
     advance<ModisData>("modis", field),
     advance<EcostressData>("ecostress-lst", field),
     advance<EcostressData>("ecostress-et", field),
+    advance<EcostressMetData>("ecostress-met", field),
   ]);
-  return NextResponse.json({ fieldId, checkedAt: new Date().toISOString(), smap, hls, srtm, modis, ecostressLst, ecostressEt });
+  return NextResponse.json({ fieldId, checkedAt: new Date().toISOString(), smap, hls, srtm, modis, ecostressLst, ecostressEt, ecostressMet });
 }

@@ -76,6 +76,16 @@ export const REAL_WORLD_CROP_ECONOMICS: Record<string, RealWorldCropEconomicProf
     source: "Central Dry Zone (Magway/Mandalay) Oilseed Market Assessment 2024–2026",
     traditionalUnitNote: "In-shell pods: 3,800–5,500 MMK / viss (~1.63 kg). Shelled kernel wholesale: 4,500–6,000 MMK / kg.",
   },
+  sunflower: {
+    cropId: "sunflower",
+    cropName: "Sunflower (Naykya)",
+    burmeseName: "နေကြာ",
+    priceMmkPerKg: [3200, 4500],
+    yieldKgHa: [1000, 1600],
+    costMmkPerHa: [480000, 720000],
+    source: "Magway & Mandalay Oilseed Market Assessment 2024–2026",
+    traditionalUnitNote: "Edible oilseed: 5,200–7,200 MMK / viss (~1.63 kg).",
+  },
   chickpea: {
     cropId: "chickpea",
     cropName: "Chickpea (Kalape)",

@@ -23,7 +23,7 @@ const model = buildResultsModel({ field, comparison: result, display, options })
 describe("ComparisonResults", () => {
   test("shows the decision and keeps detailed evidence available", () => {
     render(<ComparisonResults field={field} model={model} />);
-    expect(screen.getByRole("heading", { name: /came out first for the goals you chose/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: model.decision?.headline ?? /best match/i })).toBeTruthy();
     for (const name of ["Rotation comparison", "Water and climate", "Soil and environment", "Money", "Why this rotation?", "What we still do not know"]) {
       expect(screen.getByRole("heading", { name })).toBeTruthy();
     }

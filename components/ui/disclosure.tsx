@@ -46,12 +46,12 @@ export function Disclosure({ title, hint, defaultOpen, className, lazy, children
   }, []);
 
   return (
-    <details ref={ref} open={defaultOpen} onToggle={(e) => e.currentTarget.open && setOpened(true)} className={cn("rounded-md border border-line bg-surface", className)}>
-      <summary className="flex min-h-tap cursor-pointer items-center gap-2 px-4 text-label text-ink">
+    <details ref={ref} open={defaultOpen} onToggle={(e) => e.currentTarget.open && setOpened(true)} className={cn("group rounded-md border border-line bg-surface transition-colors", className)}>
+      <summary className="flex min-h-tap cursor-pointer select-none items-center gap-2 rounded-t-md px-4 text-label text-ink transition-colors hover:bg-surface-sunken/40 active:bg-surface-sunken/60">
         <span>{title}</span>
         {hint ? <span className="text-body-sm font-normal text-ink-muted">{hint}</span> : null}
       </summary>
-      <div className="flex flex-col gap-3 px-4 pb-4">{lazy && !opened ? null : children}</div>
+      <div className="flex flex-col gap-3 border-t border-line/60 px-4 pt-3 pb-4">{lazy && !opened ? null : children}</div>
     </details>
   );
 }

@@ -90,7 +90,7 @@ export function nitrogenAssessment(rotation: Pick<Rotation, "slots">): NitrogenA
     scope,
     note:
       "Nitrogen fixed by a legume is not the same as nitrogen left in the soil after harvest. Fixation ranges are wide literature " +
-      "starting values (analyst scope). Removal is only shown from yields you entered; otherwise it is unknown.",
+      "starting values (analyst scope). Effective biological fixation requires well-drained, aerated soil; prolonged waterlogging inhibits Rhizobia nodulation. Removal is only shown from yields you entered; otherwise it is unknown.",
   };
 }
 

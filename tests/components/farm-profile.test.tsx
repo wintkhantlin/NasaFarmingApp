@@ -111,7 +111,7 @@ describe("FarmProfile - Soil around your field", () => {
     expect(salinityInput).toHaveValue(2.0);
 
     // Click Save
-    const saveButton = screen.getByRole("button", { name: "Save and see my answer" });
+    const saveButton = screen.getByRole("button", { name: "See my answer" });
     fireEvent.click(saveButton);
 
     expect(updateSpy).toHaveBeenCalledWith(
@@ -144,7 +144,7 @@ describe("FarmProfile - Soil around your field", () => {
     fireEvent.change(phInput, { target: { value: "14" } });
 
     // Click Save
-    const saveButton = screen.getByRole("button", { name: "Save and see my answer" });
+    const saveButton = screen.getByRole("button", { name: "See my answer" });
     fireEvent.click(saveButton);
 
     expect(updateSpy).not.toHaveBeenCalled();
@@ -172,7 +172,7 @@ describe("FarmProfile - Soil around your field", () => {
     fireEvent.change(salinityInput, { target: { value: "" } });
 
     // Save
-    const saveButton = screen.getByRole("button", { name: "Save and see my answer" });
+    const saveButton = screen.getByRole("button", { name: "See my answer" });
     fireEvent.click(saveButton);
 
     expect(updateSpy).toHaveBeenCalledWith(
@@ -208,14 +208,14 @@ describe("FarmProfile - Soil around your field", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use my own test" }));
     expect(screen.getByLabelText("Soil acidity (pH)")).toHaveValue(6.8);
     expect(screen.getByLabelText("Soil texture")).toHaveTextContent("Sandy loam");
-    expect(screen.getAllByText("We guessed")).toHaveLength(2);
+    expect(screen.getAllByText("Regional default")).toHaveLength(2);
 
-    // The save bar is hidden until something changes.
-    expect(screen.queryByRole("button", { name: "Save and see my answer" })).toBeNull();
+    // The one bottom button is always there: an untouched page can be saved as it is.
+    expect(screen.getByRole("button", { name: "See my answer" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Soil salinity (dS/m)"), { target: { value: "1.1" } });
     fireEvent.change(screen.getByLabelText("Soil salinity (dS/m)"), { target: { value: "" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Save and see my answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "See my answer" }));
     await waitFor(() => expect(updateSpy).toHaveBeenCalled());
     expect(updateSpy.mock.calls[0][1].soilOverride).toBeUndefined();
   });

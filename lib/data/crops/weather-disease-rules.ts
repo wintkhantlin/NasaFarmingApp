@@ -107,7 +107,7 @@ export const WEATHER_DISEASE_RULES: WeatherDiseaseRule[] = [
     id: "charcoal-rot-heat",
     name: "Charcoal rot / dry root rot",
     scientific: "Macrophomina phaseolina",
-    hosts: ["sesame", "green-gram", "black-gram", "chickpea", "soybean", "groundnut", "pigeon-pea", "maize"],
+    hosts: ["sesame", "green-gram", "black-gram", "chickpea", "soybean", "groundnut", "sunflower", "pigeon-pea", "maize"],
     organismId: "macrophomina",
     weather: "7 or more days in a row above 35 °C with no rain",
     favourable: (d) => (known(d.tmaxC, d.rainMm) ? d.tmaxC! >= 35 && d.rainMm! < 1 : null),

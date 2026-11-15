@@ -11,12 +11,13 @@ import {
 import { earthdataConfigured } from "../nasa/earthdata";
 import { detectDelivery } from "../nasa/appeears/scale";
 import { parseBundleFileName, parseSmapCsv, rasterToPhysical, readGeoTiff, type SmapDay } from "../nasa/appeears/results";
-import { ecostressEtTask, ecostressLstTask, hlsAreaTask, modisAreaTask, smapPointTask, srtmAreaTask, SMAP_SAFE_END } from "../nasa/appeears/tasks";
+import { ecostressEtTask, ecostressLstTask, ecostressMetTask, hlsAreaTask, modisAreaTask, smapPointTask, srtmAreaTask, SMAP_SAFE_END } from "../nasa/appeears/tasks";
 import { summariseHls, type HlsPixelSeries, type ObservationSummary } from "../nasa/derive/ndvi";
 import { slopeGrid, slopeStats, type SlopeStats } from "../nasa/derive/slope";
 import { ingestPlanetaryComputerLandsat, ingestPlanetaryComputerModisVi, LANDSAT_EXTRACTION, type ModisViResult, type PlanetaryComputerResult } from "../nasa/planetary-computer";
 import { viIsInlandWater, viUsable } from "../nasa/qa/modis-vi";
 import { ecostressClear, ecostressLstUsable, kelvinToCelsius } from "../nasa/qa/ecostress";
+import { pool } from "../nasa/imerg";
 import type { FieldGeometry, LngLat } from "../types";
 import { cacheKey, serverCache, type ServerCache } from "./cache";
 import { getIngestionQueue } from "./queue";
@@ -33,7 +34,7 @@ import { getIngestionQueue } from "./queue";
  *  - Ingested via NASA AppEEARS state machine.
  */
 
-export type RemoteKind = "smap" | "hls" | "srtm" | "modis" | "ecostress-lst" | "ecostress-et";
+export type RemoteKind = "smap" | "hls" | "srtm" | "modis" | "ecostress-lst" | "ecostress-et" | "ecostress-met";
 export type RemoteStatus = "unconfigured" | "pending" | "ok" | "unavailable";
 export type RemoteProvider = "planetary-computer" | "appeears" | "heartland-offline";
 
@@ -71,6 +72,16 @@ export interface EcostressObservation {
 }
 export interface EcostressData {
   observations: EcostressObservation[];
+}
+export interface EcostressMetObservation {
+  date: string;
+  airTemperatureC: number | null;
+  relativeHumidityPct: number | null;
+  validPixels: number;
+  totalPixels: number;
+}
+export interface EcostressMetData {
+  observations: EcostressMetObservation[];
 }
 
 export interface RemoteContext extends ClientOptions {
@@ -110,6 +121,7 @@ function taskFor(kind: RemoteKind, fieldId: string, geometry: FieldGeometry, cen
   if (kind === "srtm") return srtmAreaTask({ name, geometry });
   if (kind === "modis") return modisAreaTask({ name, geometry, ...p });
   if (kind === "ecostress-lst") return ecostressLstTask({ name, geometry, ...p });
+  if (kind === "ecostress-met") return ecostressMetTask({ name, geometry, ...p });
   return ecostressEtTask({ name, geometry, ...p });
 }
 
@@ -142,6 +154,7 @@ export async function advance<T>(
             signal: ctx.signal,
             apiKey: env.PLANETARY_COMPUTER_API_KEY,
           }),
+        { wait: true },
       );
 
       if (job.status === "completed" && job.result) {
@@ -158,6 +171,17 @@ export async function advance<T>(
           };
           await cache.set(mpcKey, state, 60 * 60 * 24 * 30);
           return state;
+        } else {
+          const state: RemoteState<T> = {
+            kind: "hls",
+            status: "unavailable",
+            provider: "planetary-computer",
+            start: p.start,
+            end: p.end,
+            error: "No clear satellite observations available for this field outline.",
+          };
+          await cache.set(mpcKey, state, 60 * 60 * 24);
+          return state;
         }
       }
 
@@ -169,6 +193,19 @@ export async function advance<T>(
           start: p.start,
           end: p.end,
         };
+      }
+
+      if (job.status === "failed") {
+        const state: RemoteState<T> = {
+          kind: "hls",
+          status: "unavailable",
+          provider: "planetary-computer",
+          start: p.start,
+          end: p.end,
+          error: job.error ?? "Planetary Computer Landsat processing failed.",
+        };
+        await cache.set(mpcKey, state, 60 * 60);
+        return state;
       }
     } catch (e) {
       console.warn("Planetary Computer Landsat ingestion encountered an error; evaluating AppEEARS fallback:", e);
@@ -198,6 +235,7 @@ export async function advance<T>(
         "modis-13q1-061",
         { fieldId: field.id, geom: geometryHash(field.geometry), start: p.start, end: p.end },
         () => ingestPlanetaryComputerModisVi(field, p, { fetch: ctx.fetch, signal: ctx.signal, apiKey: env.PLANETARY_COMPUTER_API_KEY }),
+        { wait: true },
       );
       if (job.status === "completed" && job.result) {
         const res = job.result as ModisViResult;
@@ -205,9 +243,18 @@ export async function advance<T>(
           const state: RemoteState<T> = { kind, status: "ok", provider: "planetary-computer", start: p.start, end: p.end, retrievedAt: res.retrievedAt, data: { observations: res.observations } as T };
           await cache.set(mpcKey, state, 60 * 60 * 24 * 30);
           return state;
+        } else {
+          const state: RemoteState<T> = { kind, status: "unavailable", provider: "planetary-computer", start: p.start, end: p.end, error: "No clear MODIS observations available for this field outline." };
+          await cache.set(mpcKey, state, 60 * 60 * 24);
+          return state;
         }
       }
       if (job.status === "processing" || job.status === "pending") return { kind, status: "pending", provider: "planetary-computer", ...p };
+      if (job.status === "failed") {
+        const state: RemoteState<T> = { kind, status: "unavailable", provider: "planetary-computer", start: p.start, end: p.end, error: job.error ?? "Planetary Computer MODIS processing failed." };
+        await cache.set(mpcKey, state, 60 * 60);
+        return state;
+      }
     } catch (e) {
       console.warn("Planetary Computer MODIS ingestion encountered an error; evaluating AppEEARS fallback:", e);
     }
@@ -266,6 +313,7 @@ async function readResults<T>(kind: RemoteKind, taskId: string, files: BundleFil
   }
   if (kind === "modis") return readModisResults<T>(taskId, files, opts);
   if (kind === "ecostress-lst" || kind === "ecostress-et") return readEcostressResults<T>(kind, taskId, files, opts);
+  if (kind === "ecostress-met") return readEcostressMetResults<T>(taskId, files, opts);
   // HLS: one raster per layer per date
   const byDate = new Map<string, Partial<Record<"B04" | "B05" | "B06" | "Fmask", BundleFile>>>();
   for (const f of files) {
@@ -278,9 +326,9 @@ async function readResults<T>(kind: RemoteKind, taskId: string, files: BundleFil
   const dates = [...byDate.keys()].sort().slice(0, 400);
   const series: HlsPixelSeries = { dates: [], pixels: [] };
   const delivery: Record<string, "raw" | "scaled"> = {};
-  for (const date of dates) {
+  const processed = await pool(dates, 6, async (date) => {
     const row = byDate.get(date)!;
-    if (!row.B04 || !row.B05 || !row.B06 || !row.Fmask) continue;
+    if (!row.B04 || !row.B05 || !row.B06 || !row.Fmask) return null;
     try {
       const [red, nir, swir, fmask] = await Promise.all(
         (["B04", "B05", "B06", "Fmask"] as const).map(async (layer) => readGeoTiff(await downloadFile(taskId, row[layer]!.file_id, opts))),
@@ -299,11 +347,18 @@ async function readResults<T>(kind: RemoteKind, taskId: string, files: BundleFil
         // pixels outside the polygon come back as fill; fill is dropped later by the Fmask policy
         px.push([R[i], N[i], S[i], Number.isFinite(fm) ? fm : null]);
       }
-      series.dates.push(date);
-      series.pixels.push(px);
+      return { date, pixels: px };
     } catch (err) {
       // An individual date download or parse failure shouldn't invalidate the entire time series
       console.warn(`HLS date ${date} skipped due to tile download/parse error:`, err);
+      return null;
+    }
+  });
+
+  for (const item of processed) {
+    if (item && !(item instanceof Error)) {
+      series.dates.push(item.date);
+      series.pixels.push(item.pixels);
     }
   }
   return { observations: summariseHls(series) } as T;
@@ -326,10 +381,10 @@ async function readModisResults<T>(taskId: string, files: BundleFile[], opts: Cl
     row[parsed.layer as Layer] = file;
     byDate.set(parsed.date, row);
   }
-  const observations: ObservationSummary[] = [];
-  for (const date of [...byDate.keys()].sort()) {
+  const dates = [...byDate.keys()].sort();
+  const results = await pool(dates, 6, async (date): Promise<ObservationSummary | null> => {
     const row = byDate.get(date)!;
-    if (!row._250m_16_days_NDVI || !row._250m_16_days_VI_Quality || !row._250m_16_days_pixel_reliability) continue;
+    if (!row._250m_16_days_NDVI || !row._250m_16_days_VI_Quality || !row._250m_16_days_pixel_reliability) return null;
     const [ndviRaster, qaRaster, reliabilityRaster] = await Promise.all(
       [row._250m_16_days_NDVI, row._250m_16_days_VI_Quality, row._250m_16_days_pixel_reliability].map(async (f) => readGeoTiff(await downloadFile(taskId, f!.file_id, opts))),
     );
@@ -348,8 +403,15 @@ async function readModisResults<T>(taskId: string, files: BundleFile[], opts: Cl
       if (viIsInlandWater(qa)) water++;
       if (viUsable(qa, reliability)) valid.push(value);
     }
-    if (total > 0) observations.push({ date, ndviMedian: median(valid), ndmiMedian: null, validPixels: valid.length, totalPixels: total, waterPixels: water, coverage: valid.length / total });
-  }
+    if (total > 0) {
+      return { date, ndviMedian: median(valid), ndmiMedian: null, validPixels: valid.length, totalPixels: total, waterPixels: water, coverage: valid.length / total };
+    }
+    return null;
+  });
+
+  const observations: ObservationSummary[] = results.filter(
+    (r): r is ObservationSummary => r !== null && !(r instanceof Error),
+  );
   return { observations } as T;
 }
 
@@ -364,10 +426,10 @@ async function readEcostressResults<T>(kind: "ecostress-lst" | "ecostress-et", t
     if (!parsed?.date || !wanted.has(parsed.layer)) continue;
     byDate.set(parsed.date, { ...(byDate.get(parsed.date) ?? {}), [parsed.layer]: file });
   }
-  const observations: EcostressObservation[] = [];
-  for (const date of [...byDate.keys()].sort()) {
+  const dates = [...byDate.keys()].sort();
+  const results = await pool(dates, 6, async (date): Promise<EcostressObservation | null> => {
     const row = byDate.get(date)!;
-    if (!row[valueLayer] || !row.cloud || !row.water || (kind === "ecostress-lst" && !row.QC)) continue;
+    if (!row[valueLayer] || !row.cloud || !row.water || (kind === "ecostress-lst" && !row.QC)) return null;
     const names = [valueLayer, uncertaintyLayer, "QC", "cloud", "water"].filter((name) => row[name]);
     const rasters = await Promise.all(names.map(async (name) => [name, await readGeoTiff(await downloadFile(taskId, row[name].file_id, opts))] as const));
     const map = Object.fromEntries(rasters);
@@ -391,7 +453,50 @@ async function readEcostressResults<T>(kind: "ecostress-lst" | "ecostress-et", t
       valid.push(kind === "ecostress-lst" ? kelvinToCelsius(values[i]!) : values[i]!);
       if (uncertainty[i] !== null && uncertainty[i] !== undefined) errors.push(uncertainty[i]!);
     }
-    observations.push({ date, median: median(valid), medianUncertainty: median(errors), validPixels: valid.length, totalPixels: total });
-  }
+    return { date, median: median(valid), medianUncertainty: median(errors), validPixels: valid.length, totalPixels: total };
+  });
+
+  const observations: EcostressObservation[] = results.filter(
+    (r): r is EcostressObservation => r !== null && !(r instanceof Error),
+  );
   return { observations } as T;
+}
+
+async function readEcostressMetResults<T>(taskId: string, files: BundleFile[], opts: ClientOptions): Promise<T> {
+  const wanted = new Set(["Ta", "RH", "cloud", "water"]);
+  const byDate = new Map<string, Record<string, BundleFile>>();
+  for (const file of files) {
+    const parsed = parseBundleFileName(file.file_name);
+    if (!parsed?.date || !wanted.has(parsed.layer)) continue;
+    byDate.set(parsed.date, { ...(byDate.get(parsed.date) ?? {}), [parsed.layer]: file });
+  }
+  const results = await pool([...byDate.keys()].sort(), 6, async (date): Promise<EcostressMetObservation | null> => {
+    const row = byDate.get(date)!;
+    if (!row.Ta || !row.RH || !row.cloud || !row.water) return null;
+    const rasters = await Promise.all(
+      ["Ta", "RH", "cloud", "water"].map(async (name) => [name, await readGeoTiff(await downloadFile(taskId, row[name].file_id, opts))] as const),
+    );
+    const map = Object.fromEntries(rasters);
+    const temperature = rasterToPhysical(map.Ta, "ECO_L3T_MET.002", "Ta", "scaled");
+    const humidity = rasterToPhysical(map.RH, "ECO_L3T_MET.002", "RH", "scaled");
+    const count = Math.min(temperature.length, humidity.length, map.cloud.values.length, map.water.values.length);
+    const validTemperature: number[] = [];
+    const validHumidity: number[] = [];
+    let total = 0;
+    for (let i = 0; i < count; i++) {
+      if (temperature[i] === null && humidity[i] === null) continue;
+      total++;
+      if (!ecostressClear(Number(map.cloud.values[i]), Number(map.water.values[i]))) continue;
+      if (temperature[i] !== null) validTemperature.push(temperature[i]!);
+      if (humidity[i] !== null) validHumidity.push(humidity[i]! * 100);
+    }
+    return {
+      date,
+      airTemperatureC: median(validTemperature),
+      relativeHumidityPct: median(validHumidity),
+      validPixels: Math.max(validTemperature.length, validHumidity.length),
+      totalPixels: total,
+    };
+  });
+  return { observations: results.filter((r): r is EcostressMetObservation => r !== null && !(r instanceof Error)) } as T;
 }

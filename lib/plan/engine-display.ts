@@ -3,6 +3,7 @@ import { BASELINE, type EngineData, type SourceStatus } from "../engine/data";
 import { provenanceLine, type DerivedIndicator } from "../evidence/indicator";
 import { copy as copyEn } from "../copy/en";
 import { copyMy } from "../copy/my";
+import { CLEAR_MARGIN, scoresTied } from "../engine/mcda";
 import type { Field, Rotation } from "../types";
 import type { RegionalPreviewResult } from "./regional-preview";
 
@@ -121,6 +122,21 @@ function displayOption(option: EvaluatedOption, kind: DisplayOption["kind"], dat
   };
 }
 
+/**
+ * The two alternatives to show: the two best placed. When the second place is nearly level with a lower-placed
+ * option that is the lowest-input or lowest-risk choice, and neither shown option is one, that one is shown instead,
+ * so the farmer sees a spread of choices and not two close variations. A real lead is never overridden.
+ */
+export function pickShown(pool: EvaluatedOption[], ranking: ComparisonResult["mcda"]["ranking"]): EvaluatedOption[] {
+  const top = pool.slice(0, 2);
+  if (top.length < 2 || pool.length < 3 || top.some((o) => o.roles?.length)) return top;
+  const score = (o: EvaluatedOption) => ranking.find((r) => r.rotationId === o.id)?.score;
+  const secondScore = score(top[1]);
+  if (secondScore === undefined) return top;
+  const swap = pool.slice(2).find((o) => o.roles?.length && (score(o) ?? -Infinity) >= secondScore - CLEAR_MARGIN);
+  return swap ? [top[0], swap] : top;
+}
+
 /** Read the engine's result; never calculate a scientific score or fill a missing metric here. */
 export function adaptComparison(input: DisplayInput): ComparisonDisplay {
   const t = textFor(input.locale);
@@ -146,11 +162,12 @@ export function adaptComparison(input: DisplayInput): ComparisonDisplay {
   const rankPosition = new Map(comparison.mcda.ranking.map((r, index) => [r.rotationId, index]));
   const completeAlternatives = alternatives.filter((o) => !partialIds.has(o.id) && rankedIds.has(o.id))
     .sort((a, b) => (rankPosition.get(a.id) ?? Infinity) - (rankPosition.get(b.id) ?? Infinity));
-  const selected = (completeAlternatives.length >= 2 ? completeAlternatives : alternatives).slice(0, 2);
+  const pool = completeAlternatives.length >= 2 ? completeAlternatives : alternatives;
+  const selected = pickShown(pool, comparison.mcda.ranking);
   const options = [displayOption(comparison.current, "current", data, t), ...selected.map((o) => displayOption(o, "alternative", data, t))];
   const ranking = comparison.mcda.ranking;
-  // At the precision presented to farmers, effectively equal scores carry no first-place badge.
-  const tiedFirst = ranking.length > 1 && ranking[0].score.toFixed(2) === ranking[1].score.toFixed(2);
+  // Scores inside the tie margin carry no first-place badge (the old rule, equal at two decimals, depended on rounding).
+  const tiedFirst = ranking.length > 1 && scoresTied(ranking[0].score, ranking[1].score);
   const replay = { ...baseline };
   const frame = t.frame(baseline.completeYears, expectedYears, BASELINE.startYear, BASELINE.endYear);
   const common = {

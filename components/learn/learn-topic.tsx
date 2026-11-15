@@ -51,20 +51,20 @@ export function LearnTopicView({ topicId }: { topicId: string }) {
 
   return (
     <article className="flex flex-col gap-5">
-      <Link href="/data" className="inline-flex min-h-tap items-center gap-1 self-start text-label text-field">
+      <Link href="/data" className="inline-flex min-h-tap items-center gap-1 self-start text-body-sm font-medium text-field">
         <span aria-hidden>‹</span> {ui.back}
       </Link>
 
       <header className="flex flex-col gap-2">
-        <p className="m-0 text-source text-ink-muted">{pick(theme.title, locale)}</p>
+        <p className="m-0 text-body-sm text-ink-muted">{pick(theme.title, locale)}</p>
         <h1 className="m-0 text-title text-ink sm:text-display">{pick(topic.question, locale)}</h1>
         <p className="m-0 max-w-measure text-callout text-ink">{pick(topic.intro, locale)}</p>
       </header>
 
       {topic.terms.length > 0 ? (
         <section aria-labelledby="terms-title" className="flex flex-col gap-2">
-          <h2 id="terms-title" className="m-0 text-source text-ink-muted">{ui.terms}</h2>
-          {locale === "my" ? <p className="m-0 text-source text-ink-tertiary">{ui.englishOnly}</p> : null}
+          <h2 id="terms-title" className="m-0 text-body-sm text-ink-muted">{ui.terms}</h2>
+          {locale === "my" ? <p className="m-0 text-body-sm text-ink-muted">{ui.englishOnly}</p> : null}
           <div className="flex flex-col gap-2">
             {topic.terms.map((term) => {
               const body = glossaryBody(term) ?? "";
@@ -93,11 +93,11 @@ export function LearnTopicView({ topicId }: { topicId: string }) {
 
       {topic.indicators.length > 0 ? (
         <section aria-labelledby="indicators-title" className="flex flex-col gap-2">
-          <h2 id="indicators-title" className="m-0 text-source text-ink-muted">{ui.indicators}</h2>
+          <h2 id="indicators-title" className="m-0 text-body-sm text-ink-muted">{ui.indicators}</h2>
           <Panel as="ul" className="m-0 list-none divide-y divide-line p-0">
             {topic.indicators.map((id) => (
               <li key={id} className="flex flex-col gap-1 px-4 py-3">
-                <span className="text-label text-ink">{INDICATOR_LABELS[id] ?? id}</span>
+                <span className="text-body-sm text-ink">{INDICATOR_LABELS[id] ?? id}</span>
                 <span className="text-body-sm text-ink-muted">{ui.indicatorNote(INDICATOR_LABELS[id] ?? id)}</span>
               </li>
             ))}
@@ -111,10 +111,10 @@ export function LearnTopicView({ topicId }: { topicId: string }) {
 
       {related.length > 0 ? (
         <section aria-labelledby="related-title" className="flex flex-col gap-2">
-          <h2 id="related-title" className="m-0 text-source text-ink-muted">{ui.related}</h2>
+          <h2 id="related-title" className="m-0 text-body-sm text-ink-muted">{ui.related}</h2>
           <Panel as="div" className="divide-y divide-line">
             {related.map((t) => (
-              <Link key={t.id} href={`/data/${t.id}`} className="flex min-h-tap items-center justify-between gap-3 px-4 py-2 text-label text-ink">
+              <Link key={t.id} href={`/data/${t.id}`} className="flex min-h-tap items-center justify-between gap-3 px-4 py-2 text-body-sm text-ink">
                 <span className="min-w-0 break-words">{pick(t.question, locale)}</span>
                 <span aria-hidden className="shrink-0 text-ink-muted">›</span>
               </Link>
@@ -123,7 +123,7 @@ export function LearnTopicView({ topicId }: { topicId: string }) {
         </section>
       ) : null}
 
-      <p className="m-0 text-source text-ink-tertiary">{ui.origin}</p>
+      <p className="m-0 text-body-sm text-ink-muted">{ui.origin}</p>
     </article>
   );
 }
@@ -131,7 +131,7 @@ export function LearnTopicView({ topicId }: { topicId: string }) {
 function SupportingInfo({ topic, ui }: { topic: LearnTopic; ui: (typeof UI)["en"] | (typeof UI)["my"] }) {
   return (
     <div className="flex flex-col gap-2 px-4 pb-4">
-      <p className="m-0 text-source text-ink-muted">{ui.datasets}</p>
+      <p className="m-0 text-body-sm text-ink-muted">{ui.datasets}</p>
       {topic.sources.length > 0 ? (
         <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
           {topic.sources.map((s) => (

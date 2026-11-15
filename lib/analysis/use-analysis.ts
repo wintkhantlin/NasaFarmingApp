@@ -25,6 +25,8 @@ export interface FieldAnalysis {
   showingCache: boolean;
   /** IMERG or AppEEARS are still being retrieved. */
   retrieving: boolean;
+  /** Field-level satellite vegetation imagery check (HLS / Landsat / MODIS) is still pending. */
+  satelliteImageryPending: boolean;
   /** The first check has been running for more than SLOW_AFTER_MS, so screens can say it is normal to wait. */
   slow: boolean;
   retry: () => void;
@@ -36,15 +38,16 @@ const MAX_POLLS = 100;
 export const SLOW_AFTER_MS = 8_000;
 
 /**
- * Adaptive polling delay: starts snappy at 3s, backoffs to 5s, 8s, 12s, capped at 15s.
+ * Adaptive polling delay: starts fast at 1s for immediate responsiveness as background satellite checks finish,
+ * gently scaling to 2s, 3.5s, 5s, capped at 8s.
  * Reduces server load while maintaining fast responsiveness when jobs finish.
  */
 function adaptivePollInterval(n: number): number {
-  if (n <= 1) return 3_000;
-  if (n <= 3) return 5_000;
-  if (n <= 6) return 8_000;
-  if (n <= 10) return 12_000;
-  return 15_000;
+  if (n <= 2) return 1_000;
+  if (n <= 5) return 2_000;
+  if (n <= 8) return 3_500;
+  if (n <= 12) return 5_000;
+  return 8_000;
 }
 
 /**
@@ -194,7 +197,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
         setRemote(json);
         void setCachedRemote(id!, json);
 
-        const pending = [json.smap, json.hls, json.srtm, json.modis, json.ecostressLst, json.ecostressEt].some((s) => s.status === "pending");
+        const pending = [json.smap, json.hls, json.srtm, json.modis, json.ecostressLst, json.ecostressEt, json.ecostressMet].some((s) => s?.status === "pending");
         if (pending && pollCount++ < MAX_POLLS) {
           const delay = adaptivePollInterval(pollCount);
           timer = setTimeout(() => void tick(), delay);
@@ -208,7 +211,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
 
     function handleVisibility() {
       if (document.visibilityState === "visible" && mounted) {
-        const pending = [remoteRef.current?.smap, remoteRef.current?.hls, remoteRef.current?.srtm, remoteRef.current?.modis, remoteRef.current?.ecostressLst, remoteRef.current?.ecostressEt].some((s) => s?.status === "pending");
+        const pending = [remoteRef.current?.smap, remoteRef.current?.hls, remoteRef.current?.srtm, remoteRef.current?.modis, remoteRef.current?.ecostressLst, remoteRef.current?.ecostressEt, remoteRef.current?.ecostressMet].some((s) => s?.status === "pending");
         if (pending) {
           if (timer) clearTimeout(timer);
           void tick();
@@ -234,7 +237,9 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
 
   const engineData = useMemo(() => (field ? buildEngineData(field, conditions, remote) : null), [field, conditions, remote]);
   const retrieving =
-    conditions?.imerg?.status === "pending" || [remote?.smap, remote?.hls, remote?.srtm, remote?.modis, remote?.ecostressLst, remote?.ecostressEt].some((s) => s?.status === "pending");
+    conditions?.imerg?.status === "pending" || [remote?.smap, remote?.hls, remote?.srtm, remote?.modis, remote?.ecostressLst, remote?.ecostressEt, remote?.ecostressMet].some((s) => s?.status === "pending");
+  const satelliteImageryPending =
+    remote !== null && (remote.hls?.status === "pending" || remote.modis?.status === "pending");
 
   return {
     phase,
@@ -243,6 +248,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
     engineData,
     showingCache,
     retrieving,
+    satelliteImageryPending,
     slow,
     retry: () => {
       setPhase("loading");

@@ -1,5 +1,5 @@
 {
- "checkedOn": "2026-11-14",
+ "checkedOn": "2026-11-15",
  "products": {
   "HLSL30.020": {
    "metadataUrl": "https://appeears.earthdatacloud.nasa.gov/api/product/HLSL30.020",
@@ -1679,6 +1679,71 @@
      "ValidMin": 0.0,
      "ValidMax": 1.0,
      "IsQA": false,
+     "QualityLayers": "",
+     "QualityProductAndVersion": "",
+     "XSize": 1568,
+     "YSize": 1568
+    }
+   }
+  },
+  "ECO_L3T_MET.002": {
+   "metadataUrl": "https://appeears.earthdatacloud.nasa.gov/api/product/ECO_L3T_MET.002",
+   "layers": {
+    "Ta": {
+     "Description": "Near-surface air temperature",
+     "Units": "°C",
+     "DataType": "float32",
+     "FillValue": "NaN",
+     "ScaleFactor": 1,
+     "AddOffset": 0,
+     "ValidMin": "",
+     "ValidMax": "",
+     "IsQA": false,
+     "QualityLayers": "",
+     "QualityProductAndVersion": "",
+     "XSize": 1568,
+     "YSize": 1568
+    },
+    "RH": {
+     "Description": "Relative Humidity",
+     "Units": "Ratio",
+     "DataType": "float32",
+     "FillValue": "NaN",
+     "ScaleFactor": 1,
+     "AddOffset": 0,
+     "ValidMin": 0.0,
+     "ValidMax": 1.0,
+     "IsQA": false,
+     "QualityLayers": "",
+     "QualityProductAndVersion": "",
+     "XSize": 1568,
+     "YSize": 1568
+    },
+    "cloud": {
+     "Description": "Cloud mask",
+     "Units": "1 = Cloud",
+     "DataType": "uint8",
+     "FillValue": 255,
+     "ScaleFactor": 1,
+     "AddOffset": 0,
+     "ValidMin": 0.0,
+     "ValidMax": 1.0,
+     "IsQA": true,
+     "QualityLayers": "",
+     "QualityProductAndVersion": "",
+     "XSize": 1568,
+     "YSize": 1568
+    },
+    "water": {
+     "Description": "Water mask",
+     "Units": "1 = Water",
+     "DataType": "uint8",
+     "FillValue": 255,
+     "ScaleFactor": 1,
+     "AddOffset": 0,
+     "ValidMin": 0.0,
+     "ValidMax": 1.0,
+     "IsQA": true,
      "QualityLayers": "",
      "QualityProductAndVersion": "",
      "XSize": 1568,

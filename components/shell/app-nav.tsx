@@ -40,23 +40,23 @@ export function TabBar() {
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-1 text-center text-source font-medium no-underline transition-colors active:bg-surface-sunken",
-                  active ? "text-field" : "text-ink-muted",
+                  "relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-1 text-center text-body-sm no-underline transition-[color,transform] active:bg-surface-sunken active:scale-[0.98]",
+                  active ? "bg-field-soft font-bold text-field" : "font-medium text-ink-muted",
                 )}
               >
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute inset-x-6 top-0 h-0.5 rounded-b-pill bg-field transition-opacity",
+                    "absolute inset-x-8 top-0 h-0.75 rounded-b-pill bg-field transition-opacity",
                     active ? "opacity-100" : "opacity-0",
                   )}
                 />
                 <span className="relative inline-flex items-center justify-center">
-                  <Icon name={l.icon} size={22} strokeWidth={active ? 2.3 : 1.8} />
+                  <Icon name={l.icon} size={24} strokeWidth={active ? 2.4 : 1.8} />
                   {l.href === "/" && openQuestionsCount > 0 ? (
                     <span
                       aria-label={text.openQuestions(openQuestionsCount > 9 ? "9+" : String(openQuestionsCount))}
-                      className="absolute -top-1 -right-2.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-unknown-border px-1 font-mono text-[9px] font-bold text-white leading-none shadow-xs"
+                      className="absolute -top-1 -right-2.5 grid h-5 min-w-5 place-items-center rounded-pill bg-unknown-border px-1 font-mono text-[11px] font-bold text-white leading-none shadow-xs"
                     >
                       {openQuestionsCount > 9 ? "9+" : openQuestionsCount}
                     </span>
@@ -88,11 +88,11 @@ export function HeaderNav() {
             href={l.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-tap items-center gap-2 rounded-md px-3 text-label no-underline transition-colors",
-              active ? "bg-field-soft text-field" : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
+              "inline-flex min-h-tap items-center gap-2 rounded-md px-3 text-label no-underline transition-[background-color,color,border-color]",
+              active ? "border border-field/20 bg-field-soft font-semibold text-field" : "border border-transparent text-ink-muted hover:bg-surface-sunken hover:text-ink",
             )}
           >
-            <Icon name={l.icon} />
+            <Icon name={l.icon} size={20} />
             {text[l.label]}
           </Link>
         );
@@ -265,8 +265,8 @@ function ChoiceRow<T extends string>({
               key={o.value}
               lang={o.lang}
               className={cn(
-                "flex min-h-tap cursor-pointer items-center gap-2 rounded-md border px-3 text-label text-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-field/40",
-                value === o.value ? "border-field bg-field-soft" : "border-line-strong bg-surface-raised active:bg-surface-sunken",
+                "flex min-h-tap cursor-pointer items-center gap-2 rounded-md border px-3 text-label text-ink transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-field/40",
+                value === o.value ? "border-field bg-field-soft font-medium shadow-xs" : "border-line-strong/80 bg-surface-raised hover:border-ink/40 active:bg-surface-sunken",
               )}
             >
               <input

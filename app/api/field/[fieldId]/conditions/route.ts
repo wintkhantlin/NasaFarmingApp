@@ -5,6 +5,9 @@ import { dailyEt0 } from "@/lib/engine/water";
 import { imergBackfill } from "@/lib/server/imerg-backfill";
 import { loadSoil } from "@/lib/server/soil";
 import { loadWeather } from "@/lib/server/weather";
+import { getOfflineSoil, getOfflineWeather } from "@/lib/server/offline-dataset";
+
+export const maxDuration = 60;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -28,10 +31,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ fiel
     loadWeather(lat, lng),
     loadSoil(lat, lng),
   ]);
-  const weather = weatherResult.weather;
-  const soil = soilResult.soil;
-  if (soilResult.error) console.warn("SoilGrids fetch failed:", soilResult.error);
-  if (weatherResult.error) console.warn("NASA POWER fetch failed:", weatherResult.error);
+  let weather = weatherResult.weather;
+  let soil = soilResult.soil;
+  let weatherRetrievedAt = weatherResult.retrievedAt;
+  let soilRetrievedAt = soilResult.retrievedAt;
+
+  if (!weather) {
+    const offlineWeather = await getOfflineWeather(lat, lng);
+    if (offlineWeather) {
+      weather = offlineWeather;
+      weatherRetrievedAt = new Date().toISOString();
+    }
+  }
+
+  if (!soil) {
+    const offlineSoil = await getOfflineSoil(lat, lng);
+    if (offlineSoil) {
+      soil = offlineSoil;
+      soilRetrievedAt = new Date().toISOString();
+    }
+  }
+
+  if (soilResult.error && !soil) console.warn("SoilGrids fetch failed:", soilResult.error);
+  if (weatherResult.error && !weather) console.warn("NASA POWER fetch failed:", weatherResult.error);
 
   const imerg = await imergBackfill(lat, lng, { start: `${BASELINE.startYear}-01-01`, end: `${BASELINE.endYear}-12-31` });
 
@@ -69,7 +91,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ fiel
       fillValue: weather?.meta.fillValue ?? -999,
       timeStandard: weather?.meta.timeStandard ?? null,
       sources: weather?.meta.sources ?? [],
-      retrievedAt: weatherResult.retrievedAt,
+      retrievedAt: weatherRetrievedAt,
       start: weather?.dates[0] ?? null,
       end: weather?.dates[weather.dates.length - 1] ?? null,
       elevationM: weather?.elevationM ?? null,
@@ -85,8 +107,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ fiel
       error: imerg.error,
     },
     sourceWarnings: [
-      ...(weatherResult.error ? ["NASA POWER history could not be retrieved; temperature and rainfall are unknown."] : []),
-      ...(soilResult.error ? ["SoilGrids map data could not be retrieved; estimated soil pH is unknown."] : soil === null ? ["SoilGrids returned no usable soil values at this location; estimated soil pH is unknown."] : []),
+      ...(weatherResult.error && !weather ? ["NASA POWER history could not be retrieved; temperature and rainfall are unknown."] : []),
+      ...(soilResult.error && !soil ? ["SoilGrids map data could not be retrieved; estimated soil pH is unknown."] : soil === null ? ["SoilGrids returned no usable soil values at this location; estimated soil pH is unknown."] : []),
       ...(imerg.status === "unconfigured" ? ["IMERG needs an Earthdata token; NASA POWER rainfall remains the historical source when available."] : []),
       ...(imerg.status === "unavailable" ? ["IMERG rainfall could not be retrieved; NASA POWER rainfall remains the historical source when available."] : []),
       ...(imerg.status === "pending" ? ["IMERG rainfall is still being retrieved; NASA POWER rainfall remains the historical source for now."] : []),

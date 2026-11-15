@@ -46,10 +46,10 @@ export function WhatIfBanner({ scenario, recorded, onReset }: { scenario: Scenar
       <p className="m-0 text-headline text-ink">{t.activeTitle}</p>
       <p className="m-0 text-body text-ink">{describeScenario(scenario, recorded) || t.neutral}. {t.intro}</p>
       <div className="flex flex-wrap gap-x-4">
-        <a href="#what-if" className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
+        <a href="#what-if" className="inline-flex min-h-tap items-center text-body-sm font-medium text-field underline hover:text-ink">
           {t.activeAdjust}
         </a>
-        <button type="button" onClick={onReset} className="min-h-tap cursor-pointer border-0 bg-transparent p-0 text-label text-field underline hover:text-ink">
+        <button type="button" onClick={onReset} className="min-h-tap cursor-pointer border-0 bg-transparent p-0 text-body-sm font-medium text-field underline hover:text-ink">
           {t.reset}
         </button>
       </div>
@@ -57,7 +57,7 @@ export function WhatIfBanner({ scenario, recorded, onReset }: { scenario: Scenar
   );
 }
 
-const pill = "min-h-tap cursor-pointer rounded-pill px-3 py-1.5 text-label font-medium transition-colors";
+const pill = "min-h-tap cursor-pointer rounded-pill px-3 py-1.5 text-body-sm font-medium transition-colors";
 const pillOn = "bg-field text-on-field";
 const pillOff = "border border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink";
 
@@ -83,7 +83,7 @@ function TestSlider({
   const id = useId();
   return (
     <div className="flex flex-col gap-0.5">
-      <p id={id} className="flex justify-between gap-3 text-label text-ink">
+      <p id={id} className="flex justify-between gap-3 text-body-sm font-medium text-ink">
         {label}
         <span className={cn("tabular", value === 0 ? "text-ink-muted" : "font-medium")}>{valueText}</span>
       </p>
@@ -97,7 +97,7 @@ function TestSlider({
         marks={min < 0 ? [{ value: 0 }] : [{ value: min }]}
         onChange={(_, v) => onChange(v as number)}
       />
-      <div className="flex justify-between text-source text-ink-muted" aria-hidden>
+      <div className="flex justify-between text-body-sm text-ink-muted" aria-hidden>
         <span>{ends[0]}</span>
         <span>{ends[1]}</span>
       </div>
@@ -108,7 +108,7 @@ function TestSlider({
 function Cells({ strip, label, tone }: { strip: StripYear[]; label: string; tone: "before" | "after" }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-24 shrink-0 text-source text-ink-muted">{label}</span>
+      <span className="w-24 shrink-0 text-body-sm text-ink-muted">{label}</span>
       <ol role="img" aria-label={label} className="m-0 flex min-w-0 flex-1 list-none flex-wrap gap-1 p-0">
         {strip.map((y) => (
           <li
@@ -143,7 +143,7 @@ function OptionRow({ o, best }: { o: WhatIfOption; best: boolean }) {
   return (
     <li className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 flex-1 text-label text-ink">{o.label}</span>
+        <span className="min-w-0 flex-1 text-body-sm font-medium text-ink">{o.label}</span>
         {o.isYours ? <StatusTag tag="yours" /> : null}
         {best ? <StatusTag tag="best-match" /> : null}
       </div>
@@ -206,7 +206,7 @@ function Result({ result, pending }: { result: WhatIfResult; pending: boolean })
             {l}
           </p>
         ))}
-        {pending ? <p className="m-0 text-source text-ink-muted">{t.updating}</p> : null}
+        {pending ? <p className="m-0 text-body-sm text-ink-muted">{t.updating}</p> : null}
       </div>
       <ol className="m-0 flex list-none flex-col gap-2 p-0">
         {order.map((o) => (
@@ -243,7 +243,7 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
         <p className="m-0 max-w-measure text-body-sm text-ink-muted">{t.intro}</p>
 
         <div className="flex flex-col gap-2">
-          <span className="text-label text-ink" id="whatif-quick">
+          <span className="text-body-sm font-medium text-ink" id="whatif-quick">
             {t.quick}
           </span>
           <div role="group" aria-labelledby="whatif-quick" className="flex flex-wrap gap-2">
@@ -266,7 +266,7 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
         </div>
 
         <div className="flex flex-col gap-4">
-          <span className="text-label text-ink-muted">{t.custom}</span>
+          <span className="text-body-sm font-medium text-ink-muted">{t.custom}</span>
           <TestSlider
             label={t.rain}
             value={scenario.rainPct}
@@ -294,7 +294,7 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-label text-ink" id="whatif-water">
+          <span className="text-body-sm font-medium text-ink" id="whatif-water">
             {t.water}
           </span>
           <div role="group" aria-labelledby="whatif-water" className="flex flex-wrap gap-2">
@@ -319,7 +319,7 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
           <button
             type="button"
             onClick={() => onChange(NO_SCENARIO)}
-            className="min-h-tap cursor-pointer self-start border-0 bg-transparent p-0 text-label text-field underline hover:text-ink"
+            className="min-h-tap cursor-pointer self-start border-0 bg-transparent p-0 text-body-sm font-medium text-field underline hover:text-ink"
           >
             {t.reset}
           </button>
@@ -334,7 +334,7 @@ export function WhatIf({ scenario, onChange, result, pending, recorded }: WhatIf
           <p className="m-0 text-body-sm text-ink-muted">{t.neutral}</p>
         )}
 
-        <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-source text-ink-muted">
+        <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
           {t.notes.map((n) => (
             <li key={n}>{n}</li>
           ))}

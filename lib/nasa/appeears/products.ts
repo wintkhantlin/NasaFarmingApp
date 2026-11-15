@@ -13,7 +13,8 @@ export type ProductId =
   | "MOD13Q1.061"
   | "SRTMGL1_NC.003"
   | "ECO_L2T_LSTE.002"
-  | "ECO_L3T_JET.002";
+  | "ECO_L3T_JET.002"
+  | "ECO_L3T_MET.002";
 
 export interface LayerMeta {
   Description: string;
@@ -68,6 +69,7 @@ export const PRODUCT_DOI: Record<ProductId, string | null> = {
   "SRTMGL1_NC.003": "10.5067/MEASURES/SRTM/SRTMGL1_NC.003",
   "ECO_L2T_LSTE.002": "10.5067/ECOSTRESS/ECO_L2T_LSTE.002",
   "ECO_L3T_JET.002": "10.5067/ECOSTRESS/ECO_L3T_JET.002",
+  "ECO_L3T_MET.002": "10.5067/ECOSTRESS/ECO_L3T_MET.002",
 };
 
 /** Layers each task asks for. First two SMAP layers are the minimum. */
@@ -87,3 +89,4 @@ export const MODIS_LAYERS = [
 ] as const;
 export const ECOSTRESS_LST_LAYERS = ["LST", "LST_err", "QC", "cloud", "water"] as const;
 export const ECOSTRESS_ET_LAYERS = ["ETdaily", "ETinstUncertainty", "cloud", "water"] as const;
+export const ECOSTRESS_MET_LAYERS = ["Ta", "RH", "cloud", "water"] as const;

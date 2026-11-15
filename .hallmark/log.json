@@ -1,0 +1,18 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "Field Shift locked",
+  "signature": "season replay scoreboard",
+  "sections": [
+   "answer with goal control",
+   "scoreboard",
+   "still to check",
+   "rotation comparison table"
+  ],
+  "prompt": "crop rotation comparison for smallholder farmers",
+  "date": "2026-11-15"
+ }
+]

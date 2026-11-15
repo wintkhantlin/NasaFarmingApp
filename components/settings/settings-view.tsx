@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { downloadJson } from "@/lib/download";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { useAppCopy, useLocaleStore, type AreaUnit, type Locale } from "@/lib/store/locale-store";
@@ -98,19 +99,19 @@ export function SettingsView() {
         <p className="max-w-measure text-body text-ink-muted">Choose how Field Shift is shown and keep a private copy of work saved on this phone.</p>
       </header>
 
-      <section aria-labelledby="language-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
-        <h2 id="language-settings" className="text-headline text-ink">{bilingual.language}</h2>
+      <section aria-labelledby="language-settings" className="flex flex-col gap-3 border-t border-line pt-5">
+        <h2 id="language-settings" className="flex items-center gap-2 text-headline text-ink"><Icon name="language" size={22} className="text-field" />{bilingual.language}</h2>
         <OptionGroup<Locale> label="Display language" value={locale} options={[['en', 'English'], ['my', 'မြန်မာ']]} onChange={setLocale} />
-        <p className="m-0 text-source text-ink-muted">Myanmar farmer-facing words need agricultural language review. English remains available if text is hard to read.</p>
+        <p className="m-0 text-body-sm text-ink-muted">Myanmar farmer-facing words need agricultural language review. English remains available if text is hard to read.</p>
       </section>
 
-      <section aria-labelledby="unit-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
-        <h2 id="unit-settings" className="text-headline text-ink">{bilingual.units}</h2>
+      <section aria-labelledby="unit-settings" className="flex flex-col gap-3 border-t border-line pt-5">
+        <h2 id="unit-settings" className="flex items-center gap-2 text-headline text-ink"><Icon name="stack" size={22} className="text-field" />{bilingual.units}</h2>
         <OptionGroup<AreaUnit> label="Show field area in" value={areaUnit} options={[['ha', 'Hectares'], ['acre', 'Acres']]} onChange={setAreaUnit} />
       </section>
 
-      <section aria-labelledby="backup-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
-        <h2 id="backup-settings" className="text-headline text-ink">{bilingual.backup}</h2>
+      <section aria-labelledby="backup-settings" className="flex flex-col gap-3 border-t border-line pt-5">
+        <h2 id="backup-settings" className="flex items-center gap-2 text-headline text-ink"><Icon name="download" size={22} className="text-field" />{bilingual.backup}</h2>
         <p className="m-0 max-w-measure text-body-sm text-ink-muted">A backup has your fields, saved rotations and your Plan draft. Restoring adds them back and replaces any that match. Keep the file private.</p>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2">
           <Button variant="secondary" onClick={() => void exportData()} disabled={busy !== null} icon="download" className="w-full sm:w-auto justify-center">
@@ -121,12 +122,12 @@ export function SettingsView() {
           </Button>
           <input ref={restoreInput} type="file" accept=".json,application/json" className="sr-only" aria-label={t.home.chooseBackup} onChange={(event) => void restore(event.target.files?.[0])} />
         </div>
-        {lastBackupAt ? <p className="m-0 text-source text-ink-muted">{t.home.lastBackupAt(lastBackupAt)}</p> : null}
+        {lastBackupAt ? <p className="m-0 text-body-sm text-ink-muted">{t.home.lastBackupAt(lastBackupAt)}</p> : null}
         {message ? <p role="status" className="m-0 text-body-sm text-ink-muted">{message}</p> : null}
       </section>
 
-      <section aria-labelledby="privacy-settings" className="flex flex-col gap-3 rounded-md bg-surface-sunken p-4 sm:p-5">
-        <h2 id="privacy-settings" className="text-headline text-ink">{bilingual.privacy}</h2>
+      <section aria-labelledby="privacy-settings" className="flex flex-col gap-3 border-t border-line pt-5">
+        <h2 id="privacy-settings" className="flex items-center gap-2 text-headline text-ink"><Icon name="private" size={22} className="text-field" />{bilingual.privacy}</h2>
         <ul className="m-0 flex max-w-measure list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
           <li>Field names, crop history and preferences stay on this phone. Clearing data on the phone, or sharing the phone, can expose or remove them.</li>
           <li>Location or field outlines may be sent to map and data providers only when a feature needs them. This settings page sends nothing.</li>
@@ -140,10 +141,11 @@ export function SettingsView() {
 function OptionGroup<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Array<[T, string]>; onChange: (value: T) => void }) {
   return (
     <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend className="text-body-sm text-ink-muted">{label}</legend>
+      <legend className="text-body-sm text-ink">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map(([key, text]) => (
-          <button key={key} type="button" aria-pressed={value === key} onClick={() => onChange(key)} className={buttonClass(value === key ? "primary" : "secondary", "min-h-tap")}>
+          <button key={key} type="button" aria-pressed={value === key} onClick={() => onChange(key)} className={buttonClass(value === key ? "primary" : "secondary", "min-h-12")}>
+            {value === key ? <Icon name="check" size={18} strokeWidth={2.8} /> : null}
             {text}
           </button>
         ))}

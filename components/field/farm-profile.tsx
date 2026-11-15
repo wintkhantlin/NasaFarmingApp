@@ -3,20 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FieldPageHeader } from "@/components/field/field-page-header";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { usePick } from "@/components/shell/use-pick";
+import { cn } from "@/lib/cn";
+import { regionShort, suggestedProfile } from "@/lib/plan/profile-defaults";
 import { Message } from "@/components/ui/message";
 import { Disclosure } from "@/components/ui/disclosure";
 import { clearDraft, readDraft, writeDraft } from "@/lib/store/form-drafts";
 import Checkbox from "@mui/material/Checkbox";
-import FormControlLabel from "@mui/material/FormControlLabel";
+import FormControlLabel, { type FormControlLabelProps } from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
-import TextField from "@mui/material/TextField";
+import TextField, { type TextFieldProps } from "@mui/material/TextField";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ActionBar } from "@/components/ui/action-bar";
-import { Icon } from "@/components/ui/icon";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { FlowNav } from "@/components/ui/flow-nav";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { copy as copyKeys } from "@/lib/copy/en";
@@ -24,7 +26,7 @@ import { useAppCopy } from "@/lib/store/locale-store";
 import { getCropById, strategyCrops, getRealWorldCropEconomics } from "@/lib/data/crops";
 import type { SoilProfile } from "@/lib/soil/soilgrids";
 import { SUB_CRITERION } from "@/lib/engine/mcda";
-import { PriorityOrder } from "@/components/field/priority-order";
+import { PriorityExplainer, PriorityTiles } from "@/components/field/priority-order";
 import { constraintsSchema, economicsSchema, prioritiesSchema, soilObservationSchema } from "@/lib/schemas/field";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
 import { ValidationError } from "@/lib/store/repository";
@@ -74,15 +76,14 @@ const SOIL_UNITS: Record<SoilProperty, string> = {
   "root-depth": "cm",
   nitrogen: "g/kg",
 };
-const IRRIGATION_KEYS = Object.keys(copyKeys.irrigation) as Irrigation[];
 
 /** Small status pill using the three words: You told us, We guessed, Not answered. */
 function SourceBadge({ kind, loading }: { kind: "yours" | "estimate" | "none"; loading?: boolean }) {
   const f = useAppCopy().profile.form;
-  if (loading) return <span className="inline-flex items-center gap-1 text-source text-ink-muted"><Icon name="satellite" size={14} />{f.badgeLoading}</span>;
-  if (kind === "yours") return <span className="inline-flex items-center gap-1 rounded bg-field-soft px-1.5 py-0.5 text-source font-medium text-field"><Icon name="done" size={14} />{f.badgeYours}</span>;
-  if (kind === "estimate") return <span className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-source font-medium text-ink-muted"><Icon name="estimate" size={14} />{f.badgeGuess}</span>;
-  return <span className="inline-flex items-center gap-1 text-source text-ink-muted"><Icon name="close" size={14} />{f.badgeNone}</span>;
+  if (loading) return <span className="inline-flex items-center gap-1 text-body-sm text-ink-muted"><Icon name="satellite" size={14} />{f.badgeLoading}</span>;
+  if (kind === "yours") return <span className="inline-flex items-center gap-1 rounded bg-field-soft px-1.5 py-0.5 text-body-sm font-medium text-field"><Icon name="done" size={14} />{f.badgeYours}</span>;
+  if (kind === "estimate") return <span className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-body-sm font-medium text-ink-muted"><Icon name="estimate" size={14} />{f.badgeGuess}</span>;
+  return <span className="inline-flex items-center gap-1 text-body-sm text-ink-muted"><Icon name="close" size={14} />{f.badgeNone}</span>;
 }
 
 const ECON_KEY = { yield: "yieldKgHa", price: "priceMmkPerKg", cost: "costMmkPerHa" } as const;
@@ -125,6 +126,9 @@ interface SoilDraftState {
   source: string;
 }
 
+type YoursKey = "priorities" | "water" | "labour" | "market";
+type YoursState = Record<YoursKey, boolean>;
+
 /** Everything the profile form holds, so unsaved answers can be carried across a remount. */
 interface ProfileDraft {
   order: PriorityId[];
@@ -142,6 +146,8 @@ interface ProfileDraft {
   equipment: string[];
   labour: "low" | "medium" | "high" | "";
   market: "poor" | "fair" | "good" | "";
+  /** Which of the four everyday questions the farmer has answered, so the rest stay marked "Suggested". */
+  yours: YoursState;
   preferred: string[];
   excluded: string[];
   winFrom: string;
@@ -160,8 +166,6 @@ interface ProfileDraft {
   soilDraft: SoilDraftState;
   econ: EconDraft[];
 }
-
-const LEGEND_KEY = "fieldshift.profile-legend.v1";
 
 /** Today as YYYY-MM-DD in the farmer's own time zone, used when a soil test has no date. */
 const today = () => {
@@ -206,7 +210,7 @@ function MonthDayField({ label, value, onChange }: { label: string; value: strin
     <div className="flex flex-col gap-1.5">
       <span className="text-label text-ink">{label}</span>
       <div className="grid grid-cols-2 gap-2">
-        <TextField
+        <Field
           select
           size="small"
           label={f.month}
@@ -222,8 +226,8 @@ function MonthDayField({ label, value, onChange }: { label: string; value: strin
               {m}
             </option>
           ))}
-        </TextField>
-        <TextField
+        </Field>
+        <Field
           size="small"
           label={f.day}
           type="number"
@@ -234,6 +238,106 @@ function MonthDayField({ label, value, onChange }: { label: string; value: strin
           slotProps={{ htmlInput: { min: 1, max: maxDay, inputMode: "numeric" } }}
         />
       </div>
+    </div>
+  );
+}
+
+/** A small text box that is still 44px tall, so it is easy to hit with a thumb. */
+function Field({ stack, ...props }: TextFieldProps & { stack?: boolean }) {
+  const id = useId();
+  const box = <TextField size="small" {...props} sx={{ "& .MuiInputBase-root": { minHeight: 44 }, ...props.sx }} />;
+  if (!stack) return box;
+  // A long question is written above the box, where it can wrap, instead of being cut short inside the border.
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <label htmlFor={id} className="text-body-sm font-medium text-ink">{props.label}</label>
+      <TextField size="small" {...props} id={id} label={undefined} sx={{ "& .MuiInputBase-root": { minHeight: 44 }, ...props.sx }} />
+    </div>
+  );
+}
+
+/** A checkbox or switch row whose whole line (at least 44px) is the tap target. */
+function TapLabel(props: FormControlLabelProps) {
+  return <FormControlLabel {...props} sx={{ minHeight: 44, ...props.sx }} />;
+}
+
+/**
+ * Says where an everyday answer came from: "Suggested for <place>" until the farmer changes it, then "Your answer".
+ * Always an icon and words, never colour alone.
+ */
+function AnswerLabel({ yours, place }: { yours: boolean; place: string }) {
+  const pick = usePick();
+  return yours ? (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-field-soft px-2 py-0.5 text-body-sm font-medium text-field">
+      <Icon name="done" size={16} />
+      {pick("Your answer", "သင့်အဖြေ")}
+    </span>
+  ) : (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded border border-line px-2 py-0.5 text-body-sm font-medium text-ink-muted">
+      <Icon name="estimate" size={16} />
+      {pick(`Suggested for ${place}`, `${place} အတွက် အကြံပြုထား`)}
+    </span>
+  );
+}
+
+/** Heading of one everyday question: icon and name on the left, where the answer came from on the right (wraps below on a phone). */
+function QuestionHead({ id, icon, title, hint, yours, place }: { id: string; icon: IconName; title: string; hint?: string; yours: boolean; place: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 id={id} className="m-0 inline-flex items-center gap-2 text-headline text-ink">
+          <Icon name={icon} size={22} className="shrink-0 text-field" />
+          {title}
+        </h2>
+        <AnswerLabel yours={yours} place={place} />
+      </div>
+      {hint ? <p className="m-0 text-body-sm text-ink-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+interface ChoiceOption<T extends string> {
+  value: T;
+  label: string;
+  /** One icon, or several to show "more" (for example one, two, three people). */
+  icons: IconName[];
+}
+
+/**
+ * Two or three big, exclusive choices as tiles: icon above the words, one row, full width.
+ * Each tile is at least 80px high and shows a tick when chosen, so the state is never colour alone.
+ */
+function ChoiceTiles<T extends string>({ labelledBy, value, onChange, options }: { labelledBy: string; value: T | ""; onChange: (v: T) => void; options: ChoiceOption<T>[] }) {
+  return (
+    <div role="radiogroup" aria-labelledby={labelledBy} className={cn("grid gap-2", options.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "relative flex min-h-20 min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border px-1.5 py-2.5 text-center transition-colors",
+              on ? "border-field bg-field-soft ring-1 ring-field" : "border-line-strong bg-surface-raised hover:bg-surface-sunken",
+            )}
+          >
+            <span className={cn("flex items-center justify-center gap-0.5", on ? "text-field" : "text-ink-muted")}>
+              {o.icons.map((name, i) => (
+                <Icon key={i} name={name} size={24} />
+              ))}
+            </span>
+            <span className="text-body-sm font-semibold leading-tight text-ink [overflow-wrap:anywhere]">{o.label}</span>
+            {on ? (
+              <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-pill bg-field text-on-field">
+                <Icon name="done" size={14} strokeWidth={3} />
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -283,17 +387,33 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
   const router = useRouter();
   const update = useFieldsStore((s) => s.update);
   const text = useAppCopy();
+  const pick = usePick();
   const t = text.profile;
   const f = t.form;
   const lim = text.limits;
+  // What a typical farmer in this region would answer, shown as "Suggested" until the farmer changes it.
+  const suggested = useMemo(() => suggestedProfile(field.region), [field.region]);
+  const place = pick(regionShort(field.region).en, regionShort(field.region).my);
   const [soilMap, setSoilMap] = useState<SoilProfile | null>(null);
   const [soilMapStatus, setSoilMapStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const p = field.priorities;
   // Answers typed on an earlier visit in this session (for example before going back to the previous step) win over the saved values.
   const draftKey = `profile:${field.id}`;
   const draft = readDraft<ProfileDraft>(draftKey);
-  const [order, setOrder] = useState<PriorityId[]>(() => draft?.order ?? [...(p?.order ?? []), ...PRIORITY_IDS.filter((x) => !p?.order.includes(x))]);
-  const [included, setIncluded] = useState<Set<PriorityId>>(() => new Set(draft ? draft.included : (p?.order ?? [])));
+  const savedOrder = p && p.order.length > 0 ? p.order : null;
+  const startOrder = savedOrder ?? suggested.priorities;
+  const [order, setOrder] = useState<PriorityId[]>(() => draft?.order ?? [...startOrder, ...PRIORITY_IDS.filter((x) => !startOrder.includes(x))]);
+  const [included, setIncluded] = useState<Set<PriorityId>>(() => new Set(draft ? draft.included : startOrder));
+  // An answer counts as "yours" once it was saved before or the farmer changes it here. Until then it is a regional suggestion.
+  const [yours, setYours] = useState<YoursState>(() =>
+    draft?.yours ?? {
+      priorities: savedOrder !== null,
+      water: field.constraints?.irrigation !== undefined,
+      labour: field.constraints?.labour !== undefined,
+      market: field.constraints?.marketAccess !== undefined,
+    },
+  );
+  const markYours = (key: YoursKey) => setYours((y) => (y[key] ? y : { ...y, [key]: true }));
   const [soilSub, setSoilSub] = useState<Set<SoilSub>>(() => new Set(draft ? draft.soilSub : (p?.soil ?? [])));
   const [incomeSub, setIncomeSub] = useState<Set<IncomeSub>>(() => new Set(draft ? draft.incomeSub : (p?.income ?? [])));
   const [irrigation, setIrrigation] = useState<Irrigation>(draft?.irrigation ?? field.constraints?.irrigation?.access ?? field.irrigation);
@@ -305,8 +425,8 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
   const [bundMm, setBundMm] = useState(draft?.bundMm ?? field.constraints?.paddy?.bundMm?.toString() ?? "");
   const [seepage, setSeepage] = useState(draft?.seepage ?? field.constraints?.paddy?.seepagePercolationMmDay?.toString() ?? "");
   const [equipment, setEquipment] = useState<Set<string>>(() => new Set(draft ? draft.equipment : (field.constraints?.equipment ?? [])));
-  const [labour, setLabour] = useState<"low" | "medium" | "high" | "">(draft?.labour ?? field.constraints?.labour ?? "");
-  const [market, setMarket] = useState<"poor" | "fair" | "good" | "">(draft?.market ?? field.constraints?.marketAccess ?? "");
+  const [labour, setLabour] = useState<"low" | "medium" | "high" | "">(draft?.labour ?? field.constraints?.labour ?? suggested.labour);
+  const [market, setMarket] = useState<"poor" | "fair" | "good" | "">(draft?.market ?? field.constraints?.marketAccess ?? suggested.market);
   const [preferred, setPreferred] = useState<string[]>(draft?.preferred ?? field.constraints?.preferredCropIds ?? []);
   const [excluded, setExcluded] = useState<string[]>(draft?.excluded ?? field.constraints?.excludedCropIds ?? []);
   const [winFrom, setWinFrom] = useState(draft?.winFrom ?? field.constraints?.plantingWindow?.from ?? "");
@@ -358,45 +478,28 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
     })),
   );
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  // True once something has changed since the last save. The save bar only shows then.
-  const [dirty, setDirty] = useState(draft !== undefined);
+  const errorRef = useRef<HTMLDivElement>(null);
   // The pump and paddy figures stay hidden until the farmer says they have a record.
-  const [pumpRecord, setPumpRecord] = useState(() => [pumpRate, pumpEff, pumpHours, depletionMm].some((v) => v !== ""));
+  const [pumpRecord, setPumpRecord] = useState(() => [pumpRate, pumpEff, pumpHours].some((v) => v !== ""));
   const [paddyRecord, setPaddyRecord] = useState(() => [bundMm, seepage].some((v) => v !== ""));
   // The extra sections start open only when the farmer already gave an answer in them.
   const [moreOpen] = useState(
     () =>
       equipment.size > 0 ||
-      market !== "" ||
       preferred.length > 0 ||
       excluded.length > 0 ||
       winFrom !== "" ||
       winTo !== "" ||
-      pumpRecord ||
+      depletionMm !== "" ||
       paddyRecord,
   );
+  const [waterOpen] = useState(() => irrigationMm !== "" || pumpRecord);
   const [fineOpen] = useState(() => ({ soil: soilSub.size > 0, income: incomeSub.size > 0 }));
   const [limitsOpen, setLimitsOpen] = useState(() => Object.values(asked).some(Boolean));
   // Soil fields stay folded behind one line until the farmer wants to give their own values.
   const [soilOpen, setSoilOpen] = useState(() => soilPh !== "" || soilTexture !== "" || soilSalinity !== "" || soil.length > 0);
   const [undo, setUndo] = useState<{ label: string; restore: () => void } | null>(null);
-  const [legendSeen, setLegendSeen] = useState(() => {
-    try {
-      return localStorage.getItem(LEGEND_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-  const dismissLegend = () => {
-    setLegendSeen(true);
-    try {
-      localStorage.setItem(LEGEND_KEY, "1");
-    } catch {
-      // Without storage the note simply shows again next visit.
-    }
-  };
   useEffect(() => {
     if (!undo) return;
     const id = setTimeout(() => setUndo(null), 10000);
@@ -414,7 +517,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
     order, included: [...included], soilSub: [...soilSub], incomeSub: [...incomeSub], irrigation, irrigationMm, depletionMm,
     pumpRate, pumpEff, pumpHours, bundMm, seepage, equipment: [...equipment], labour, market, preferred, excluded,
     winFrom, winTo, asked, canSell, mustGrow, peak: [...peak], tenure, leaseYears, soil, soilPh, soilTexture, soilSalinity,
-    auto, soilDraft, econ,
+    auto, soilDraft, econ, yours,
   };
   const snapshotRef = useRef(snapshot);
   useEffect(() => {
@@ -463,10 +566,13 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
     return [...crops.values()];
   }, [region, rotations]);
 
+  useEffect(() => {
+    // The sticky bar is at the bottom, so bring a save error into view instead of leaving it above the fold.
+    if (error) errorRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [error]);
+
   const touch = () => {
     unsavedRef.current = true;
-    setSaved(false);
-    setDirty(true);
   };
   const toggle = <T,>(set: Set<T>, v: T, apply: (s: Set<T>) => void) => {
     touch();
@@ -663,18 +769,19 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
       }
 
       // Figures behind an unticked "I have a record" box are not used or saved.
-      const pump = (v: string) => (pumpRecord ? num(v) : undefined);
+      const pump = (v: string) => (pumpRecord && irrigation !== "none" ? num(v) : undefined);
+      const irrigationAmount = irrigation === "none" ? undefined : num(irrigationMm);
       const paddy = (v: string) => (paddyRecord ? num(v) : undefined);
       const orderedIncluded = order.filter((p) => included.has(p));
       const priorities = orderedIncluded.length ? prioritiesSchema.parse({ order: orderedIncluded, weights: {}, soil: included.has("soil") && soilSub.size ? [...soilSub] : undefined, income: included.has("income") && incomeSub.size ? [...incomeSub] : undefined }) : undefined;
       const constraints: FarmConstraints = constraintsSchema.parse({
-        irrigation: !field.constraints?.irrigation && irrigation === field.irrigation && num(irrigationMm) === undefined && pump(pumpRate) === undefined ? undefined : {
+        irrigation: !field.constraints?.irrigation && !yours.water && irrigation === field.irrigation && irrigationAmount === undefined && pump(pumpRate) === undefined ? undefined : {
           access: irrigation,
-          amountMm: num(irrigationMm),
+          amountMm: irrigationAmount,
           // The capacity limit applies only when all three pump figures are given; a partial set is dropped, never guessed.
-          pump: irrigation !== "none" && pump(pumpRate) !== undefined && pump(pumpEff) !== undefined && pump(pumpHours) !== undefined ? { rateM3H: pump(pumpRate)!, efficiency: (pump(pumpEff)! > 1 ? pump(pumpEff)! / 100 : pump(pumpEff)!), hoursAvailable: pump(pumpHours)! } : undefined,
+          pump: pump(pumpRate) !== undefined && pump(pumpEff) !== undefined && pump(pumpHours) !== undefined ? { rateM3H: pump(pumpRate)!, efficiency: (pump(pumpEff)! > 1 ? pump(pumpEff)! / 100 : pump(pumpEff)!), hoursAvailable: pump(pumpHours)! } : undefined,
         },
-        soilDepletionAtPlantingMm: pump(depletionMm),
+        soilDepletionAtPlantingMm: num(depletionMm),
         paddy: paddy(bundMm) !== undefined && paddy(seepage) !== undefined ? { bundMm: paddy(bundMm)!, seepagePercolationMmDay: paddy(seepage)! } : undefined,
         equipment: equipment.size ? [...equipment] : undefined,
         labour: labour || undefined,
@@ -703,8 +810,6 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
       unsavedRef.current = false;
       clearDraft(draftKey);
       setSoil(updatedSoil);
-      setSaved(true);
-      setDirty(false);
       setUndo(null);
       if (openConditions) router.push(`/fields/${field.id}/compare`);
     } catch (e) {
@@ -724,7 +829,6 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
   const phHardBad = phValue !== undefined && (phValue < 3 || phValue > 10);
   const phUnusual = phValue !== undefined && !phHardBad && (phValue < 3.5 || phValue > 9.5);
 
-  const irrigationOptions = IRRIGATION_KEYS.map((value) => ({ value, label: text.irrigation[value] }));
   const cropSelect = (set: (next: string[]) => void) => (e: { target: { value: unknown } }) => {
     // The returned handler only runs on user input, never during render.
     // eslint-disable-next-line react-hooks/refs
@@ -745,22 +849,25 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
           ? f.soilMapLine(soilWhat)
           : f.soilNoMap;
 
+  const anySuggested = !(yours.priorities && yours.water && yours.labour && yours.market);
+
   return (
     <>
-      <FieldPageHeader title={t.title} summary={f.summary} />
+      <FieldPageHeader title={t.title} />
 
-      {!legendSeen ? (
-        <Message tone="info" title={f.legendTitle} action={<Button variant="quiet" onClick={dismissLegend}>{f.gotIt}</Button>}>
-          {f.legendYou} {f.legendGuess} {f.legendNone}
+      {anySuggested ? (
+        <Message tone="info" title={pick("We filled this in for your area.", "သင့်ဒေသအတွက် ဖြည့်ပေးထားပါသည်။")}>
+          {pick("Change only what is different.", "ကွာခြားသည့်အရာကိုသာ ပြောင်းပါ။")}
         </Message>
       ) : null}
 
-      <Panel as="section" aria-labelledby="priorities" className="flex flex-col gap-3 p-4 sm:p-6">
-        <PanelHeader id="priorities" title={<span className="inline-flex items-center gap-2"><Icon name="priorities" />{t.prioritiesTitle}</span>} description={f.prioritiesIntro} />
-        <PriorityOrder
+      <section aria-labelledby="priorities" className="flex flex-col gap-3">
+        <QuestionHead id="priorities" icon="priorities" title={t.prioritiesTitle} yours={yours.priorities} place={place} />
+        <PriorityTiles
           value={order.filter((x) => included.has(x))}
           onChange={(next) => {
             touch();
+            markYours("priorities");
             setOrder([...next, ...PRIORITY_IDS.filter((x) => !next.includes(x))]);
             setIncluded(new Set(next));
           }}
@@ -772,11 +879,15 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
                   <p className="m-0 text-body-sm text-ink-muted">{t.subHelp}</p>
                   {(id === "soil" ? (Object.keys(t.soilSub) as SoilSub[]) : (Object.keys(t.incomeSub) as IncomeSub[])).map((sub) => (
                     <div key={sub} className="flex flex-wrap items-center gap-x-2">
-                      <FormControlLabel
+                      <TapLabel
                         control={
                           <Checkbox
                             checked={id === "soil" ? soilSub.has(sub as SoilSub) : incomeSub.has(sub as IncomeSub)}
-                            onChange={() => (id === "soil" ? toggle(soilSub, sub as SoilSub, setSoilSub) : toggle(incomeSub, sub as IncomeSub, setIncomeSub))}
+                            onChange={() => {
+                              markYours("priorities");
+                              if (id === "soil") toggle(soilSub, sub as SoilSub, setSoilSub);
+                              else toggle(incomeSub, sub as IncomeSub, setIncomeSub);
+                            }}
                           />
                         }
                         label={id === "soil" ? t.soilSub[sub as SoilSub] : t.incomeSub[sub as IncomeSub]}
@@ -789,139 +900,103 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
             ) : null
           }
         />
-      </Panel>
-
-      <Panel as="section" aria-labelledby="constraints" className="flex flex-col gap-4 p-4 sm:p-6">
-        <PanelHeader id="constraints" title={<span className="inline-flex items-center gap-2"><Icon name="water" />{f.waterWorkTitle}</span>} />
-        <Segmented legend={t.irrigationLabel} value={irrigation} onChange={(v) => { touch(); setIrrigation(v); }} options={irrigationOptions} />
-        {irrigation !== "none" ? (
-          <TextField label={t.irrigationAmountLabel} value={irrigationMm} onChange={(e) => { touch(); setIrrigationMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText={f.irrigationAmountHelp} />
-        ) : null}
-        <Segmented legend={t.labourLabel} value={(labour || "") as "low" | "medium" | "high"} onChange={(v) => { touch(); setLabour(v); }} options={(["low", "medium", "high"] as const).map((v) => ({ value: v, label: t.levels[v] }))} />
-
-        <Disclosure title={f.moreTitle} hint={f.moreHint} defaultOpen={moreOpen}>
-          <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
-            <legend className="mb-1 inline-flex items-center gap-2 text-label text-ink"><Icon name="equipment" />{t.equipmentLabel}</legend>
-            <div className="flex flex-wrap gap-x-4">
-              {EQUIPMENT.map((e) => (
-                <FormControlLabel key={e} control={<Checkbox checked={equipment.has(e)} onChange={() => toggle(equipment, e as string, setEquipment)} />} label={t.equipment[e]} />
-              ))}
-            </div>
-          </fieldset>
-          <Segmented legend={t.marketLabel} value={(market || "") as "poor" | "fair" | "good"} onChange={(v) => { touch(); setMarket(v); }} options={(["poor", "fair", "good"] as const).map((v) => ({ value: v, label: t.levels[v] }))} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField select label={t.preferredLabel} value={preferred} onChange={cropSelect(setPreferred)} size="small" slotProps={{ select: { multiple: true } }}>
-              {cropChoices.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.names.common}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField select label={t.excludedLabel} value={excluded} onChange={cropSelect(setExcluded)} size="small" slotProps={{ select: { multiple: true } }}>
-              {cropChoices.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.names.common}
-                </MenuItem>
-              ))}
-            </TextField>
-          </div>
-          <div role="group" aria-labelledby="planting-window-heading" aria-describedby="planting-window-help" className="flex flex-col gap-2">
-            <h3 id="planting-window-heading" className="m-0 inline-flex items-center gap-2 text-label text-ink"><Icon name="calendar" />{t.windowHeading}</h3>
-            <p id="planting-window-help" className="m-0 text-body-sm text-ink-muted">{t.windowExample}</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <MonthDayField label={t.windowFrom} value={winFrom} onChange={(v) => { touch(); setWinFrom(v); }} />
-              <MonthDayField label={t.windowTo} value={winTo} onChange={(v) => { touch(); setWinTo(v); }} />
-            </div>
-            <p className="m-0 text-body-sm text-ink-muted">{f.windowOnly}</p>
-          </div>
-
-          <FormControlLabel control={<Switch checked={pumpRecord} onChange={() => { touch(); setPumpRecord(!pumpRecord); }} />} label={f.pumpRecord} />
-          {pumpRecord ? (
-            <div className="flex flex-col gap-4">
-              {irrigation !== "none" ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <TextField label={t.pumpRateLabel} value={pumpRate} onChange={(e) => { touch(); setPumpRate(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText={f.pumpRateHelp} />
-                  <TextField label={t.pumpHoursLabel} value={pumpHours} onChange={(e) => { touch(); setPumpHours(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText={f.pumpHoursHelp} />
-                  <TextField label={t.pumpEfficiencyLabel} value={pumpEff} onChange={(e) => { touch(); setPumpEff(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, max: 100, step: "any" } }} helperText={f.pumpEffHelp} />
-                </div>
-              ) : null}
-              <TextField label={t.soilDepletionLabel} value={depletionMm} onChange={(e) => { touch(); setDepletionMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText={f.dryHelp} />
-            </div>
-          ) : null}
-          <FormControlLabel control={<Switch checked={paddyRecord} onChange={() => { touch(); setPaddyRecord(!paddyRecord); }} />} label={f.paddyRecord} />
-          {paddyRecord ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label={t.paddyBundLabel} value={bundMm} onChange={(e) => { touch(); setBundMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText={f.bundHelp} />
-              <TextField label={t.paddySeepageLabel} value={seepage} onChange={(e) => { touch(); setSeepage(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText={f.seepHelp} />
-            </div>
-          ) : null}
+        <Disclosure title={<span className="inline-flex items-center gap-2"><Icon name="info" size={18} />{pick("How this is used", "ဒါကို ဘယ်လိုသုံးသလဲ")}</span>}>
+          <PriorityExplainer className="bg-transparent p-0" />
         </Disclosure>
-      </Panel>
+      </section>
 
-      <details id="limits" className="min-w-0 rounded-md border border-line bg-surface-raised p-4 sm:p-6" open={limitsOpen} onToggle={(e) => setLimitsOpen(e.currentTarget.open)}>
-        <summary className="min-h-tap cursor-pointer text-headline text-ink"><Icon name="stack" className="mr-2 inline" />{f.limitsTitle} <span className="block text-body-sm font-normal text-ink-muted">{f.limitsSub}</span></summary>
-        <div className="flex flex-col gap-4 pt-4">
-        {(
-          [
-            ["market", "market"],
-            ["household", "fields"],
-            ["labour", "calendar"],
-            ["land", "pin"],
-          ] as const
-        ).map(([key, icon]) => (
-          <fieldset key={key} className="m-0 flex flex-col gap-2 border-0 p-0">
-            <legend className="inline-flex items-center gap-2 text-label text-ink"><Icon name={icon} />{lim.labels[key]}</legend>
-            <FormControlLabel
-              control={<Switch checked={asked[key]} onChange={() => { touch(); setAsked({ ...asked, [key]: !asked[key] }); }} />}
-              label={f.limitAdd}
-            />
-            {!asked[key] ? <p className="m-0 text-body-sm text-ink-muted">{lim.helps[key]}</p> : null}
-            {asked[key] && key === "market" ? (
-              <TextField select label={f.pickCrops} value={canSell} onChange={cropSelect(setCanSell)} size="small" slotProps={{ select: { multiple: true } }}>
-                {cropChoices.map((c) => <MenuItem key={c.id} value={c.id}>{c.names.common}</MenuItem>)}
-              </TextField>
-            ) : null}
-            {asked[key] && key === "household" ? (
-              <TextField select label={f.mustGrowLabel} value={mustGrow} onChange={cropSelect(setMustGrow)} size="small" slotProps={{ select: { multiple: true } }}>
-                {cropChoices.map((c) => <MenuItem key={c.id} value={c.id}>{c.names.common}</MenuItem>)}
-              </TextField>
-            ) : null}
-            {asked[key] && key === "labour" ? (
-              <div className="flex flex-wrap gap-x-3">
-                {f.months.map((m, i) => (
-                  <FormControlLabel key={m} control={<Checkbox checked={peak.has(i + 1)} onChange={() => toggle(peak, i + 1, setPeak)} />} label={m} />
-                ))}
-              </div>
-            ) : null}
-            {asked[key] && key === "land" ? (
+      <section aria-labelledby="water" className="flex flex-col gap-3 border-t border-line pt-5">
+        <QuestionHead id="water" icon="water" title={t.irrigationLabel} yours={yours.water} place={place} />
+        <ChoiceTiles
+          labelledBy="water"
+          value={irrigation}
+          onChange={(v) => {
+            touch();
+            markYours("water");
+            setIrrigation(v);
+          }}
+          options={[
+            { value: "none", label: text.irrigation.none, icons: ["rain"] },
+            { value: "supplemental", label: text.irrigation.supplemental, icons: ["water"] },
+            { value: "full", label: text.irrigation.full, icons: ["water", "water"] },
+          ]}
+        />
+        {irrigation !== "none" ? (
+          <Disclosure title={<span className="inline-flex items-center gap-2"><Icon name="water" size={18} />{pick("Water details (optional)", "ရေအသေးစိတ် (မဖြည့်လည်းရ)")}</span>} defaultOpen={waterOpen}>
+            <Field stack label={t.irrigationAmountLabel} value={irrigationMm} onChange={(e) => { touch(); setIrrigationMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} helperText={f.irrigationAmountHelp} />
+            <TapLabel control={<Switch checked={pumpRecord} onChange={() => { touch(); setPumpRecord(!pumpRecord); }} />} label={f.pumpRecord} />
+            {pumpRecord ? (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Segmented legend={lim.helps.land} value={tenure} onChange={(v) => { touch(); setTenure(v); }} options={[{ value: "owned", label: f.ownIt }, { value: "leased", label: f.rentIt }]} />
-                {tenure === "leased" ? <TextField label={f.leaseYears} value={leaseYears} onChange={(e) => { touch(); setLeaseYears(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} /> : null}
+                <Field stack label={t.pumpRateLabel} value={pumpRate} onChange={(e) => { touch(); setPumpRate(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} helperText={f.pumpRateHelp} />
+                <Field stack label={t.pumpHoursLabel} value={pumpHours} onChange={(e) => { touch(); setPumpHours(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} helperText={f.pumpHoursHelp} />
+                <Field stack label={t.pumpEfficiencyLabel} value={pumpEff} onChange={(e) => { touch(); setPumpEff(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, max: 100, step: "any", inputMode: "decimal" } }} helperText={f.pumpEffHelp} />
               </div>
             ) : null}
-          </fieldset>
-        ))}
-        </div>
-      </details>
+          </Disclosure>
+        ) : null}
+      </section>
 
-      <Panel as="section" aria-labelledby="soil" className="flex flex-col gap-4 p-4 sm:p-6">
-        <PanelHeader id="soil" title={<span className="inline-flex items-center gap-2"><Icon name="soil" />{f.soilTitle}</span>} description={soilOpen ? f.soilDesc : undefined} />
+      <section aria-labelledby="labour" className="flex flex-col gap-3 border-t border-line pt-5">
+        <QuestionHead id="labour" icon="labour" title={t.labourLabel} hint={pick("Can you find workers when work is heaviest?", "အလုပ်အများဆုံးအချိန်တွင် လုပ်သားရှာနိုင်ပါသလား။")} yours={yours.labour} place={place} />
+        <ChoiceTiles
+          labelledBy="labour"
+          value={labour}
+          onChange={(v) => {
+            touch();
+            markYours("labour");
+            setLabour(v);
+          }}
+          options={[
+            { value: "low", label: t.levels.low, icons: ["labour"] },
+            { value: "medium", label: t.levels.medium, icons: ["labour", "labour"] },
+            { value: "high", label: t.levels.high, icons: ["labour", "labour", "labour"] },
+          ]}
+        />
+      </section>
+
+      <section aria-labelledby="market" className="flex flex-col gap-3 border-t border-line pt-5">
+        <QuestionHead id="market" icon="market" title={t.marketLabel} hint={pick("How easy is it to sell your crop nearby?", "သင့်သီးနှံကို အနီးအနားတွင် ရောင်းရလွယ်ပါသလား။")} yours={yours.market} place={place} />
+        <ChoiceTiles
+          labelledBy="market"
+          value={market}
+          onChange={(v) => {
+            touch();
+            markYours("market");
+            setMarket(v);
+          }}
+          options={[
+            { value: "poor", label: t.levels.poor, icons: ["warning"] },
+            { value: "fair", label: t.levels.fair, icons: ["market"] },
+            { value: "good", label: t.levels.good, icons: ["success"] },
+          ]}
+        />
+      </section>
+
+      <section aria-labelledby="soil" className="flex flex-col gap-3 border-t border-line pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <h2 id="soil" className="m-0 inline-flex items-center gap-2 text-headline text-ink"><Icon name="soil" size={22} className="shrink-0 text-field" />{f.soilTitle}</h2>
+          {ownSoil ? <AnswerLabel yours place={place} /> : null}
+        </div>
+        {soilOpen ? <p className="m-0 text-body-sm text-ink-muted">{f.soilDesc}</p> : null}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="m-0 min-w-0 flex-1 text-body text-ink" role="status">{soilLine}</p>
+          <p className="m-0 inline-flex min-w-0 flex-1 basis-60 items-start gap-2 text-body text-ink" role="status">
+            {!ownSoil ? <Icon name={soilMapStatus === "loading" && !soilPh && !soilTexture ? "satellite" : "estimate"} size={18} className="mt-0.5 shrink-0 text-ink-muted" /> : null}
+            <span>{soilLine}</span>
+          </p>
           <Button variant="quiet" aria-expanded={soilOpen} onClick={() => setSoilOpen(!soilOpen)}>
             {soilOpen ? f.soilHide : f.soilUseOwn}
           </Button>
         </div>
-        <p className="m-0 text-source text-ink-muted">{soilMapStatus === "ready" ? f.soilSourceReady : soilMapStatus === "loading" ? f.soilSourceLoading : f.soilSourceNone}</p>
+        <p className="m-0 text-body-sm text-ink-muted">{soilMapStatus === "ready" ? f.soilSourceReady : soilMapStatus === "loading" ? f.soilSourceLoading : f.soilSourceNone}</p>
         {soilOpen ? (
           <>
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3.5">
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
             <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 text-label text-ink"><Icon name="ph" />{f.phTitle}</span>
               <SourceBadge loading={soilMapStatus === "loading" && !soilPh} kind={!soilPh ? "none" : auto.ph ? "estimate" : "yours"} />
             </div>
-            <TextField
+            <Field
               label={f.phLabel}
               value={soilPh}
               onChange={(e) => {
@@ -932,7 +1007,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
               size="small"
               type="number"
               placeholder={soilMapStatus === "loading" ? f.phLoadingMap : f.phPlaceholder}
-              slotProps={{ htmlInput: { min: 3, max: 10, step: 0.1 } }}
+              slotProps={{ htmlInput: { min: 3, max: 10, step: 0.1, inputMode: "decimal" } }}
               error={phHardBad}
               helperText={
                 phHardBad
@@ -952,12 +1027,12 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
             <p className="m-0 text-body-sm text-ink-muted">{f.phWhy}</p>
           </div>
 
-          <div className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3.5">
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
             <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 text-label text-ink"><Icon name="clay" />{f.textureTitle}</span>
               <SourceBadge loading={soilMapStatus === "loading" && !soilTexture} kind={!soilTexture ? "none" : auto.texture ? "estimate" : "yours"} />
             </div>
-            <TextField
+            <Field
               select
               label={f.textureTitle}
               value={soilTexture}
@@ -977,19 +1052,19 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
                   {tc.charAt(0).toUpperCase() + tc.slice(1)}
                 </MenuItem>
               ))}
-            </TextField>
+            </Field>
             {!auto.texture && soilTexture && soilMap?.texture ? (
               <Button variant="quiet" onClick={() => { touch(); setSoilTexture(soilMap.texture!); setAuto((a) => ({ ...a, texture: true })); }}><Icon name="reset" size={16} />{f.useMap}</Button>
             ) : null}
             <p className="m-0 text-body-sm text-ink-muted">{f.textureWhy}</p>
           </div>
 
-          <div className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3.5">
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
             <div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 text-label text-ink"><Icon name="salinity" />{f.salTitle}</span>
               <SourceBadge kind={soilSalinity ? "yours" : "none"} />
             </div>
-            <TextField
+            <Field
               label={f.salLabel}
               value={soilSalinity}
               onChange={(e) => {
@@ -999,14 +1074,14 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
               size="small"
               type="number"
               placeholder={f.salPlaceholder}
-              slotProps={{ htmlInput: { min: 0, max: 50, step: 0.1 } }}
+              slotProps={{ htmlInput: { min: 0, max: 50, step: 0.1, inputMode: "decimal" } }}
               helperText={soilSalinity ? f.salHelpYours(soilSalinity) : f.salHelpNone}
             />
             <p className="m-0 text-body-sm text-ink-muted">{f.salWhy}</p>
           </div>
         </div>
         {soilMap ? (
-          <div className="flex flex-col gap-2 rounded-md border border-line bg-surface-sunken p-3.5">
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
             <span className="inline-flex items-center gap-2 text-label text-ink"><Icon name="estimate" />{f.mapAlso}</span>
             <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3 lg:grid-cols-5">
               {(
@@ -1020,7 +1095,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
               ).filter((x) => x[2] !== null).map(([icon, label, value]) => (
                 <li key={label} className="flex items-center gap-2 rounded-md bg-surface px-2.5 py-2">
                   <Icon name={icon} className="shrink-0 text-ink-muted" />
-                  <span className="flex flex-col leading-tight"><span className="text-source text-ink-muted">{label}</span><span className="tabular text-label text-ink">{value}</span></span>
+                  <span className="flex flex-col leading-tight"><span className="text-body-sm text-ink-muted">{label}</span><span className="tabular text-label text-ink">{value}</span></span>
                 </li>
               ))}
             </ul>
@@ -1043,29 +1118,29 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
           </ul>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField select label={f.measuredWhat} value={soilDraft.property} onChange={(e) => setSoilDraft({ ...soilDraft, property: e.target.value as SoilProperty })} size="small">
+          <Field select label={f.measuredWhat} value={soilDraft.property} onChange={(e) => setSoilDraft({ ...soilDraft, property: e.target.value as SoilProperty })} size="small">
             {SOIL_PROPERTIES.map((p) => (
               <MenuItem key={p} value={p}>
                 {t.soilProperty[p]}
               </MenuItem>
             ))}
-          </TextField>
-          <TextField label={f.valueLabel(SOIL_UNITS[soilDraft.property])} value={soilDraft.value} onChange={(e) => setSoilDraft({ ...soilDraft, value: e.target.value })} size="small" required helperText={f.valueHelp} />
+          </Field>
+          <Field label={f.valueLabel(SOIL_UNITS[soilDraft.property])} value={soilDraft.value} onChange={(e) => setSoilDraft({ ...soilDraft, value: e.target.value })} size="small" required helperText={f.valueHelp} />
         </div>
         <Disclosure title={f.moreDetails} className="mt-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <TextField label={f.depthFrom} value={soilDraft.depthFrom} onChange={(e) => setSoilDraft({ ...soilDraft, depthFrom: e.target.value })} size="small" type="number" helperText={f.depthFromHelp} />
-            <TextField label={f.depthTo} value={soilDraft.depthTo} onChange={(e) => setSoilDraft({ ...soilDraft, depthTo: e.target.value })} size="small" type="number" helperText={f.depthToHelp} />
-            <TextField label={f.dateLabel} value={soilDraft.date} onChange={(e) => setSoilDraft({ ...soilDraft, date: e.target.value })} size="small" type="date" slotProps={{ inputLabel: { shrink: true } }} helperText={f.dateHelp} />
-            <TextField select label={f.methodLabel} value={soilDraft.method} onChange={(e) => setSoilDraft({ ...soilDraft, method: e.target.value as SoilDraftState["method"] })} size="small">
+            <Field label={f.depthFrom} value={soilDraft.depthFrom} onChange={(e) => setSoilDraft({ ...soilDraft, depthFrom: e.target.value })} size="small" type="number" helperText={f.depthFromHelp} />
+            <Field label={f.depthTo} value={soilDraft.depthTo} onChange={(e) => setSoilDraft({ ...soilDraft, depthTo: e.target.value })} size="small" type="number" helperText={f.depthToHelp} />
+            <Field label={f.dateLabel} value={soilDraft.date} onChange={(e) => setSoilDraft({ ...soilDraft, date: e.target.value })} size="small" type="date" slotProps={{ inputLabel: { shrink: true } }} helperText={f.dateHelp} />
+            <Field select label={f.methodLabel} value={soilDraft.method} onChange={(e) => setSoilDraft({ ...soilDraft, method: e.target.value as SoilDraftState["method"] })} size="small">
               <MenuItem value="">{f.methodDefault}</MenuItem>
               {(Object.keys(t.soilMethod) as Array<SoilObservation["method"]>).map((m) => (
                 <MenuItem key={m} value={m}>
                   {t.soilMethod[m]}
                 </MenuItem>
               ))}
-            </TextField>
-            <TextField label={f.sourceLabel} value={soilDraft.source} onChange={(e) => setSoilDraft({ ...soilDraft, source: e.target.value })} size="small" className="sm:col-span-2" helperText={f.sourceHelp} />
+            </Field>
+            <Field label={f.sourceLabel} value={soilDraft.source} onChange={(e) => setSoilDraft({ ...soilDraft, source: e.target.value })} size="small" className="sm:col-span-2" helperText={f.sourceHelp} />
           </div>
         </Disclosure>
         <div className="mt-3">
@@ -1076,108 +1151,183 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
         </details>
           </>
         ) : null}
-      </Panel>
+      </section>
 
-      <details className="rounded-md border border-line bg-surface-raised p-4 sm:p-6" open={econ.length > 0}>
-        <summary className="min-h-tap cursor-pointer text-headline text-ink">
-          <Icon name="price" className="mr-2 inline" />{t.economicsTitle}{" "}
-          <span className="block text-body-sm font-normal text-ink-muted">
-            {f.econSub}
-          </span>
-        </summary>
-        <div className="flex flex-col gap-4 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-sunken p-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-label text-ink">{f.marketBench}</span>
-              <span className="text-body-sm text-ink-muted">
-                {f.marketBenchBody}
-              </span>
-            </div>
-            <Button variant="secondary" size="md" onClick={loadRealWorldPrices} className="w-full sm:w-auto justify-center">
-              <Icon name="estimate" size={16} />{f.fillMarket}
-            </Button>
+      <Disclosure
+        title={<span className="inline-flex items-center gap-2"><Icon name="equipment" size={18} />{f.moreTitle}</span>}
+        hint={f.moreHint}
+        defaultOpen={moreOpen}
+      >
+        <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
+          <legend className="mb-1 inline-flex items-center gap-2 text-body-sm font-medium text-ink"><Icon name="equipment" />{t.equipmentLabel}</legend>
+          <div className="flex flex-wrap gap-x-4">
+            {EQUIPMENT.map((e) => (
+              <TapLabel key={e} control={<Checkbox checked={equipment.has(e)} onChange={() => toggle(equipment, e as string, setEquipment)} />} label={t.equipment[e]} />
+            ))}
           </div>
-
-          <div className="flex flex-col gap-0.5 text-body-sm text-ink-muted">
-            <span className="text-label text-ink">{t.unitsTitle}</span>
-            <span>{t.unitsHelp.join(" · ")}</span>
-          </div>
-
-          {econ.length === 0 ? (
-            <p className="m-0 text-body-sm text-ink-muted">
-              {f.noPrices}
-            </p>
-          ) : null}
-
-          {econ.map((e) => {
-            const crop = getCropById(e.cropId);
-            const refEcon = getRealWorldCropEconomics(e.cropId);
-            return (
-              <div key={e.cropId} className="flex flex-col gap-3 rounded-md border border-line bg-surface p-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="m-0 text-label text-ink">
-                    {crop?.names.common ?? e.cropId} {refEcon?.burmeseName ? `(${refEcon.burmeseName})` : ""}
-                  </p>
-                  {refEcon?.traditionalUnitNote ? (
-                    <span className="text-source text-ink-muted">{refEcon.traditionalUnitNote}</span>
-                  ) : null}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {([["yield", t.yieldLabel, "yieldLo", "yieldHi"], ["price", t.priceLabel, "priceLo", "priceHi"], ["cost", t.costLabel, "costLo", "costHi"]] as const).map(([k, label, lo, hi]) => (
-                    <div key={k} className="flex flex-col gap-1">
-                      <span className="text-body-sm text-ink-muted">{label}</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <TextField label={t.lowLabel} value={e[lo]} onChange={(ev) => patchEcon(e.cropId, { [lo]: ev.target.value })} placeholder={refEcon?.[ECON_KEY[k]]?.[0]?.toString()} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-                        <TextField label={t.highLabel} value={e[hi]} onChange={(ev) => patchEcon(e.cropId, { [hi]: ev.target.value })} placeholder={refEcon?.[ECON_KEY[k]]?.[1]?.toString()} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <TextField label={t.economicsSource} value={e.source} onChange={(ev) => patchEcon(e.cropId, { source: ev.target.value })} size="small" />
-                <div>
-                  <Button variant="quiet" onClick={() => removeEcon(e.cropId)}>
-                    {f.remove}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-          <TextField select label={f.addCrop} value="" onChange={(e) => addEconRow(e.target.value)} size="small" className="sm:max-w-xs">
-            {cropChoices.filter((c) => !econ.some((e) => e.cropId === c.id)).map((c) => (
+        </fieldset>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field select label={t.preferredLabel} value={preferred} onChange={cropSelect(setPreferred)} size="small" slotProps={{ select: { multiple: true } }}>
+            {cropChoices.map((c) => (
               <MenuItem key={c.id} value={c.id}>
                 {c.names.common}
               </MenuItem>
             ))}
-          </TextField>
+          </Field>
+          <Field select label={t.excludedLabel} value={excluded} onChange={cropSelect(setExcluded)} size="small" slotProps={{ select: { multiple: true } }}>
+            {cropChoices.map((c) => (
+              <MenuItem key={c.id} value={c.id}>
+                {c.names.common}
+              </MenuItem>
+            ))}
+          </Field>
         </div>
-      </details>
+        <div role="group" aria-labelledby="planting-window-heading" aria-describedby="planting-window-help" className="flex flex-col gap-2">
+          <h3 id="planting-window-heading" className="m-0 inline-flex items-center gap-2 text-body-sm font-medium text-ink"><Icon name="calendar" />{t.windowHeading}</h3>
+          <p id="planting-window-help" className="m-0 text-body-sm text-ink-muted">{t.windowExample}</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MonthDayField label={t.windowFrom} value={winFrom} onChange={(v) => { touch(); setWinFrom(v); }} />
+            <MonthDayField label={t.windowTo} value={winTo} onChange={(v) => { touch(); setWinTo(v); }} />
+          </div>
+          <p className="m-0 text-body-sm text-ink-muted">{f.windowOnly}</p>
+        </div>
+        <Field stack label={t.soilDepletionLabel} value={depletionMm} onChange={(e) => { touch(); setDepletionMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} helperText={f.dryHelp} />
+        <TapLabel control={<Switch checked={paddyRecord} onChange={() => { touch(); setPaddyRecord(!paddyRecord); }} />} label={f.paddyRecord} />
+        {paddyRecord ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field stack label={t.paddyBundLabel} value={bundMm} onChange={(e) => { touch(); setBundMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} helperText={f.bundHelp} />
+            <Field stack label={t.paddySeepageLabel} value={seepage} onChange={(e) => { touch(); setSeepage(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} helperText={f.seepHelp} />
+          </div>
+        ) : null}
+      </Disclosure>
 
-      {error ? <Message tone="problem" role="alert" title={f.didNotSave}>{error}</Message> : null}
+      <Disclosure
+        title={<span id="limits" className="inline-flex items-center gap-2"><Icon name="stack" size={18} />{f.limitsTitle}</span>}
+        defaultOpen={limitsOpen}
+      >
+        <p className="m-0 text-body-sm text-ink-muted">{f.limitsSub}</p>
+        {(
+          [
+            ["market", "market"],
+            ["household", "fields"],
+            ["labour", "calendar"],
+            ["land", "pin"],
+          ] as const
+        ).map(([key, icon]) => (
+          <fieldset key={key} className="m-0 flex flex-col gap-2 border-0 p-0">
+            <legend className="inline-flex items-center gap-2 text-body-sm font-medium text-ink"><Icon name={icon} />{lim.labels[key]}</legend>
+            <TapLabel
+              control={<Switch checked={asked[key]} onChange={() => { touch(); setAsked({ ...asked, [key]: !asked[key] }); }} />}
+              label={f.limitAdd}
+            />
+            {!asked[key] ? <p className="m-0 text-body-sm text-ink-muted">{lim.helps[key]}</p> : null}
+            {asked[key] && key === "market" ? (
+              <Field select label={f.pickCrops} value={canSell} onChange={cropSelect(setCanSell)} size="small" slotProps={{ select: { multiple: true } }}>
+                {cropChoices.map((c) => <MenuItem key={c.id} value={c.id}>{c.names.common}</MenuItem>)}
+              </Field>
+            ) : null}
+            {asked[key] && key === "household" ? (
+              <Field select label={f.mustGrowLabel} value={mustGrow} onChange={cropSelect(setMustGrow)} size="small" slotProps={{ select: { multiple: true } }}>
+                {cropChoices.map((c) => <MenuItem key={c.id} value={c.id}>{c.names.common}</MenuItem>)}
+              </Field>
+            ) : null}
+            {asked[key] && key === "labour" ? (
+              <div className="flex flex-wrap gap-x-3">
+                {f.months.map((m, i) => (
+                  <TapLabel key={m} control={<Checkbox checked={peak.has(i + 1)} onChange={() => toggle(peak, i + 1, setPeak)} />} label={m} />
+                ))}
+              </div>
+            ) : null}
+            {asked[key] && key === "land" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Segmented legend={lim.helps.land} value={tenure} onChange={(v) => { touch(); setTenure(v); }} options={[{ value: "owned", label: f.ownIt }, { value: "leased", label: f.rentIt }]} />
+                {tenure === "leased" ? <Field label={f.leaseYears} value={leaseYears} onChange={(e) => { touch(); setLeaseYears(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} /> : null}
+              </div>
+            ) : null}
+          </fieldset>
+        ))}
+      </Disclosure>
+
+      <Disclosure
+        title={<span className="inline-flex items-center gap-2"><Icon name="price" size={18} />{t.economicsTitle}</span>}
+        hint={pick("Optional", "မဖြည့်လည်းရ")}
+        defaultOpen={econ.length > 0}
+      >
+        <p className="m-0 inline-flex items-start gap-2 text-body-sm text-ink-muted">
+          <Icon name="estimate" size={16} className="mt-0.5 shrink-0" />
+          {econ.length === 0
+            ? pick(`Suggested for ${place}: we use regional market prices, yields and costs unless you enter your own.`, `${place} အတွက် အကြံပြုထား။ သင့်ကိုယ်ပိုင်ကိန်းဂဏန်း မထည့်လျှင် ဒေသစျေးကွက်စျေး၊ အထွက်နှုန်းနှင့် ကုန်ကျစရိတ်ကို သုံးပါမည်။`)
+            : f.econSub}
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-body-sm font-medium text-ink">{f.marketBench}</span>
+            <span className="text-body-sm text-ink-muted">{f.marketBenchBody}</span>
+          </div>
+          <Button variant="secondary" size="md" onClick={loadRealWorldPrices} className="w-full justify-center sm:w-auto">
+            <Icon name="estimate" size={16} />{f.fillMarket}
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-0.5 text-body-sm text-ink-muted">
+          <span className="font-medium text-ink">{t.unitsTitle}</span>
+          <span>{t.unitsHelp.join(" · ")}</span>
+        </div>
+
+        {econ.length === 0 ? <p className="m-0 text-body-sm text-ink-muted">{f.noPrices}</p> : null}
+
+        {econ.map((e) => {
+          const crop = getCropById(e.cropId);
+          const refEcon = getRealWorldCropEconomics(e.cropId);
+          return (
+            <div key={e.cropId} className="flex flex-col gap-3 border-t border-line pt-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="m-0 text-body font-medium text-ink">
+                  {crop?.names.common ?? e.cropId} {refEcon?.burmeseName ? `(${refEcon.burmeseName})` : ""}
+                </p>
+                {refEcon?.traditionalUnitNote ? <span className="text-body-sm text-ink-muted">{refEcon.traditionalUnitNote}</span> : null}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {([["yield", t.yieldLabel, "yieldLo", "yieldHi"], ["price", t.priceLabel, "priceLo", "priceHi"], ["cost", t.costLabel, "costLo", "costHi"]] as const).map(([k, label, lo, hi]) => (
+                  <div key={k} className="flex flex-col gap-1">
+                    <span className="text-body-sm text-ink-muted">{label}</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Field label={t.lowLabel} value={e[lo]} onChange={(ev) => patchEcon(e.cropId, { [lo]: ev.target.value })} placeholder={refEcon?.[ECON_KEY[k]]?.[0]?.toString()} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} />
+                      <Field label={t.highLabel} value={e[hi]} onChange={(ev) => patchEcon(e.cropId, { [hi]: ev.target.value })} placeholder={refEcon?.[ECON_KEY[k]]?.[1]?.toString()} size="small" type="number" slotProps={{ htmlInput: { min: 0, inputMode: "decimal" } }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Field label={t.economicsSource} value={e.source} onChange={(ev) => patchEcon(e.cropId, { source: ev.target.value })} size="small" />
+              <div>
+                <Button variant="quiet" onClick={() => removeEcon(e.cropId)}>
+                  {f.remove}
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        <Field select label={f.addCrop} value="" onChange={(e) => addEconRow(e.target.value)} size="small" className="sm:max-w-xs">
+          {cropChoices.filter((c) => !econ.some((e) => e.cropId === c.id)).map((c) => (
+            <MenuItem key={c.id} value={c.id}>
+              {c.names.common}
+            </MenuItem>
+          ))}
+        </Field>
+      </Disclosure>
+
+      {error ? (
+        <div ref={errorRef}>
+          <Message tone="problem" role="alert" title={f.didNotSave}>{error}</Message>
+        </div>
+      ) : null}
       {undo ? (
         <div className="sticky bottom-[calc(var(--tabbar-h,0px)+5rem)] z-30 lg:bottom-4">
           <Message tone="info" role="status" title={undo.label} className="shadow-sm" action={<Button variant="quiet" onClick={undo.restore}>{f.undo}</Button>} />
         </div>
       ) : null}
 
-      {dirty ? (
-        <ActionBar>
-          <Button variant="secondary" size="lg" onClick={() => void save(false)} disabled={saving}>
-            {t.saveStay}
-          </Button>
-          <Button variant="primary" size="lg" className="flex-1" onClick={() => void save(true)} disabled={saving}>
-            {t.next}
-            <Icon name="next" />
-          </Button>
-        </ActionBar>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {saved ? <Message tone="success" role="status" compact title={t.saved} /> : <span />}
-          <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary")}>
-            {t.seeAnswer}
-            <Icon name="next" />
-          </Link>
-        </div>
-      )}
+      <FlowNav next={{ label: t.seeAnswer, onClick: () => void save(true), disabled: saving }} />
     </>
   );
 }

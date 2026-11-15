@@ -58,8 +58,8 @@ export function MoistureClockRibbon({
           className,
         )}
       >
-        <div className="flex items-center gap-2 text-label font-semibold text-ink">
-          <Icon name="conditions" size={18} className="text-drought" />
+        <div className="flex items-center gap-2 text-body-sm font-semibold text-ink">
+          <Icon name="warning" size={18} className="text-drought" />
           <span>Moisture Clock (မြေဆီလွှာအစိုဓာတ် ပြက္ခဒိန်)</span>
         </div>
         <Message tone="caution" title="Check topsoil moisture and drainage before sowing">
@@ -89,15 +89,20 @@ export function MoistureClockRibbon({
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2.5">
         <div className="flex items-center gap-2">
-          <Icon name="conditions" size={18} className="text-field" />
-          <span className="text-label font-semibold text-ink">
+          <Icon name="rain" size={18} className="text-field" />
+          <span className="text-body-sm font-semibold text-ink">
             Post-Rice Sowing Window Estimate (ခန့်မှန်းစိုက်ပျိုးချိန်)
           </span>
         </div>
-        <span className="rounded-pill bg-field-soft px-2.5 py-0.5 text-source font-medium text-field">
+        <span className="inline-flex min-h-8 items-center gap-1.5 rounded-pill bg-field-soft px-3 py-1 text-body-sm font-semibold text-field">
+          <Icon name="time" size={16} />
           ~Day {readyDayAfterDrainage} to Day {windowEndDayAfterDrainage} ({optimalDaysDuration} days)
         </span>
       </div>
+
+      <p className="m-0 text-body font-semibold text-ink">
+        Sow about {readyDayAfterDrainage} to {windowEndDayAfterDrainage} days after the water drains.
+      </p>
 
       <p className="m-0 text-body-sm text-ink font-medium">
         {advisory}
@@ -105,7 +110,7 @@ export function MoistureClockRibbon({
 
       {/* 3-Zone Visual Ribbon */}
       <div className="flex flex-col gap-1.5 pt-1">
-        <div className="flex items-center justify-between text-source text-ink-muted font-mono">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 text-label text-ink-muted font-mono">
           <span>Field drained (Day 0)</span>
           <span>Optimal Window</span>
           <span>Desiccating (Day 28)</span>
@@ -137,7 +142,7 @@ export function MoistureClockRibbon({
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-source text-ink-muted">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-body-sm text-ink-muted">
           <span className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded-xs bg-water/40 border border-line" />
             May still be too wet (ရေဝပ်ဆဲ)

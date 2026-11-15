@@ -12,6 +12,7 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Evidence } from "@/components/ui/provenance";
 import { RiskChip, type ChipTone } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusChip } from "@/components/field/conditions/bands";
 import { AnalysisLoading } from "@/components/field/analysis-loading";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { NextSteps } from "@/components/field/next-steps";
@@ -57,8 +58,8 @@ function Why({ children, id }: { children: ReactNode; id: string }) {
   const text = useAppCopy().pests;
   return (
     <details className="group text-body-sm" data-testid={`why-${id}`}>
-      <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-field marker:hidden [&::-webkit-details-marker]:hidden">
-        <Icon name="info" size={14} />
+      <summary className="inline-flex min-h-tap cursor-pointer list-none items-center gap-1 text-field marker:hidden [&::-webkit-details-marker]:hidden">
+        <Icon name="info" size={16} />
         <span className="underline underline-offset-2">{text.why}</span>
       </summary>
       <div className="mt-1 flex flex-col gap-2 border-l-2 border-line pl-3 text-ink-muted">{children}</div>
@@ -78,19 +79,22 @@ function Headline({ summary }: { summary: PestSummary }) {
   if (h.kind === "return" && h.returnYears !== null && h.minReturnYears !== null) parts.push(text.detailReturn(label(h.crops[0]), h.returnYears, h.minReturnYears));
   return (
     <Panel as="section" aria-labelledby="pests-main" className="flex flex-col gap-3 p-4 sm:p-5">
-      <div className="flex flex-col gap-1">
-        <h2 id="pests-main" className="m-0 text-headline text-ink">
+      <div className="flex flex-col items-start gap-2">
+        <StatusChip icon={h.kind === "weather" ? "rain" : h.kind === "soil" ? "soil" : "calendar"} tone="watch">
+          {h.kind === "weather" ? "Weather risk" : h.kind === "soil" ? "Soil carryover" : "Crop gap"}
+        </StatusChip>
+        <h2 id="pests-main" className="m-0 text-title text-ink">
           {title}
         </h2>
         {parts.length ? <p className="m-0 text-body text-ink-muted">{parts.join(" ")}</p> : null}
       </div>
       {summary.actions.length ? (
         <div className="flex flex-col gap-1.5">
-          <h3 className="m-0 text-label font-semibold text-ink">{text.whatToDo}</h3>
+          <h3 className="m-0 text-body-sm font-semibold text-ink">{text.whatToDo}</h3>
           <ol className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label={text.whatToDo}>
             {summary.actions.map((a, i) => (
-              <li key={i} className="flex items-start gap-2 text-body-sm text-ink">
-                <Icon name={a.kind === "when" || a.kind === "gap" ? "calendar" : a.kind === "look" ? "search" : "done"} size={16} className="mt-0.5 shrink-0 text-field" />
+              <li key={i} className="flex items-start gap-2 text-body text-ink">
+                <Icon name={a.kind === "when" || a.kind === "gap" ? "calendar" : a.kind === "look" ? "search" : "done"} size={18} className="mt-0.5 shrink-0 text-field" />
                 <span>{actionText(a, text, label)}</span>
               </li>
             ))}
@@ -179,7 +183,7 @@ function WeatherPanel({ outlook }: { outlook: PestOutlook }) {
       <PanelHeader id="pests-weather" title={text.weatherByCrop} description={text.weatherByCropDesc} />
       {outlook.crops.map((c) => (
         <div key={c.slotId} className="flex flex-col gap-2">
-          <h3 className="m-0 text-label font-semibold text-ink">
+          <h3 className="m-0 text-body-sm font-semibold text-ink">
             {label(c)} <span className="font-normal text-ink-muted">· {formatDay(c.plantDate)} to {formatDay(c.harvestDate)}</span>
           </h3>
           {c.weather.length === 0 ? (
@@ -254,8 +258,9 @@ export function PestsContent({ outlook, fieldId, phase, onRetry }: { outlook: Pe
       ) : summary.headline ? (
         <Headline summary={summary} />
       ) : (
-        <Panel as="section" aria-labelledby="pests-main" className="flex flex-col gap-1 p-4 sm:p-5">
-          <h2 id="pests-main" className="m-0 text-headline text-ink">
+        <Panel as="section" aria-labelledby="pests-main" className="flex flex-col items-start gap-2 p-4 sm:p-5">
+          <StatusChip icon="success" tone="good">All clear</StatusChip>
+          <h2 id="pests-main" className="m-0 text-title text-ink">
             {text.nothingStands}
           </h2>
           <p className="m-0 text-body text-ink-muted">{noWeather ? text.quietNoWeather : text.quietWithWeather}</p>
@@ -292,7 +297,7 @@ export function PestsContent({ outlook, fieldId, phase, onRetry }: { outlook: Pe
       {summary.caveats.length ? (
         <div className="flex flex-col gap-1" aria-label={text.weatherNoteTitle}>
           {summary.caveats.map((c) => (
-            <p key={c} className="m-0 flex items-start gap-1.5 text-source text-ink-muted">
+            <p key={c} className="m-0 flex items-start gap-1.5 text-body-sm text-ink-muted">
               <Icon name="info" size={14} className="mt-0.5 shrink-0" />
               {c}
             </p>

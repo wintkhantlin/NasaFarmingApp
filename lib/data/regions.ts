@@ -19,7 +19,7 @@ export interface RegionInfo {
 export const REGIONS: Record<RegionId, RegionInfo> = {
   myanmar: {
     id: "myanmar", name: "Elsewhere in Myanmar", focus: "Field history supported; regional crop templates not yet available",
-    candidateCropIds: ["rice", "black-gram", "green-gram", "sesame", "groundnut", "chickpea", "pigeon-pea", "maize", "soybean", "lablab", "sunn-hemp"],
+    candidateCropIds: ["rice", "black-gram", "green-gram", "sesame", "groundnut", "sunflower", "chickpea", "pigeon-pea", "maize", "soybean", "lablab", "sunn-hemp"],
   },
   ayeyarwady: {
     id: "ayeyarwady",
@@ -31,7 +31,7 @@ export const REGIONS: Record<RegionId, RegionInfo> = {
     id: "magway",
     name: "Magway",
     focus: "Dry-zone water limitations",
-    candidateCropIds: ["sesame", "groundnut", "green-gram", "chickpea", "pigeon-pea"],
+    candidateCropIds: ["sesame", "groundnut", "sunflower", "green-gram", "chickpea", "pigeon-pea"],
     resolvedCategories: { pulses: ["green-gram", "chickpea", "pigeon-pea"] },
   },
   shan: {

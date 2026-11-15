@@ -1,7 +1,7 @@
 import { getCropById } from "../data/crops";
 import { ofSeasons, type DerivedIndicator } from "../evidence/indicator";
 import type { Crop, Evidence, Rotation, RotationSlot, Risk } from "../types";
-import { generateCandidates, type RejectedCandidate } from "./candidates";
+import { generateCandidates, type CandidateRole, type RejectedCandidate } from "./candidates";
 import { buildRainSeries, baselineYears, BASELINE, type EngineData, type RainSeries } from "./data";
 import { economicsFor, type EconomicsAssessment, incomeAnchorFor } from "./economics";
 import { exposureForCrop, type ExposureSummary } from "./exposure";
@@ -107,6 +107,8 @@ export interface EvaluatedOption {
   risks: Risk[];
   unknowns: string[];
   explanations: Explanation[];
+  /** Set on a defined alternative that is the lowest-input or lowest-risk choice among those that fit. */
+  roles?: CandidateRole[];
 }
 
 export interface ComparisonResult {
@@ -152,7 +154,10 @@ export function compareRotations(data: EngineData, currentRotation: Rotation, op
 
   const ctx = { data, years, rain, et0, normals };
   const current = evaluate(ctx, { ...currentRotation, label: currentRotation.label || "Your rotation" }, "Your rotation", `Your recorded ${currentRotation.cycleYears}-year cycle on ${data.field.name}.`);
-  const alternatives = cand.alternatives.map((c) => evaluate(ctx, c.rotation, c.template.headline, c.template.rationale));
+  const alternatives = cand.alternatives.map((c) => {
+    const option = evaluate(ctx, c.rotation, c.template.headline, c.template.rationale);
+    return c.roles?.length ? { ...option, roles: c.roles } : option;
+  });
   const all = [current, ...alternatives];
 
   // MCDA over feasible options only

@@ -2,15 +2,22 @@ import { Suspense } from "react";
 import { RotationEditor } from "@/components/field/rotation-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 
-async function RotationPage({ params }: { params: Promise<{ fieldId: string }> }) {
-  const { fieldId } = await params;
-  return <RotationEditor fieldId={fieldId} />;
+interface PageProps {
+  params: Promise<{ fieldId: string }>;
+  searchParams?: Promise<{ mode?: string }>;
 }
 
-export default function Page({ params }: { params: Promise<{ fieldId: string }> }) {
+async function RotationPage({ params, searchParams }: PageProps) {
+  const { fieldId } = await params;
+  const sp = searchParams ? await searchParams : undefined;
+  const initialMode = sp?.mode === "record" || sp?.mode === "advanced" ? "advanced" : "guided";
+  return <RotationEditor fieldId={fieldId} initialMode={initialMode} />;
+}
+
+export default function Page({ params, searchParams }: PageProps) {
   return (
     <Suspense fallback={<Skeleton className="h-10 w-64" />}>
-      <RotationPage params={params} />
+      <RotationPage params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

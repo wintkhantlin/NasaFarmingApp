@@ -58,8 +58,8 @@ export async function imergBackfill(
       if (!cachedG) await cache.set(gKey, granules, 60 * 60 * 12);
       const byDate = new Map(granules.map((g) => [g.date, g]));
       published = new Set(byDate.keys());
-      const todo = missing.map((d) => byDate.get(d)).filter((g): g is ImergGranule => Boolean(g)).slice(0, opts.batch ?? 40);
-      const results = await pool(todo, opts.concurrency ?? 6, (g) => fetchImergCell(g, lat, lng, { fetch: opts.fetch, env }));
+      const todo = missing.map((d) => byDate.get(d)).filter((g): g is ImergGranule => Boolean(g)).slice(0, opts.batch ?? 120);
+      const results = await pool(todo, opts.concurrency ?? 8, (g) => fetchImergCell(g, lat, lng, { fetch: opts.fetch, env }));
       let ok = 0;
       for (const r of results) {
         if (r instanceof Error) error = r.message;

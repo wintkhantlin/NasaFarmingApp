@@ -1,14 +1,15 @@
 "use client";
 
-import { TownshipPicker, type AreaSelection } from "@/components/geospatial-farmer/township-picker";
-import { parseTownships, townshipBounds, contextAtPoint, type Townships } from "@/lib/geospatial-farmer/geospatial/townships";
+import { parseTownships, contextAtPoint, type Townships } from "@/lib/geospatial-farmer/geospatial/townships";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { DrawTool, MapCommand, MapFocus } from "@/components/map/field-map";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { usePick } from "@/components/shell/use-pick";
 import { Button } from "@/components/ui/button";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { parseCoordinate } from "@/lib/geo/format";
@@ -49,16 +50,29 @@ function MethodCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-tap w-full items-start gap-3 rounded-md border border-line-strong bg-surface-raised p-3 text-left transition-[background-color,transform] hover:bg-surface-sunken active:scale-[0.99]"
+      className="flex min-h-16 w-full items-center gap-3 rounded-md border-2 border-line-strong bg-surface-raised p-3 text-left transition-[background-color,transform] hover:bg-surface-sunken active:scale-[0.99]"
     >
-      <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-field-soft text-field">
-        <Icon name={icon} size={22} />
+      <span className="grid size-12 shrink-0 place-items-center rounded-md bg-field-soft text-field">
+        <Icon name={icon} size={28} />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-headline text-ink">{title}</span>
         <span className="text-body-sm text-ink-muted">{body}</span>
       </span>
     </button>
+  );
+}
+
+/** The long caution about a single pin: one tap away, not in the first view. */
+function SpotLimits({ label, children }: { label: string; children: string }) {
+  return (
+    <details>
+      <summary className="flex min-h-tap cursor-pointer items-center gap-2 text-label text-field">
+        <Icon name="info" size={18} />
+        {label}
+      </summary>
+      <p className="m-0 text-body-sm text-ink-muted">{children}</p>
+    </details>
   );
 }
 
@@ -73,6 +87,36 @@ function ToolButton({ icon, label, onClick, disabled }: { icon: IconName; label:
       <Icon name={icon} size={20} />
       <span className="max-w-full truncate text-[11px] leading-tight sm:text-source">{label}</span>
     </button>
+  );
+}
+
+/** FlowNav sits inside the floating panel here, so drop the full-bleed edge-to-edge bar styling. */
+const flowInPanel = "[&_.action-bar]:mx-0 [&_.action-bar]:border-0 [&_.action-bar]:px-0 [&_.action-bar]:py-2 [&_.action-bar]:sm:mx-0 [&_.action-bar]:sm:px-0 lg:[&_.action-bar]:justify-stretch lg:[&_.action-bar>*:last-child]:flex-1";
+
+/** Where you are in the three steps: mark, check, name. Number plus word, so it never relies on colour. */
+function StepDots({ step, labels }: { step: 1 | 2 | 3; labels: [string, string, string] }) {
+  return (
+    <ol className="m-0 flex list-none items-center gap-2 p-0" aria-label={`${step} / 3`}>
+      {labels.map((label, i) => {
+        const n = i + 1;
+        const current = n === step;
+        const done = n < step;
+        return (
+          <li key={label} aria-current={current ? "step" : undefined} className="flex min-w-0 items-center gap-1.5">
+            <span
+              className={cn(
+                "tabular grid size-7 shrink-0 place-items-center rounded-pill border-2 font-mono text-body-sm font-bold",
+                current ? "border-field bg-field text-on-field" : done ? "border-field bg-field-soft text-field" : "border-line-strong text-ink-muted",
+              )}
+            >
+              {done ? <Icon name="check" size={16} strokeWidth={3} /> : n}
+            </span>
+            <span className={cn("truncate text-body-sm", current ? "font-bold text-ink" : "text-ink-muted")}>{label}</span>
+            {n < 3 ? <span aria-hidden="true" className="mx-0.5 h-0.5 w-3 shrink-0 bg-line-strong" /> : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -91,6 +135,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   const router = useRouter();
   const text = useAppCopy().picker;
   const copy = useAppCopy();
+  const pick = usePick();
   const areaUnit = useLocaleStore((s) => s.areaUnit);
   const add = useFieldsStore((s) => s.add);
   const update = useFieldsStore((s) => s.update);
@@ -100,9 +145,6 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   const barRef = useRef<HTMLElement>(null);
 
   const [boundaries, setBoundaries] = useState<Townships | null>(null);
-  const [boundaryError, setBoundaryError] = useState<string | null>(null);
-  const [boundaryLoadAttempt, setBoundaryLoadAttempt] = useState(0);
-  const [areaSelection, setAreaSelection] = useState<AreaSelection>({ region: field?.administrativeContext?.ST_PCODE ?? "", district: field?.administrativeContext?.DT_PCODE ?? "", township: field?.administrativeContext?.TS_PCODE ?? "" });
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/study-area/boundaries", { signal: controller.signal }).then(async (res) => {
@@ -111,19 +153,10 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     }).then(setBoundaries).catch((error: unknown) => {
       if (!controller.signal.aborted) {
         console.error("Township boundaries failed to load:", error);
-        setBoundaryError("Township boundaries are unavailable. Search for your village or mark your field with coordinates.");
       }
     });
     return () => controller.abort();
-  }, [boundaryLoadAttempt]);
-  function selectArea(next: AreaSelection) {
-    setAreaSelection(next);
-    if (!boundaries) return;
-    const features = boundaries.features.filter(({ properties: p }) => next.township ? p.TS_PCODE === next.township : next.district ? p.DT_PCODE === next.district : next.region ? p.ST_PCODE === next.region : true);
-    if (!features.length) return;
-    const bbox = townshipBounds({ type: "FeatureCollection", features });
-    flyTo([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], 10, bbox);
-  }
+  }, []);
 
   const fieldCount = useFieldsStore((s) => s.fields.length);
   const [name, setName] = useState(field?.name ?? "");
@@ -381,8 +414,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     flyTo([(westLng + eastLng) / 2, (southLat + northLat) / 2], 15, [westLng, southLat, eastLng, northLat]);
   }
 
-  async function onSave(e: FormEvent) {
-    e.preventDefault();
+  async function onSave(e?: FormEvent) {
+    e?.preventDefault();
     const finalName = name.trim();
     if (!finalName) return setSaveError(text.nameRequired);
     if (!waterChoice) return setSaveError(text.waterRequired);
@@ -395,9 +428,6 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
       : geometryUnchanged
         ? field.administrativeContext
         : undefined;
-    if (areaSelection.township && (!boundaries || administrativeContext?.TS_PCODE !== areaSelection.township)) {
-      return setSaveError("Your field location is outside the selected township, on its edge, or cannot be matched uniquely. Adjust your field or change the township selection.");
-    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -423,16 +453,22 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   const startCenter = field?.centroid ?? ([95.5, 20.5] as [number, number]);
   const corners = ring ? Math.max(0, ring.length - 1) : 0;
   const summaryKind = isApprox ? text.summaryApprox : text.summaryExact;
+  const step: 1 | 2 | 3 = sheetOpen ? 3 : geometry && !drawing ? 2 : 1;
+  const stepLabels: [string, string, string] = [
+    pick("Mark", "မှတ်ပါ"),
+    pick("Check", "စစ်ပါ"),
+    pick("Name", "အမည်ပေးပါ"),
+  ];
 
   return (
-    <div ref={rootRef} className="relative size-full bg-surface-sunken">
+    <div ref={rootRef} className="relative size-full bg-surface-sunken [--tabbar-h:0px]">
       <h1 className="sr-only">{field ? text.editTitle(field.name) : text.addTitle}</h1>
       {/* The map fills the screen. */}
       <div className="absolute inset-0">
         {hasMap ? (
           <FieldMap
             boundaries={boundaries}
-            selectedTownship={areaSelection.township}
+            selectedTownship={field?.administrativeContext?.TS_PCODE}
             token={MAPBOX_TOKEN}
             geometry={geometry}
             tool={tool}
@@ -582,19 +618,6 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           ) : null}
         </section>
 
-        <TownshipPicker
-          data={boundaries}
-          selection={areaSelection}
-          onChange={selectArea}
-          error={boundaryError}
-          retryLabel={text.retryBoundaries}
-          onRetry={() => {
-            setBoundaries(null);
-            setBoundaryError(null);
-            setBoundaryLoadAttempt((attempt) => attempt + 1);
-          }}
-        />
-
         {/* The step panel: a bar along the bottom on a phone, the next card in the column on a desktop. */}
         <section
           ref={barRef}
@@ -606,19 +629,10 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
             "lg:static lg:z-auto lg:max-h-none lg:rounded-b-lg lg:p-3 lg:pb-3",
           )}
         >
+          <StepDots step={step} labels={stepLabels} />
           {sheetOpen ? (
             <form onSubmit={onSave} noValidate className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-headline text-ink">{text.nameYourField}</h2>
-                <button
-                  type="button"
-                  aria-label={text.backToMap}
-                  onClick={() => setSheetOpen(false)}
-                  className="-mr-2 grid size-tap place-items-center rounded-md text-ink-muted hover:bg-surface-sunken"
-                >
-                  <Icon name="close" size={22} />
-                </button>
-              </div>
+              <h2 className="text-headline text-ink">{text.nameYourField}</h2>
               <p className="rounded-md bg-surface-sunken px-3 py-2 text-body-sm text-ink">
                 <span className="font-medium">{summaryKind}</span>
                 {ha !== null ? ` · ${areaText(ha)}` : ` · ${text.noAreaMeasured}`}
@@ -649,10 +663,11 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                       aria-pressed={waterChoice === value}
                       onClick={() => setWaterChoice(value)}
                       className={cn(
-                        "flex min-h-tap items-center rounded-md border px-3 py-2 text-left text-label font-semibold",
+                        "flex min-h-12 items-center gap-2 rounded-md border-2 px-3 py-2 text-left text-label font-semibold",
                         waterChoice === value ? "border-field bg-field-soft text-ink ring-2 ring-field/30" : "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken",
                       )}
                     >
+                      {waterChoice === value ? <Icon name="check" size={18} strokeWidth={2.8} className="shrink-0 text-field" /> : null}
                       {label}
                     </button>
                   ))}
@@ -672,9 +687,16 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                   {saveError}
                 </p>
               ) : null}
-              <Button type="submit" variant="primary" size="lg" iconEnd="done" disabled={saving} block>
-                {saving ? text.saving : field ? text.saveChanges : text.saveField}
-              </Button>
+              <FlowNav
+                className={flowInPanel}
+                back={{ label: text.backToMap, onClick: () => setSheetOpen(false) }}
+                next={{
+                  label: saving ? text.saving : field ? text.saveChanges : text.saveField,
+                  icon: "done",
+                  disabled: saving,
+                  onClick: () => void onSave(),
+                }}
+              />
             </form>
           ) : drawing ? (
             /* Drawing now: one short instruction and the way out. */
@@ -698,20 +720,21 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                   ))}
                 </div>
               ) : null}
-              <p role="status" className="text-body text-ink">
-                {method === "approx" ? text.spotHint : shapeHint}
+              <p role="status" className="flex items-start gap-3 text-body font-medium text-ink">
+                <Icon name="tap" size={26} className="mt-0.5 shrink-0 text-field" />
+                <span>{method === "approx" ? text.spotHint : shapeHint}</span>
               </p>
-              {method === "approx" ? <p className="text-body-sm text-ink-muted">{text.spotLimits}</p> : null}
-              <div className="flex flex-wrap items-center gap-2 [&>button]:flex-1 sm:[&>button]:flex-initial">
-                {method === "exact" && shape === "outline" ? (
-                  <Button type="button" variant="secondary" icon="undo" onClick={() => send("undo-corner")} disabled={!canUndoCorner}>
-                    {text.undoCorner}
-                  </Button>
-                ) : null}
-                <Button type="button" variant="quiet" onClick={cancelDrawing}>
-                  {geometry ? text.keepShape : text.back}
+              {method === "approx" ? <SpotLimits label={copy.welcome.more}>{text.spotLimits}</SpotLimits> : null}
+              {method === "exact" && shape === "outline" ? (
+                <Button type="button" variant="secondary" icon="undo" onClick={() => send("undo-corner")} disabled={!canUndoCorner} block>
+                  {text.undoCorner}
                 </Button>
-              </div>
+              ) : null}
+              <FlowNav
+                className={flowInPanel}
+                back={{ label: geometry ? text.keepShape : text.back, onClick: cancelDrawing }}
+                next={{ label: isApprox ? text.useThisSpot : text.confirmBoundary, disabled: true }}
+              />
             </>
           ) : geometry ? (
             /* Boundary confirmation summary, with ways to correct it. */
@@ -726,7 +749,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                     <p className="tabular font-mono text-data text-ink">
                       {geometry.coordinates[1].toFixed(4)}, {geometry.coordinates[0].toFixed(4)}
                     </p>
-                    <p className="text-body-sm text-ink-muted">{text.spotLimits}</p>
+                    <SpotLimits label={copy.welcome.more}>{text.spotLimits}</SpotLimits>
                   </>
                 ) : (
                   <>
@@ -760,9 +783,10 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                 <ToolButton icon="reset" label={text.redraw} onClick={redraw} />
               </div>
 
-              <Button type="button" variant="primary" size="lg" iconEnd="next" disabled={!canContinue} onClick={() => setSheetOpen(true)} block>
-                {isApprox ? text.useThisSpot : text.confirmBoundary}
-              </Button>
+              <FlowNav
+                className={flowInPanel}
+                next={{ label: isApprox ? text.useThisSpot : text.confirmBoundary, disabled: !canContinue, onClick: () => setSheetOpen(true) }}
+              />
             </>
           ) : (
             /* Nothing marked yet: the two ways in. */
@@ -785,6 +809,11 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                     />
                   </div>
                 </>
+              ) : null}
+              {hasMap ? (
+                <Button type="button" variant="secondary" icon="locate" onClick={locateMe} disabled={locating} block>
+                  {locating ? text.findingLocation : `${text.useMyLocation} (${pick("optional", "မဖြစ်မနေမလို")})`}
+                </Button>
               ) : null}
               {hasMap ? (
                 <Button type="button" variant="quiet" icon="coordinates" aria-expanded={coordsOpen} onClick={() => setCoordsOpen((v) => !v)}>

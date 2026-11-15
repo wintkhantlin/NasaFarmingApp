@@ -17,7 +17,7 @@ export function EvidenceBadge({ indicator, className }: { indicator: DerivedIndi
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-pill border px-2.5 py-0.5 text-source font-medium",
+        "inline-flex items-center gap-1 rounded-pill border px-2.5 py-0.5 text-body-sm font-medium",
         evidenceClass === "missing" ? "border-dashed border-line-strong bg-surface-sunken text-ink" : "border-line-strong bg-surface text-ink-muted",
         className,
       )}
@@ -48,7 +48,7 @@ export function IndicatorCard({ indicator, claim, comparedTo, className }: { ind
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="m-0 text-label text-ink">{claim ?? x.title}</p>
+        <p className="m-0 text-body-sm font-medium text-ink">{claim ?? x.title}</p>
         <EvidenceBadge indicator={indicator} />
       </div>
       {claim && claim !== x.title ? <p className="m-0 text-body-sm text-ink">{x.title}</p> : null}
@@ -62,7 +62,7 @@ export function IndicatorCard({ indicator, claim, comparedTo, className }: { ind
         <p className="tabular m-0 font-mono text-data text-ink">{value}</p>
       )}
 
-      <p className="m-0 flex flex-wrap gap-x-2 text-source text-ink-muted">
+      <p className="m-0 flex flex-wrap gap-x-2 text-body-sm text-ink-muted">
         <span>{EVIDENCE_SCOPE_LABEL[x.scope]}</span>
         {x.scale ? <span>· {x.scale}</span> : null}
         <span>· {period ? `${period}. ${x.timeframe}` : x.timeframe}</span>

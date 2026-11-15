@@ -239,7 +239,7 @@ export default function RotationExplorer() {
           Start with an approximate area and one crop. No account, GPS, field boundary or planting date is needed.
         </p>
         <p className="m-0 text-body-sm text-ink-muted"><Link href="/plan/crop-screen" className="text-field underline underline-offset-4">Check next crops against this field&apos;s weather and soil</Link>.</p>
-        <ol aria-label="Plan progress" className="m-0 grid list-none grid-cols-3 gap-2 p-0 text-source text-ink-muted">
+        <ol aria-label="Plan progress" className="m-0 grid list-none grid-cols-3 gap-2 p-0 text-body-sm text-ink-muted">
           {(["area", "crop", "preview"] as const).map((item, index) => (
             <li key={item} className={cn("border-t-2 pt-2", step === item ? "border-field font-semibold text-field" : "border-line-strong")}>
               {index + 1}. {item === "area" ? "Area" : item === "crop" ? "Main crop" : "Regional examples"}
@@ -387,8 +387,8 @@ function AreaStep({
                 region === regionId ? "border-field bg-field-soft text-field" : "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken",
               )}
             >
-              <span className="block text-label font-semibold">{REGIONS[regionId].name}</span>
-              <span className="block text-source text-ink-muted">{REGIONS[regionId].focus}</span>
+              <span className="block text-body-sm font-semibold">{REGIONS[regionId].name}</span>
+              <span className="block text-body-sm text-ink-muted">{REGIONS[regionId].focus}</span>
             </button>
           ))}
         </div>
@@ -485,7 +485,7 @@ function PreviewStep({
               Based only on {REGIONS[place.region].name} and {mainCrop?.names.common ?? mainCropId}. {draft.refinements.sequence.state === "confirmed" ? "Your reported sequence is saved separately; these regional examples are not calculated for your field." : "We do not know your actual rotation or field conditions."}
             </p>
           </div>
-          <span className="inline-flex min-h-8 items-center rounded-pill border border-field bg-field-soft px-3 text-label text-field">
+          <span className="inline-flex min-h-8 items-center rounded-pill border border-field bg-field-soft px-3 text-body-sm font-medium text-field">
             Regional preview
           </span>
         </div>
@@ -506,7 +506,7 @@ function PreviewStep({
               <Panel as="article" radius="lg" className="flex flex-col gap-5 p-4 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-col gap-2">
-                    <span className="text-label text-field">Regional example {index + 1}</span>
+                    <span className="text-body-sm font-medium text-field">Regional example {index + 1}</span>
                     <h3 className="flex flex-wrap items-center gap-2 text-headline text-ink">
                       {pattern.crops.map((crop, cropIndex) => (
                         <span key={`${pattern.id}-${crop.id}`} className="inline-flex items-center gap-2">
@@ -516,26 +516,26 @@ function PreviewStep({
                       ))}
                     </h3>
                   </div>
-                  <span className="inline-flex min-h-7 items-center gap-1.5 rounded-pill bg-surface-sunken px-2.5 text-source text-ink">
+                  <span className="inline-flex min-h-7 items-center gap-1.5 rounded-pill bg-surface-sunken px-2.5 text-body-sm text-ink">
                     <Icon name="stack" size={15} /> Catalog example
                   </span>
                 </div>
 
                 <dl className="m-0 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-label text-ink-muted">Why it is in the catalog</dt>
+                    <dt className="text-body-sm font-medium text-ink-muted">Why it is in the catalog</dt>
                     <dd className="m-0 mt-1 text-body text-ink">{pattern.rationale}</dd>
                   </div>
                   <div>
-                    <dt className="text-label text-ink-muted">Limitation</dt>
+                    <dt className="text-body-sm font-medium text-ink-muted">Limitation</dt>
                     <dd className="m-0 mt-1 text-body text-ink">{pattern.limitation}</dd>
                   </div>
                   <div>
-                    <dt className="text-label text-ink-muted">Evidence status</dt>
+                    <dt className="text-body-sm font-medium text-ink-muted">Evidence status</dt>
                     <dd className="m-0 mt-1 text-body-sm text-ink">{pattern.evidenceLabel}. No NASA request has been made for this preview.</dd>
                   </div>
                   <div>
-                    <dt className="text-label text-ink-muted">Check locally</dt>
+                    <dt className="text-body-sm font-medium text-ink-muted">Check locally</dt>
                     <dd className="m-0 mt-1 text-body-sm text-ink">{pattern.localCheck}</dd>
                   </div>
                 </dl>
@@ -551,7 +551,7 @@ function PreviewStep({
         </Panel>
       )}
 
-      <p className="m-0 text-source text-ink-muted">
+      <p className="m-0 text-body-sm text-ink-muted">
         Preview contract: {preview.catalogVersion} · {preview.cropLibraryVersion} · illustrative regional patterns, not a ranked result.
       </p>
     </section>

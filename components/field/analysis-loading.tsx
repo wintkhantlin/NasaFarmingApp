@@ -1,4 +1,40 @@
-import { Panel } from "@/components/ui/panel";
+import { Icon } from "@/components/ui/icon";
+
+function StepIndicator({ status }: { status: "loading" | "ready" }) {
+  if (status === "ready") {
+    return (
+      <span
+        aria-hidden
+        className="flex size-4 shrink-0 items-center justify-center text-field"
+      >
+        <Icon name="check" size={14} className="stroke-[2.5]" />
+      </span>
+    );
+  }
+
+  return (
+    <svg
+      aria-hidden
+      className="size-4 shrink-0 animate-spin text-field"
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+      />
+      <path
+        className="opacity-90"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"
+      />
+    </svg>
+  );
+}
 
 /**
  * What a field screen shows while the first weather and soil check runs (10 to 30 seconds the first
@@ -19,7 +55,7 @@ export function AnalysisLoading({
   slow?: boolean;
 }) {
   return (
-    <Panel as="section" aria-busy="true" role="status" className="flex flex-col gap-3 p-4 sm:p-5">
+    <section aria-busy="true" role="status" className="flex flex-col gap-3 py-1">
       <h2 className="m-0 text-headline text-ink">{title}</h2>
       <p className="m-0 text-body-sm text-ink-muted">
         {slow
@@ -32,14 +68,17 @@ export function AnalysisLoading({
           {crops.join(" → ")}
         </p>
       ) : null}
-      <ol className="m-0 flex list-none flex-col gap-1.5 p-0 text-body-sm text-ink-muted">
-        {steps.map((s) => (
-          <li key={s} className="flex items-center gap-2">
-            <span aria-hidden className="size-2 shrink-0 animate-pulse rounded-full bg-field" />
-            {s}
-          </li>
-        ))}
+      <ol className="m-0 flex list-none flex-col gap-2 p-0 text-body-sm text-ink">
+        {steps.map((s) => {
+          const isReady = /:\s*ready\b/i.test(s) || /\bready\b/i.test(s) && !/checking/i.test(s);
+          return (
+            <li key={s} className="flex items-center gap-2.5">
+              <StepIndicator status={isReady ? "ready" : "loading"} />
+              <span className={isReady ? "text-ink" : "text-ink-muted"}>{s}</span>
+            </li>
+          );
+        })}
       </ol>
-    </Panel>
+    </section>
   );
 }

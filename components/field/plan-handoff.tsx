@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import { Button } from "@/components/ui/button";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { planContextNote } from "@/lib/plan/handoff-note";
 import { adaptPlanToFieldSlot } from "@/lib/plan/refinement-adapter";
 import type { PlanDraft } from "@/lib/store/plan-draft";
@@ -49,14 +49,14 @@ export function PlanHandoff({ draft }: { draft: PlanDraft }) {
   }
   return <section aria-labelledby="handoff-title" className="flex flex-col gap-3 rounded-md border border-line p-4">
     <h3 id="handoff-title" className="text-headline">Compare for a confirmed field</h3>
-    <p className="text-body-sm">Select the field where this sequence was grown. Your regional examples and full Plan draft stay available. Saving replaces that field’s Plan sequence and applies your selected goal as its sole priority.</p>
+    <p className="m-0 text-body">Select the field where this sequence was grown. Your regional examples and full Plan draft stay available. Saving replaces that field’s Plan sequence and applies your selected goal as its sole priority.</p>
     <TextField
       select
       id="handoff-field"
       label="Confirmed field in this region"
       value={fieldId}
       onChange={(e) => setFieldId(e.target.value)}
-      size="small"
+      size="medium"
       fullWidth
     >
       <MenuItem value="">Choose a field</MenuItem>
@@ -66,13 +66,13 @@ export function PlanHandoff({ draft }: { draft: PlanDraft }) {
         </MenuItem>
       ))}
     </TextField>
-    <Link href="/fields/new" className="text-field underline">Add or confirm a field; your Plan draft stays saved</Link>
-    {adapted.state !== "ready" ? <p role="status">{adapted.state}: {adapted.reasons.join(" ")}</p> : null}
-    {extraCrops ? <p role="status">needs-input: previous, following or winter crops need their own dates. Review the full sequence in the field editor; no dates will be inferred.</p> : null}
-    {fieldId && extraCrops ? <Link href={`/fields/${fieldId}/rotation`} className="text-field underline">Review complete field sequence</Link> : null}
-    <Button disabled={busy || adapted.state !== "ready" || extraCrops || !fieldId} onClick={() => void continueToField()}>{busy ? "Saving…" : "Save sequence and compare this field"}</Button>
-    {message ? <p role="status">{message}</p> : null}
-    {message.startsWith("Saved.") && savedKey === inputKey ? <Link href={`/fields/${fieldId}/compare`} className="text-field underline">Open field-informed comparison</Link> : null}
-    {savedKey && savedKey !== inputKey ? <p role="status">Inputs changed. Save again before comparing these revisions.</p> : null}
+    <Link href="/fields/new" className="inline-flex min-h-tap items-center text-body text-field underline">Add or confirm a field; your Plan draft stays saved</Link>
+    {adapted.state !== "ready" ? <p role="status" className="m-0 text-body">{adapted.state}: {adapted.reasons.join(" ")}</p> : null}
+    {extraCrops ? <p role="status" className="m-0 text-body">needs-input: previous, following or winter crops need their own dates. Review the full sequence in the field editor; no dates will be inferred.</p> : null}
+    {fieldId && extraCrops ? <Link href={`/fields/${fieldId}/rotation`} className="inline-flex min-h-tap items-center text-body text-field underline">Review complete field sequence</Link> : null}
+    <FlowNav next={{ label: busy ? "Saving…" : "Save sequence and compare this field", onClick: () => void continueToField(), disabled: busy || adapted.state !== "ready" || extraCrops || !fieldId, disabledReason: !fieldId ? "Choose a field first." : undefined }} />
+    {message ? <p role="status" className="m-0 text-body">{message}</p> : null}
+    {message.startsWith("Saved.") && savedKey === inputKey ? <Link href={`/fields/${fieldId}/compare`} className="inline-flex min-h-tap items-center text-body text-field underline">Open field-informed comparison</Link> : null}
+    {savedKey && savedKey !== inputKey ? <p role="status" className="m-0 text-body">Inputs changed. Save again before comparing these revisions.</p> : null}
   </section>;
 }

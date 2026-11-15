@@ -3,7 +3,7 @@ import { mannKendall, trendSentence, type TrendTest } from "../engine/trend";
 import { cacheKey, serverCache } from "./cache";
 
 export interface TrendSeries {
-  key: "monsoon-rain" | "hot-days";
+  key: "monsoon-rain" | "hot-days" | "cold-nights";
   title: string;
   unit: string;
   source: "NASA POWER";
@@ -16,26 +16,28 @@ export interface TrendSeries {
 
 const START_YEAR = 1981;
 const HOT_C = 35;
+const COLD_C = 12;
 
 /** Annual series from one long POWER request. A year with under 90% of its days is left missing, not scaled up. */
 export async function loadTrends(lat: number, lng: number, now = new Date()): Promise<{ trends: TrendSeries[]; through: number } | { error: string }> {
   const through = now.getUTCFullYear() - 1;
   const cache = serverCache();
-  const key = cacheKey("power-trends", "v1", lat.toFixed(2), lng.toFixed(2), String(through));
+  const key = cacheKey("power-trends", "v2", lat.toFixed(2), lng.toFixed(2), String(through));
   const hit = await cache.get<{ trends: TrendSeries[]; through: number }>(key);
   if (hit) return hit;
   try {
     const w = await fetchPowerDaily(
-      { lat, lon: lng, start: `${START_YEAR}0101`, end: `${through}1231`, parameters: ["PRECTOTCORR", "T2M_MAX"], timeStandard: "UTC" },
+      { lat, lon: lng, start: `${START_YEAR}0101`, end: `${through}1231`, parameters: ["PRECTOTCORR", "T2M_MAX", "T2M_MIN"], timeStandard: "UTC" },
       { signal: AbortSignal.timeout(60_000) },
     );
     const rain = w.series.PRECTOTCORR ?? [];
     const tmax = w.series.T2M_MAX ?? [];
-    const acc = new Map<number, { rain: number; rainN: number; hot: number; hotN: number }>();
+    const tmin = w.series.T2M_MIN ?? [];
+    const acc = new Map<number, { rain: number; rainN: number; hot: number; hotN: number; cold: number; coldN: number }>();
     w.dates.forEach((d, i) => {
       const y = Number(d.slice(0, 4));
       const m = Number(d.slice(5, 7));
-      const a = acc.get(y) ?? { rain: 0, rainN: 0, hot: 0, hotN: 0 };
+      const a = acc.get(y) ?? { rain: 0, rainN: 0, hot: 0, hotN: 0, cold: 0, coldN: 0 };
       if (m >= 6 && m <= 10 && rain[i] != null) {
         a.rain += rain[i] as number;
         a.rainN++;
@@ -44,11 +46,16 @@ export async function loadTrends(lat: number, lng: number, now = new Date()): Pr
         a.hotN++;
         if ((tmax[i] as number) >= HOT_C) a.hot++;
       }
+      if ((m === 11 || m === 12 || m === 1 || m === 2) && tmin[i] != null) {
+        a.coldN++;
+        if ((tmin[i] as number) <= COLD_C) a.cold++;
+      }
       acc.set(y, a);
     });
     const years = Array.from({ length: through - START_YEAR + 1 }, (_, i) => START_YEAR + i);
     const rainYears = years.map((year) => ({ year, value: (acc.get(year)?.rainN ?? 0) >= 0.9 * 153 ? Math.round(acc.get(year)!.rain) : null }));
     const hotYears = years.map((year) => ({ year, value: (acc.get(year)?.hotN ?? 0) >= 0.9 * 92 ? acc.get(year)!.hot : null }));
+    const coldYears = years.map((year) => ({ year, value: (acc.get(year)?.coldN ?? 0) >= 0.9 * 120 ? acc.get(year)!.cold : null }));
     const mk = (title: string, k: TrendSeries["key"], unit: string, noun: string, ys: TrendSeries["years"]): TrendSeries => {
       const test = mannKendall(ys.map((y) => y.value));
       return { key: k, title, unit, source: "NASA POWER", scale: "wider", years: ys, test, sentence: trendSentence(test, START_YEAR, noun, unit) };
@@ -57,6 +64,7 @@ export async function loadTrends(lat: number, lng: number, now = new Date()): Pr
       trends: [
         mk("Monsoon rain (Jun to Oct)", "monsoon-rain", "mm", "monsoon rain", rainYears),
         mk(`Days at ${HOT_C} °C or hotter (Mar to May)`, "hot-days", "days", "hot days before the rains", hotYears),
+        mk(`Chilly nights at or below ${COLD_C} °C (Nov to Feb)`, "cold-nights", "nights", "chilly winter nights", coldYears),
       ],
       through,
     };

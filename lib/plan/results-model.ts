@@ -1,8 +1,10 @@
-import { getRealWorldCropEconomics } from "../data/crops";
+import { getCropById, getRealWorldCropEconomics } from "../data/crops";
 import { copy } from "../copy/en";
 import type { ComparisonResult, EvaluatedOption, SlotEvaluation } from "../engine/compare";
 import { REGIONAL_INCOME_BENCHMARK } from "../engine/economics";
-import { CRITERIA, type CriterionId } from "../engine/mcda";
+import { assessEvidence, CRITERION_PLAIN, EVIDENCE_WORDS, capitalise, firstSentence, joinWords, type EvidenceLevel } from "../engine/judgement";
+import { checkLimits } from "../engine/limits";
+import { CRITERIA, findWeightSwitch, leadOf, scoresTied, type CriterionId } from "../engine/mcda";
 import type { Spread } from "../engine/rain";
 import { seasonStrip, knownCount, stressedCount, type StripYear } from "../engine/strip";
 import { slotName } from "../rotation-format";
@@ -120,6 +122,55 @@ export interface EconomicsRow {
   missing: string[];
 }
 
+/** How firm the answer is. clear: one plan leads and holds up. close: about the same, or a slim or fragile lead. unclear: no answer yet. */
+export type VerdictKind = "clear" | "close" | "unclear";
+
+/** One option in the farmer's words: one sentence on why, one on what to watch, and how firm the evidence is. */
+export interface OptionJudgement {
+  optionId: string;
+  /** Plain name: "What you grow now" or the crops in order. */
+  name: string;
+  /** One sentence. Why this plan is worth a look, or why it is placed where it is. */
+  whyShort: string;
+  /** One sentence. The main thing to watch out for. Never empty: a plan with no flagged risk says to check locally. */
+  watchOut: string;
+  evidenceLevel: EvidenceLevel;
+  /** "Strong evidence", "Fair evidence" or "Weak evidence". */
+  evidenceLabel: string;
+  /** Why the evidence is not strong, in plain words. */
+  evidenceReasons: string[];
+  /** Set on the lowest-input or lowest-risk choice among those that fit. */
+  roles?: Array<"low-risk" | "low-input">;
+  /** A limit the farmer set that this plan breaks, in words. Null when none is known to be broken. */
+  limitConflict: string | null;
+}
+
+/** The compact answer for the top of the page. Everything here is worded from engine results, nothing is recalculated. */
+export interface DecisionSummary {
+  verdict: VerdictKind;
+  /** One sentence. */
+  headline: string;
+  /** The plan that leads, when there is one worth naming. Null for a tie, or when nothing can be placed. */
+  winnerId: string | null;
+  /** Plans within the tie margin of the first place. Two or more means "about the same". */
+  tiedIds: string[];
+  /** One sentence. */
+  whyShort: string;
+  /** One sentence. */
+  watchOut: string;
+  /** How firm the evidence behind the headline plan (or the whole comparison when no plan leads) is. */
+  evidenceLevel: EvidenceLevel;
+  evidenceLabel: string;
+  /** Up to three plain sentences: what new information or different priorities would change the answer. */
+  whatWouldChange: string[];
+  /** The change in priorities that would put another plan first, as one sentence. Null when none does. */
+  prioritySwitch: string | null;
+  /** The leading plan breaks a limit the farmer set. Then the verdict is never "clear". */
+  limitConflict: { optionId: string; reason: string } | null;
+  /** Per option, same keys as ResultsModel.options. */
+  options: Record<string, OptionJudgement>;
+}
+
 export interface ResultsModel {
   status: AnalysisStatus;
   statusTitle: string;
@@ -136,11 +187,14 @@ export interface ResultsModel {
   economics: Record<string, EconomicsRow[]>;
   benchmarkText: string | null;
   why: Record<string, WhyModel>;
-  ranking: Array<{ optionId: string; place: number; closeToNext: boolean }>;
+  /** closeToNext: scores within the tie margin of the next one, so no plan is crowned on a trivial gap. */
+  ranking: Array<{ optionId: string; place: number; closeToNext: boolean; /** Score lead over the next plan (0 to 1). Absent for the last. */ gapToNext?: number }>;
   sensitivity: string[];
   rankingNotes: string[];
   unknowns: UnknownItem[];
   assumptions: string[];
+  /** The one-message judgement: clear / close / unclear, with why, watch-out, evidence level and what would change it. */
+  decision?: DecisionSummary;
 }
 
 const MATTERS: Record<string, string> = {
@@ -313,8 +367,8 @@ function whyFor(c: ComparisonResult, o: EvaluatedOption, display: ComparisonDisp
   const contributions: Contribution[] = (mine?.parts ?? []).map((p) => {
     const def = CRITERIA.find((x) => x.id === p.criterion);
     const yoursPart = yours?.parts.find((x) => x.criterion === p.criterion);
-    // "Similar" uses the same two-decimal rounding the page uses to call two scores tied.
-    const vs = !yoursPart ? null : p.normalised.toFixed(2) === yoursPart.normalised.toFixed(2) ? "similar" : p.normalised > yoursPart.normalised ? "better" : "worse";
+    // "Similar" uses the same tie margin the page uses to call two scores about the same.
+    const vs = !yoursPart ? null : scoresTied(p.normalised, yoursPart.normalised) ? "similar" : p.normalised > yoursPart.normalised ? "better" : "worse";
     return {
       criterion: p.criterion,
       label: def?.label ?? p.criterion,
@@ -366,6 +420,11 @@ function economicsRows(field: Field, o: EvaluatedOption): EconomicsRow[] {
 }
 
 export function buildResultsModel(input: { field: Field; comparison: ComparisonResult; display: ComparisonDisplay; options: EvaluatedOption[] }): ResultsModel {
+  const model = buildResultsModelBase(input);
+  return { ...model, decision: buildDecisionSummary(input.field, input.comparison, model) };
+}
+
+function buildResultsModelBase(input: { field: Field; comparison: ComparisonResult; display: ComparisonDisplay; options: EvaluatedOption[] }): ResultsModel {
   const { field, comparison: c, display } = input;
   const alts = input.options.filter((o) => o.id !== c.current.id);
   const options: OptionRef[] = [
@@ -409,8 +468,10 @@ export function buildResultsModel(input: { field: Field; comparison: ComparisonR
   const rankingRows = c.mcda.ranking.map((r, i) => ({
     optionId: r.rotationId,
     place: i + 1,
-    // The page's existing tie rule: scores equal at two decimals are called close.
-    closeToNext: i < c.mcda.ranking.length - 1 && r.score.toFixed(2) === c.mcda.ranking[i + 1].score.toFixed(2),
+    // Scores inside the tie margin are "about the same". The earlier rule, equal at two decimals, depended on where
+    // the digits fell: a gap of 0.006 could count as a lead and 0.004 as a tie.
+    closeToNext: i < c.mcda.ranking.length - 1 && scoresTied(r.score, c.mcda.ranking[i + 1].score),
+    ...(i < c.mcda.ranking.length - 1 ? { gapToNext: r.score - c.mcda.ranking[i + 1].score } : {}),
   }));
   const nameOf = (id: string) => options.find((x) => x.id === id)?.name ?? null;
   const sensitivity = c.sensitivity
@@ -483,6 +544,156 @@ export function buildResultsModel(input: { field: Field; comparison: ComparisonR
   };
 }
 
+/* ---------------- Judgement: clear, close or unclear ---------------- */
+
+const pct = (share: number) => `${Math.round(share * 100)}%`;
+const priorityWord = (id: PriorityId) => copy.profile.priority[id].toLowerCase();
+
+/** Plain, distinct names for the options: "What you grow now", or the crops in order. */
+function optionNames(options: OptionRef[]): Map<string, string> {
+  const base = options.map((o) => (o.isYours ? "What you grow now" : plainCrops(o.crops) || o.name));
+  return new Map(options.map((o, i) => [o.id, base.filter((b) => b === base[i]).length > 1 ? `${base[i]} (${o.name})` : base[i]]));
+}
+
+function buildDecisionSummary(field: Field, c: ComparisonResult, model: ResultsModel): DecisionSummary {
+  const names = optionNames(model.options);
+  const nameOf = (id: string) => names.get(id) ?? "This plan";
+  // The verdict speaks about the plans on the page, not about options the farmer is never shown.
+  const shownIds = new Set(model.options.map((o) => o.id));
+  const shownRanking = c.mcda.ranking.filter((r) => shownIds.has(r.rotationId));
+  const ranked = c.mcda.status === "ranked" && shownRanking.length > 0;
+  const placedIds = new Set(shownRanking.map((r) => r.rotationId));
+  const limitsOf = (o: OptionRef) =>
+    checkLimits(o.option.rotation, field.constraints, field.irrigation, (id) => (getCropById(id)?.names.common ?? id)).filter((l) => l.result === "fail");
+
+  // Per option: one sentence on why, one on what to watch, and how firm the evidence is.
+  const options: Record<string, OptionJudgement> = {};
+  for (const o of model.options) {
+    const opt = o.option;
+    const mine = c.mcda.ranking.find((r) => r.rotationId === opt.id);
+    const yours = c.mcda.ranking.find((r) => r.rotationId === c.current.id);
+    const strip = model.strips[opt.id] ?? [];
+    const evidence = assessEvidence(opt, { knownSeasons: strip.length ? knownCount(strip) : null, totalSeasons: strip.length, notPlaced: ranked && !placedIds.has(opt.id) });
+    const fails = limitsOf(o);
+    const limitConflict = fails.length > 0 ? firstSentence(fails[0].reason ?? "It breaks a limit you set.") : null;
+
+    // Where this option does better and worse than what the farmer grows now, in words (never for the farmer's own plan).
+    const vs = (mine && yours && !o.isYours ? mine.parts : []).map((p) => {
+      const y = yours?.parts.find((x) => x.criterion === p.criterion);
+      return y ? { criterion: p.criterion, diff: p.normalised - y.normalised } : null;
+    }).filter((x): x is { criterion: CriterionId; diff: number } => x !== null && !scoresTied(x.diff, 0));
+    const better = vs.filter((x) => x.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 2).map((x) => CRITERION_PLAIN[x.criterion].better);
+    const worse = vs.filter((x) => x.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 1).map((x) => CRITERION_PLAIN[x.criterion].worse);
+
+    let whyShort: string;
+    if (o.isYours) {
+      const bestPart = [...(mine?.parts ?? [])].sort((a, b) => b.weight * b.normalised - a.weight * a.normalised)[0];
+      whyShort = bestPart ? `You already grow this, and it does well because ${CRITERION_PLAIN[bestPart.criterion].better}.` : "This is what you grow now, so it is the plan to beat.";
+    } else if (!mine) {
+      whyShort = firstSentence(opt.reason) || "It could not be placed in the order yet.";
+    } else if (better.length > 0) {
+      whyShort = `Better than what you grow now because ${joinWords(better)}.`;
+    } else {
+      whyShort = "About the same as what you grow now on what you said matters.";
+    }
+
+    // A warning about this plan's own crops comes before one that applies to every plan (regional data limits).
+    const flagged = opt.risks.filter((r) => r.severity !== "info");
+    const ownRisk = flagged.find((r) => r.kind === "agronomic" && r.severity === "important") ?? flagged.find((r) => r.kind === "agronomic");
+    const anyRisk = flagged.find((r) => r.severity === "important") ?? flagged[0];
+    const partial = c.mcda.partial.find((p) => p.rotationId === opt.id);
+    let watchOut: string;
+    if (limitConflict) watchOut = limitConflict;
+    // Pest text is a bare crop pair ("X follows Y, both Fabaceae"); say what it means for the field.
+    else if (ownRisk) watchOut = ownRisk.id.startsWith("pest:") ? "Back-to-back crops share a plant family, so pests and disease can carry over." : firstSentence(ownRisk.text);
+    else if (worse.length > 0) watchOut = `Worse than what you grow now because ${worse[0]}.`;
+    else if (anyRisk) watchOut = firstSentence(anyRisk.text);
+    else if (partial) watchOut = firstSentence(partial.warning);
+    else if (opt.unknowns.length > 0) watchOut = `Not known yet: ${opt.unknowns[0].replace(/[.\s]+$/, "").toLowerCase()}.`;
+    else watchOut = "Nothing major was flagged, but check water and soil on your own land.";
+
+    options[opt.id] = {
+      optionId: opt.id,
+      name: nameOf(opt.id),
+      whyShort,
+      watchOut,
+      evidenceLevel: evidence.level,
+      evidenceLabel: evidence.label,
+      evidenceReasons: evidence.reasons,
+      ...(opt.roles?.length ? { roles: opt.roles } : {}),
+      limitConflict,
+    };
+  }
+
+  const lead = ranked ? leadOf(shownRanking) : undefined;
+  const tiedIds = ranked ? (lead?.tiedIds ?? []) : [];
+  const first = ranked ? shownRanking[0].rotationId : null;
+  const second = ranked && shownRanking.length > 1 ? shownRanking[1].rotationId : null;
+  const isTie = tiedIds.length >= 2;
+  const switchTo = ranked ? findWeightSwitch(shownRanking) : null;
+  const fragile = Boolean(switchTo?.fragile);
+  const firstJudgement = first ? options[first] : undefined;
+  const blocked = firstJudgement?.limitConflict && first ? { optionId: first, reason: firstJudgement.limitConflict } : null;
+
+  // The verdict is only as firm as its weakest part: placement, the size of the lead, how it holds up when your
+  // priorities move a little, the evidence behind it, and whether it breaks a limit you set.
+  let verdict: VerdictKind;
+  if (!ranked || model.status !== "complete" || blocked) verdict = "unclear";
+  else if (isTie || lead?.class !== "clear" || fragile || firstJudgement?.evidenceLevel === "weak") verdict = "close";
+  else verdict = "clear";
+
+  let headline: string;
+  if (blocked && first) headline = `${nameOf(first)} ranks first, but it breaks a limit you set.`;
+  else if (!ranked || model.status !== "complete") headline = "We can't pick one best plan yet.";
+  else if (isTie) headline = tiedIds.length <= 3 ? `${capitalise(joinWords(tiedIds.map((id, i) => (i > 0 && id === c.current.id ? "what you grow now" : nameOf(id)))))} come out about the same.` : `${tiedIds.length} plans come out about the same.`;
+  else if (verdict === "close" && first && second) headline = `${nameOf(first)} is slightly ahead of ${nameOf(second)}, but it is close.`;
+  else headline = first === c.current.id ? "What you grow now is still the best match for what you said matters." : `${nameOf(first as string)} is the best match for what you said matters.`;
+
+  let whyShort: string;
+  if (verdict === "unclear") whyShort = blocked ? `The plan ranked first does not fit a limit you set: ${blocked.reason.replace(/[.\s]+$/, "").toLowerCase()}.` : firstSentence(model.statusDetail);
+  else if (isTie) whyShort = "The difference between them is smaller than these estimates can tell apart.";
+  else whyShort = firstJudgement?.whyShort ?? "";
+
+  const watchOut = blocked ? blocked.reason : verdict === "unclear" ? firstSentence(model.unknowns[0]?.text ?? "Check water and soil on your own land before you change crops.") : (firstJudgement?.watchOut ?? "Check water and soil on your own land before you change crops.");
+
+  // What would change the answer.
+  const change: string[] = [];
+  let prioritySwitch: string | null = null;
+  if (switchTo && switchTo.shift <= 0.5) {
+    prioritySwitch = `If "${priorityWord(switchTo.priority)}" counted for ${pct(switchTo.toShare)} of what you want instead of ${pct(switchTo.fromShare)}, ${nameOf(switchTo.toRotationId)} would come first.`;
+    change.push(prioritySwitch);
+  } else if (ranked && !switchTo && !isTie) {
+    change.push("Moving how much each of your priorities counts would not change the first place.");
+  }
+  if (model.prioritiesAssumed) change.push("You did not choose what matters most, so every priority counted equally. Choosing one could change the order.");
+  const lead2 = [first, second].filter((x): x is string => Boolean(x)).map((id) => model.options.find((o) => o.id === id)).filter((x): x is OptionRef => Boolean(x));
+  const needsYieldNumbers = c.mcda.used.includes("income-margin") && lead2.some((o) => economicsBasis(field, o.option) !== "farmer");
+  if (needsYieldNumbers && (isTie || verdict === "close")) change.push("Your own yield, price and cost numbers could separate them; income now uses regional benchmarks.");
+  const soilUnsure = lead2.find((o) => o.option.slots.some((sl) => sl.slot.kind === "crop" && (!sl.suitability || sl.suitability.overall === "unknown")));
+  if (soilUnsure) change.push(`A soil test (pH and texture) would show whether ${nameOf(soilUnsure.id)} suits your soil.`);
+  const unplaced = c.mcda.partial.map((p) => p.rotationId).filter((id) => shownIds.has(id));
+  if (unplaced.length > 0) change.push(`Filling in the missing information for ${joinWords(unplaced.slice(0, 2).map(nameOf))} would let ${unplaced.length === 1 ? "it" : "them"} be placed.`);
+  if (blocked) change.push("If the limit you set can be met, this plan could stand as the best match.");
+  if (change.length === 0) change.push("New weather data or different priorities are the main things that could change this.");
+
+  const evidenceRef = firstJudgement ?? Object.values(options)[0];
+  const evidenceLevel: EvidenceLevel = verdict === "unclear" && !firstJudgement ? "weak" : (evidenceRef?.evidenceLevel ?? "weak");
+  return {
+    verdict,
+    headline,
+    winnerId: ranked && !isTie && first ? first : null,
+    tiedIds: isTie ? tiedIds : [],
+    whyShort,
+    watchOut,
+    evidenceLevel,
+    evidenceLabel: EVIDENCE_WORDS[evidenceLevel],
+    whatWouldChange: change.slice(0, 3),
+    prioritySwitch,
+    limitConflict: blocked,
+    options,
+  };
+}
+
 /* ---------------- The one-message verdict ---------------- */
 
 export interface VerdictRow {
@@ -520,6 +731,8 @@ export interface Verdict {
   rows: VerdictRow[];
   /** Every plan was short of rain or too hot in at least half of the past seasons. */
   allStressed: boolean;
+  /** Clear / close / unclear with why, watch-out, evidence level and what would change it. Absent on hand-built models. */
+  decision?: DecisionSummary;
 }
 
 const NOT_KNOWN = "Not known";
@@ -591,8 +804,31 @@ export function buildVerdict(model: ResultsModel): Verdict {
   let detail: string | null = null;
   const struggled = allStressed ? ", but every plan struggled in past weather" : "";
 
-  if (model.status === "unresolved" || (!safest && !richest)) {
-    headline = "We can't pick one best plan yet. Read the numbers for each plan below.";
+  // Check if alternatives clearly dominate what the farmer currently grows
+  const yours = rows.find((r) => r.isYours);
+  const alts = rows.filter((r) => !r.isYours);
+  const altsDominate = Boolean(
+    yours &&
+    alts.length > 0 &&
+    yours.gapMm !== null &&
+    alts.every((a) => a.gapMm !== null && a.gapMm < (yours.gapMm ?? 0) * 0.7) &&
+    (yours.gapMm ?? 0) > 250
+  );
+
+  if (altsDominate && (model.status === "unresolved" || !picked)) {
+    // Built from the plans on screen: their names and their own rain gaps, never a fixed crop list.
+    headline =
+      alts.length === 1
+        ? `${subject(alts[0])} handles dry weather far better than what you grow now.`
+        : `${alts.length === 2 ? "Both" : "All"} alternative plans handle dry weather far better than what you grow now.`;
+    detail = `${alts.length === 1 ? "It cuts" : "They cut"} the typical rain gap per crop from ${yours?.gapText} to ${alts.map((a) => a.gapText).join(" and ")}. Choose a goal below to see which plan fits your farm best.`;
+  } else if (model.status === "unresolved" || (!safest && !richest)) {
+    if (safest && (goodShare(safest) as number) > 0 && withSafety.filter((r) => goodShare(r) === goodShare(safest)).length === 1) {
+      headline = `${subject(safest)} handled past weather best, with ${safest.goodText} good seasons.`;
+      detail = "Some information is missing, so this is a lead to check, not a final ranking.";
+    } else {
+      headline = "We can't pick one best plan yet. Read the numbers for each plan below.";
+    }
   } else if (picked) {
     headline = `${subject(picked)} came out first for the goals you chose${struggled}.`;
     if (safest && safest.optionId !== picked.optionId) {
@@ -630,7 +866,9 @@ export function buildVerdict(model: ResultsModel): Verdict {
   }
 
   let caution: string | null = null;
-  if (worstFloor) {
+  if (altsDominate) {
+    caution = null;
+  } else if (worstFloor) {
     const bad = (worstFloor.known as number) - (worstFloor.good as number);
     caution = `Every plan was short of rain or too hot in at least ${bad} of ${worstFloor.known} past seasons. Check water access and soil moisture on your land before you decide.`;
   } else if (model.status !== "complete" || rows.some((r) => r.good === null || r.income === null || r.gapMm === null)) {
@@ -645,5 +883,6 @@ export function buildVerdict(model: ResultsModel): Verdict {
     nextStep: "Read your farmer summary, then check water and soil with a local adviser before you change crops.",
     rows,
     allStressed,
+    decision: model.decision,
   };
 }

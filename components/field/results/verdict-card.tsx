@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import { HeadToHead } from "@/components/field/results/head-to-head";
+import { EvidenceTag, PlanScale } from "@/components/field/results/plan-scale";
 import { SeasonStripMini } from "@/components/field/season-strip";
 import { PriorityOrder } from "@/components/field/priority-order";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { Icon } from "@/components/ui/icon";
 import { Message } from "@/components/ui/message";
@@ -16,7 +17,7 @@ import { useFieldsStore } from "@/lib/store/fields-store";
 import type { Field, PriorityId } from "@/lib/types";
 
 /** Change the priority order after seeing the comparison. Saving rewrites only the order; finer soil and income choices are kept while their priority stays chosen. */
-function PriorityEditor({ field }: { field: Field }) {
+function PriorityEditor({ field, label = "Change" }: { field: Field; label?: string }) {
   const update = useFieldsStore((s) => s.update);
   const saved = field.priorities?.order ?? [];
   const [open, setOpen] = useState(false);
@@ -46,9 +47,9 @@ function PriorityEditor({ field }: { field: Field }) {
         type="button"
         aria-label="Change priorities"
         onClick={() => { setOrder(saved); setOpen(true); }}
-        className="inline-flex min-h-tap cursor-pointer items-center text-label text-field underline"
+        className="inline-flex min-h-tap cursor-pointer items-center text-body-sm font-medium text-field underline"
       >
-        Change
+        {label}
       </button>
     );
   }
@@ -64,11 +65,72 @@ function PriorityEditor({ field }: { field: Field }) {
   );
 }
 
-const cellClass = (known: boolean) => cn("tabular px-2 py-2.5 align-top text-body-sm sm:px-3", known ? "text-ink" : "text-ink-muted");
+const GOALS: Array<{ id: PriorityId | "all"; label: string }> = [
+  { id: "income", label: "Earn more" },
+  { id: "water", label: "Save water" },
+  { id: "soil", label: "Build soil" },
+  { id: "forage", label: "Animal feed" },
+  { id: "all", label: "All equally" },
+];
 
 /**
- * The answer to "which crops?" in one place: a plain verdict, the three numbers behind it, one
- * warning if it needs one, and the single next step. Everything else on the page is detail below.
+ * One-tap goal selector. It switches what the comparison counts, so it is a segmented control:
+ * a tray of equal segments that wraps on a phone, so every goal stays visible.
+ */
+function GoalChips({ field }: { field: Field }) {
+  const update = useFieldsStore((s) => s.update);
+  const currentOrder = field.priorities?.order ?? [];
+  const activeId: PriorityId | "all" = currentOrder.length > 0 ? currentOrder[0] : "all";
+
+  const handleSelect = async (id: PriorityId | "all") => {
+    const newOrder: PriorityId[] = id === "all" ? [] : [id];
+    const prev = field.priorities;
+    const priorities = newOrder.length
+      ? {
+          order: newOrder,
+          weights: {},
+          soil: newOrder.includes("soil") ? prev?.soil : undefined,
+          income: newOrder.includes("income") ? prev?.income : undefined,
+        }
+      : undefined;
+    await update(field.id, { priorities });
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-body-sm font-semibold text-ink">What matters most to you?</span>
+      <div
+        role="radiogroup"
+        aria-label="Choose farming goal"
+        className="flex flex-wrap gap-1 rounded-md border border-line bg-surface-sunken p-1 sm:w-fit"
+      >
+        {GOALS.map((goal) => {
+          const isSelected = activeId === goal.id;
+          return (
+            <button
+              key={goal.id}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              onClick={() => void handleSelect(goal.id)}
+              className={cn(
+                "inline-flex min-h-tap flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm px-3 text-body-sm font-medium whitespace-nowrap transition-colors sm:flex-none",
+                isSelected ? "bg-field font-semibold text-on-field shadow-xs" : "text-ink hover:bg-surface-raised",
+              )}
+            >
+              {goal.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The answer to "which crops?" in one place: a plain sentence, one reason, the warning if there is one,
+ * then every plan on a Good / Fair / Risky scale. The goal that shapes the answer and all the figures sit below.
+ * The one action (see my summary) is the FlowNav at the bottom of the page, in the same place as every screen.
  */
 export function VerdictCard({ field, model }: { field: Field; model: ResultsModel }) {
   const verdict = buildVerdict(model);
@@ -76,122 +138,121 @@ export function VerdictCard({ field, model }: { field: Field; model: ResultsMode
   const numbers = verdict.evidence.filter((e) => e.kind !== "nitrogen");
   const stripOptions = model.options.filter((o) => (model.strips[o.id] ?? []).length > 0);
   const visibleUnknowns = model.unknowns.filter((item) => item.kind !== "not-applicable").slice(0, 2);
+  const decision = model.decision;
+  // "Other plans handle dry weather far better" has no counterpart in the decision summary, so it keeps its own sentence.
+  const legacy = !decision || /far better than what you grow now/.test(verdict.headline);
+  const top = model.ranking[0];
+  const legacyBest = model.status === "complete" && top && !top.closeToNext ? top.optionId : undefined;
+  const bestOptionId = legacy ? legacyBest : decision.verdict === "clear" ? (decision.winnerId ?? undefined) : undefined;
+  const bestId = bestOptionId && verdict.rows.some((r) => r.optionId === bestOptionId) ? bestOptionId : undefined;
+  const pickedRow = verdict.rows.find((r) => r.optionId === bestId);
+  const headline = legacy ? verdict.headline : decision.headline;
+  // One short reason: the decision's own line, otherwise the trade-off, otherwise the plain weather fact for the picked plan.
+  const reason = legacy
+    ? (verdict.detail ?? (pickedRow && pickedRow.known ? `In past weather it had ${pickedRow.goodText} good seasons. This is not a forecast.` : null))
+    : decision.whyShort && decision.whyShort.trim() !== decision.headline.trim() ? decision.whyShort : null;
+  const overline = bestId
+    ? { icon: "goal" as const, text: "Plan to try first" }
+    : decision && !legacy && decision.verdict === "close"
+      ? { icon: "compare" as const, text: "Too close to call" }
+      : { icon: "help" as const, text: "No clear winner yet" };
+  const watchOut = !legacy && decision.watchOut ? decision.watchOut : null;
+  const hasCaution = Boolean(watchOut) || Boolean(nitrogen) || (verdict.caution && model.status !== "unresolved");
 
   return (
-    <Panel as="section" id="overview" aria-labelledby="verdict-title" tone="field" radius="lg" className="flex scroll-mt-24 flex-col gap-4 p-4 sm:p-5">
-      <div className="flex flex-col gap-1.5">
-        <h2 id="verdict-title" className="m-0 max-w-measure text-balance text-headline text-ink">{verdict.headline}</h2>
-        {verdict.detail ? <p className="m-0 max-w-measure text-body text-ink">{verdict.detail}</p> : null}
-      </div>
-
-      <div className="flex flex-col gap-2 print:hidden">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-          <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
-            <Icon name="report" />
-            See my farmer summary
-          </Link>
-          <Link href={`/fields/${field.id}/rotation`} className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
-            Change my crops
-          </Link>
-        </div>
-        <p className="m-0 max-w-measure text-source text-ink-muted">{verdict.nextStep}</p>
-      </div>
-
-      {verdict.rows.length > 0 ? (
-        <>
-        <ul className="m-0 flex list-none flex-col gap-3 p-0 md:hidden">
-          {verdict.rows.map((r) => (
-            <li key={r.optionId} className="border-t border-line pt-3 first:border-0 first:pt-0">
-              <h3 className="m-0 mb-2 text-label font-semibold text-ink [overflow-wrap:anywhere]">{r.name}</h3>
-              <dl className="m-0 grid grid-cols-3 gap-2 text-body-sm">
-                <div><dt className="text-ink-muted">Good seasons</dt><dd className={cn("tabular m-0", r.good === null ? "text-ink-muted" : "text-ink")}>{r.goodText}</dd></div>
-                <div><dt className="text-ink-muted">Water gap</dt><dd className={cn("tabular m-0", r.gapMm === null ? "text-ink-muted" : "text-ink")}>{r.gapText}</dd></div>
-                <div><dt className="text-ink-muted">Income range</dt><dd className={cn("tabular m-0", r.income === null ? "text-ink-muted" : "text-ink")}>{r.incomeText}</dd></div>
-              </dl>
-            </li>
-          ))}
-        </ul>
-        <div className="hidden overflow-x-auto md:block">
-          <table className="w-full border-collapse text-left">
-            <caption className="sr-only">The plans side by side: good seasons, water gap and income range</caption>
-            <thead>
-              <tr className="text-source text-ink-muted">
-                <th scope="col" className="px-2 py-2 font-medium sm:px-3">Plan</th>
-                <th scope="col" className="px-2 py-2 font-medium sm:px-3">Good seasons</th>
-                <th scope="col" className="px-2 py-2 font-medium sm:px-3">Water gap</th>
-                <th scope="col" className="px-2 py-2 font-medium sm:px-3">Income range</th>
-              </tr>
-            </thead>
-            <tbody>
-              {verdict.rows.map((r) => (
-                <tr key={r.optionId} className="border-t border-line">
-                  <th scope="row" className="px-2 py-2.5 align-top text-left text-body-sm font-semibold text-ink [overflow-wrap:anywhere] sm:px-3">{r.name}</th>
-                  <td className={cellClass(r.good !== null)}>{r.goodText}</td>
-                  <td className={cellClass(r.gapMm !== null)}>{r.gapText}</td>
-                  <td className={cellClass(r.income !== null)}>{r.incomeText}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="m-0 border-t border-line pt-2 text-source text-ink-muted">
-            Good season: enough rain and no heat stress. Water gap: rain missing per crop in a typical season. Income: estimated MMK per hectare after listed costs over the cycle; not promised. {model.period}
-          </p>
-        </div>
-        <p className="m-0 border-t border-line pt-2 text-source text-ink-muted md:hidden">
-          Good season: enough rain and no heat stress. Water gap: rain missing per crop in a typical season. Income: estimated per hectare after listed costs; not promised. {model.period}
+    <section id="overview" aria-labelledby="verdict-title" className="flex scroll-mt-24 flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <p className={cn("m-0 flex items-center gap-1.5 text-body-sm font-semibold", bestId ? "text-field" : "text-ink-muted")}>
+          <Icon name={overline.icon} size={18} aria-hidden />
+          {overline.text}
         </p>
-        </>
+        <h2 id="verdict-title" className="m-0 max-w-measure text-balance text-title text-ink [overflow-wrap:break-word] sm:text-display">{headline}</h2>
+        {reason ? <p className="m-0 max-w-measure text-body text-ink">{reason}</p> : null}
+        {!legacy ? <EvidenceTag level={decision.evidenceLevel} label={decision.evidenceLabel} /> : null}
+      </div>
+
+      {/* A warning that could change the decision is read before the scale, never tucked away. */}
+      {hasCaution ? (
+        <div className="flex flex-col gap-3">
+          {watchOut ? (
+            <Message tone={decision?.limitConflict ? "problem" : "caution"} compact title={watchOut} />
+          ) : null}
+          {nitrogen ? (
+            <Message tone="caution" compact role="status" title="Deficit">
+              {nitrogen.text.replace(/^Nitrogen deficit: /, "")}
+            </Message>
+          ) : null}
+          {verdict.caution && model.status !== "unresolved" ? (
+            <Message tone="caution" compact role="status" title={model.status !== "complete" ? model.statusTitle : verdict.caution}>
+              {model.status === "complete" ? null : model.statusDetail}
+            </Message>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* The signature: every plan on one Good / Fair / Risky scale. The exact figures are one tap away. */}
+      {verdict.rows.length > 1 ? (
+        <PlanScale rows={verdict.rows} options={model.options} bestId={bestId}>
+          <HeadToHead rows={verdict.rows} options={model.options} period={model.period} />
+        </PlanScale>
       ) : null}
 
       {/* The same numbers as words, for screen readers. */}
       <ul className="sr-only">{numbers.map((e) => <li key={e.kind}>{e.text}</li>)}</ul>
 
-      {nitrogen ? (
-        <Message tone="caution" compact role="status" title="Deficit">
-          {nitrogen.text.replace(/^Nitrogen deficit: /, "")}
-        </Message>
-      ) : null}
-      {verdict.caution ? (
-        <Message tone="caution" compact role="status" title={model.status !== "complete" ? model.statusTitle : verdict.caution}>
-          {model.status === "complete" ? verdict.caution : null}
-          {model.status !== "complete" ? model.statusDetail : null}
-        </Message>
-      ) : null}
+      <div className="flex flex-col gap-2 border-t border-line pt-5">
+        <GoalChips field={field} />
+        {model.priorities.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-x-2 text-body-sm text-ink">
+            <span>
+              <span className="text-ink-muted">Counting: </span>
+              <strong className="font-semibold">{model.priorities.map((p) => p.label).join(" > ")}</strong>
+              {model.prioritiesAssumed ? <span className="ml-2 text-body-sm text-ink-muted">(assumed)</span> : null}
+            </span>
+            <PriorityEditor field={field} />
+          </div>
+        ) : (
+          <div className="flex">
+            <PriorityEditor field={field} label="Rank more than one goal" />
+          </div>
+        )}
+      </div>
 
       {visibleUnknowns.length > 0 ? (
-        <div className="flex flex-col gap-1 border-t border-line pt-3" aria-label="Important unknowns to check">
-          <h3 className="m-0 text-label font-semibold text-ink">Still to check before changing crops</h3>
+        <div className="flex flex-col gap-1.5 border-t border-line pt-4" aria-label="Important unknowns to check">
+          <h3 className="m-0 flex items-center gap-1.5 text-headline text-ink">
+            <Icon name="checklist" size={20} className="text-ink-muted" aria-hidden />
+            Still to check before changing crops
+          </h3>
           <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink">
             {visibleUnknowns.map((item) => <li key={`${item.where}-${item.text}`}>{item.text}</li>)}
           </ul>
           {model.unknowns.length > visibleUnknowns.length ? (
-            <p className="m-0 text-source text-ink-muted">{model.unknowns.length - visibleUnknowns.length} more checks are in the detailed comparison.</p>
+            <p className="m-0 text-body-sm text-ink-muted">{model.unknowns.length - visibleUnknowns.length} more checks are in the detailed comparison.</p>
           ) : null}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-x-2 border-t border-line pt-1 text-body-sm text-ink">
-        <span>
-          <span className="text-ink-muted">Counting: </span>
-          <strong className="font-semibold">{model.priorities.length > 0 ? model.priorities.map((p) => p.label).join(" > ") : "all goals equally"}</strong>
-          {model.prioritiesAssumed && model.priorities.length > 0 ? <span className="ml-2 text-source text-ink-muted">(assumed)</span> : null}
-        </span>
-        <span aria-hidden className="text-ink-muted">·</span>
-        <PriorityEditor field={field} />
-      </div>
+      {!legacy && decision.whatWouldChange.length > 0 ? (
+        <Disclosure title="What could change this answer">
+          <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-body-sm text-ink">
+            {decision.whatWouldChange.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </Disclosure>
+      ) : null}
 
       {stripOptions.length > 0 ? (
-        <Disclosure title="See season by season" hint="Which past years were good">
+        <Disclosure title="See season by season">
           <ul className="m-0 grid list-none gap-x-5 gap-y-3 p-0 lg:grid-cols-3">
             {stripOptions.map((o) => (
               <li key={o.id} className="flex flex-col gap-1.5 border-t border-line pt-3 first:border-0 first:pt-0">
-                <span className="text-label font-semibold text-ink">{verdict.rows.find((r) => r.optionId === o.id)?.name ?? o.name}</span>
+                <span className="text-body-sm font-semibold text-ink">{verdict.rows.find((r) => r.optionId === o.id)?.name ?? o.name}</span>
                 <SeasonStripMini strip={model.strips[o.id] ?? []} />
               </li>
             ))}
           </ul>
         </Disclosure>
       ) : null}
-    </Panel>
+    </section>
   );
 }

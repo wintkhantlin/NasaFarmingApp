@@ -40,6 +40,7 @@ export interface EnqueueOptions {
   maxAttempts?: number;
   ttlSeconds?: number;
   forceRefresh?: boolean;
+  wait?: boolean;
 }
 
 export interface IngestionQueue {
@@ -287,6 +288,19 @@ class SqliteQueue implements IngestionQueue {
       this.inFlight.set(id, executionPromise);
       // Suppress unhandled rejection in background task; caller inspects job status
       executionPromise.catch(() => {});
+    }
+
+    const shouldWait = options.wait || Boolean(process.env.VERCEL);
+    if (shouldWait) {
+      try {
+        const inFlightPromise = this.inFlight.get(id);
+        if (inFlightPromise) {
+          await inFlightPromise;
+        }
+        return (await this.getJob<T>(id)) ?? job;
+      } catch {
+        return (await this.getJob<T>(id)) ?? job;
+      }
     }
 
     return job;

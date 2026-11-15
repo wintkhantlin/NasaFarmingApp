@@ -5,6 +5,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
 import { priorityWeights } from "@/lib/engine/mcda";
+import { usePick } from "@/components/shell/use-pick";
 import { useAppCopy } from "@/lib/store/locale-store";
 import type { PriorityId } from "@/lib/types";
 
@@ -132,18 +133,20 @@ export function PriorityOrder({ value, onChange, renderDetail, className }: Prio
                 onDrop={() => drop(id)}
                 className={cn("flex flex-col gap-2 rounded-md border bg-surface-raised p-3", dragId === id ? "border-field opacity-60" : "border-field")}
               >
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-pill bg-field text-label font-semibold text-on-field" aria-hidden>{i + 1}</span>
-                  <Icon name={row.icon} className="text-field" aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-label font-semibold text-ink">{row.label}</span>
-                    <span className="block text-body-sm text-ink-muted">{row.help}</span>
-                    {chosen.length > 1 ? <span className="mt-0.5 block text-source text-ink-muted">{t.placeLine(t.places[i], words[id])}</span> : null}
-                  </span>
-                  <span className="flex flex-wrap items-center gap-1">
-                    <button type="button" className="min-h-tap rounded-md border border-line-strong px-3 text-label text-ink hover:bg-surface-sunken disabled:opacity-40" aria-label={t.moveUpAria(row.label)} disabled={i === 0} onClick={() => shift(id, -1)}>{t.up}</button>
-                    <button type="button" className="min-h-tap rounded-md border border-line-strong px-3 text-label text-ink hover:bg-surface-sunken disabled:opacity-40" aria-label={t.moveDownAria(row.label)} disabled={i === chosen.length - 1} onClick={() => shift(id, 1)}>{t.down}</button>
-                    <button type="button" className="min-h-tap rounded-md px-3 text-label text-field hover:bg-field-soft" aria-label={t.notImportantAria(row.label)} onClick={() => remove(id)}>{t.notImportant}</button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-pill bg-field text-label font-semibold text-on-field" aria-hidden>{i + 1}</span>
+                    <Icon name={row.icon} className="mt-1 shrink-0 text-field" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-label font-semibold text-ink">{row.label}</span>
+                      <span className="block text-body-sm text-ink-muted">{row.help}</span>
+                      {chosen.length > 1 ? <span className="mt-0.5 block text-body-sm text-ink-muted">{t.placeLine(t.places[i], words[id])}</span> : null}
+                    </span>
+                  </div>
+                  <span className="grid grid-cols-3 gap-1 sm:ml-auto sm:flex sm:shrink-0 sm:flex-wrap sm:items-center">
+                    <button type="button" className="inline-flex min-h-tap items-center gap-1 rounded-md border border-line-strong px-3 text-label text-ink hover:bg-surface-sunken disabled:opacity-40" aria-label={t.moveUpAria(row.label)} disabled={i === 0} onClick={() => shift(id, -1)}><Icon name="up" size={16} aria-hidden />{t.up}</button>
+                    <button type="button" className="inline-flex min-h-tap items-center gap-1 rounded-md border border-line-strong px-3 text-label text-ink hover:bg-surface-sunken disabled:opacity-40" aria-label={t.moveDownAria(row.label)} disabled={i === chosen.length - 1} onClick={() => shift(id, 1)}><Icon name="down" size={16} aria-hidden />{t.down}</button>
+                    <button type="button" className="min-h-tap rounded-md px-2 text-label text-field hover:bg-field-soft sm:px-3" aria-label={t.notImportantAria(row.label)} onClick={() => remove(id)}>{t.notImportant}</button>
                   </span>
                 </div>
                 {renderDetail?.(id)}
@@ -152,7 +155,7 @@ export function PriorityOrder({ value, onChange, renderDetail, className }: Prio
           })}
         </ol>
       ) : (
-        <p className="m-0 rounded-md border border-dashed border-line-strong p-3 text-body-sm text-ink-muted">{t.empty}</p>
+        <p className="m-0 rounded-md border border-dashed border-line-strong p-3 text-body text-ink-muted">{t.empty}</p>
       )}
 
       {rest.length > 0 ? (
@@ -180,9 +183,92 @@ export function PriorityOrder({ value, onChange, renderDetail, className }: Prio
 
       <div className="rounded-md border border-line bg-surface p-3" aria-live="polite">
         <h3 className="m-0 text-label text-ink">{t.yourOrder}</h3>
-        <p className="m-0 mt-1 text-body-sm text-ink">{orderSummary(chosen, t, names)}</p>
+        <p className="m-0 mt-1 text-body text-ink">{orderSummary(chosen, t, names)}</p>
       </div>
       <PriorityExplainer />
+    </div>
+  );
+}
+
+export interface PriorityTilesProps {
+  /** Chosen priorities, most important first (the order they were tapped). */
+  value: PriorityId[];
+  onChange: (next: PriorityId[]) => void;
+  /** Extra controls under a chosen tile, such as the finer soil and income choices. */
+  renderDetail?: (id: PriorityId) => ReactNode;
+  className?: string;
+}
+
+/**
+ * The phone-first way to pick priorities. Each of the five is one big full-width tile (icon, name, one line).
+ * Tap to include: the badge shows its place (1, 2, 3 in tap order, first counts most). Tap again to remove.
+ * It reads and writes the same plain ordered list as PriorityOrder, so the saved shape does not change.
+ */
+export function PriorityTiles({ value, onChange, renderDetail, className }: PriorityTilesProps) {
+  const profile = useAppCopy().profile;
+  const t = profile.order;
+  const names = profile.priority;
+  const pick = usePick();
+  const [announce, setAnnounce] = useState("");
+  const chosen = value.filter((id) => PRIORITY_IDS.includes(id));
+
+  const toggle = (id: PriorityId) => {
+    if (chosen.includes(id)) {
+      onChange(chosen.filter((x) => x !== id));
+      setAnnounce(t.markedNot(names[id]));
+    } else {
+      onChange([...chosen, id]);
+      setAnnounce(t.addedAs(names[id], t.places[chosen.length].toLowerCase()));
+    }
+  };
+
+  return (
+    <div className={cn("flex flex-col gap-3", className)}>
+      <p className="m-0 text-body-sm text-ink-muted">
+        {pick("Tap what matters, most important first. The first one you tap counts most.", "အရေးကြီးသည်များကို အရေးကြီးဆုံးမှ စ၍ ထိပါ။ ပထမဆုံးထိသည်က အရေးအကြီးဆုံးဖြစ်ပါသည်။")}
+      </p>
+      {/* Screen readers hear the order after every tap; sighted farmers read it from the badges. */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {announce ? `${announce} ` : ""}
+        {orderSummary(chosen, t, names)}
+      </p>
+      <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
+        {PRIORITY_IDS.map((id) => {
+          const rank = chosen.indexOf(id) + 1;
+          const on = rank > 0;
+          return (
+            <li key={id} className="flex min-w-0 flex-col gap-2">
+              <button
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggle(id)}
+                className={cn(
+                  "flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors",
+                  on ? "border-field bg-field-soft ring-1 ring-field" : "border-line-strong bg-surface-raised hover:bg-surface-sunken",
+                )}
+              >
+                <Icon name={ICON[id]} size={24} className={cn("shrink-0", on ? "text-field" : "text-ink-muted")} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-body font-semibold text-ink">{names[id]}</span>
+                  <span className="block text-body-sm text-ink-muted">{profile.priorityHelp[id]}</span>
+                </span>
+                {on ? (
+                  <span className="grid size-9 shrink-0 place-items-center rounded-pill bg-field text-body font-semibold text-on-field">
+                    <span aria-hidden>{rank}</span>
+                    <span className="sr-only">{`${pick("Priority", "ဦးစားပေး")} ${rank}`}</span>
+                  </span>
+                ) : (
+                  <span className="grid size-9 shrink-0 place-items-center rounded-pill border border-dashed border-line-strong text-ink-muted">
+                    <Icon name="add" size={18} />
+                    <span className="sr-only">{pick("Not chosen. Tap to add.", "မရွေးရသေးပါ။ ထည့်ရန် ထိပါ။")}</span>
+                  </span>
+                )}
+              </button>
+              {on ? renderDetail?.(id) : null}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

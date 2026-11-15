@@ -102,7 +102,7 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
               {ticks.map((t) => (
                 <g key={t} transform={`translate(0,${y(t)})`}>
                   <line x2={innerW} className="stroke-line" />
-                  <text x={-8} dy="0.32em" textAnchor="end" className="tabular fill-ink-muted text-source">
+                  <text x={-8} dy="0.32em" textAnchor="end" className="tabular fill-ink-muted text-label">
                     {t}
                   </text>
                 </g>
@@ -127,7 +127,7 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
                     rx={2}
                     className="fill-water"
                   />
-                  <text x={band / 2} y={innerH + 17} textAnchor="middle" className="fill-ink-muted text-source">
+                  <text x={band / 2} y={innerH + 17} textAnchor="middle" className="fill-ink-muted text-label">
                     {narrow ? MONTHS[i][0] : MONTHS[i]}
                   </text>
                 </g>
@@ -149,7 +149,7 @@ export function RainWaterChart({ rain, cropUse, height = 220 }: { rain: number[]
           <div style={{ height }} className="rounded-md bg-surface-sunken" />
         )}
       </div>
-      <p className="m-0 text-source text-ink-muted">
+      <p className="m-0 text-body-sm text-ink-muted">
         Millimetres per month.{cropUse ? " Crop water use is estimated from temperature, so treat it as a guide." : ""}
       </p>
       <DataTable
@@ -217,7 +217,7 @@ export function TemperatureChart({
               {ticks.map((t) => (
                 <g key={t} transform={`translate(0,${y(t)})`}>
                   <line x2={innerW} className="stroke-line" />
-                  <text x={-8} dy="0.32em" textAnchor="end" className="tabular fill-ink-muted text-source">
+                  <text x={-8} dy="0.32em" textAnchor="end" className="tabular fill-ink-muted text-label">
                     {t}°
                   </text>
                 </g>
@@ -236,7 +236,7 @@ export function TemperatureChart({
                     className="fill-surface-raised stroke-line-strong"
                     strokeWidth={1.5}
                   />
-                  <text x={colW / 2} y={innerH + 17} textAnchor="middle" className="fill-ink-muted text-source">
+                  <text x={colW / 2} y={innerH + 17} textAnchor="middle" className="fill-ink-muted text-label">
                     {narrow ? MONTHS[i][0] : MONTHS[i]}
                   </text>
                 </g>

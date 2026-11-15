@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BandChip, type Band } from "@/components/field/conditions/bands";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { NextSteps } from "@/components/field/next-steps";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
@@ -109,6 +110,16 @@ function selectedRainSentence(series: TrendSeries | undefined, year: number): st
   const difference = Math.round(((point.value - baseline) / baseline) * 100);
   if (Math.abs(difference) < 5) return `${year} monsoon rain was close to the long-record middle.`;
   return `${year} monsoon rain was about ${Math.abs(difference)}% ${difference < 0 ? "below" : "above"} the long-record middle.`;
+}
+
+/** The selected year against the middle of the whole record: Low, OK or High. */
+function yearBand(series: TrendSeries | undefined, year: number): Band | null {
+  const point = series?.years.find((y) => y.year === year);
+  if (!series || !point || point.value === null) return null;
+  const mid = median(knownYears(series).map((y) => y.value));
+  if (mid === null || mid === 0) return null;
+  const diff = (point.value - mid) / mid;
+  return diff < -0.15 ? "low" : diff > 0.15 ? "high" : "ok";
 }
 
 function FieldMapPreview({ geometry, confirmed }: { geometry: Parameters<typeof staticMapUrl>[0]; confirmed: boolean }) {
@@ -272,6 +283,14 @@ export function TrendsView({
   }
 
   const rainSentence = selectedRainSentence(rain, selectedYear);
+  const band = yearBand(series, selectedYear);
+  const bandLabel = band
+    ? hazard === "temperature"
+      ? { low: "Few hot days", ok: "Usual hot days", high: "Many hot days" }[band]
+      : hazard === "water"
+        ? { low: "Dry year", ok: "Usual rain", high: "Wet year" }[band]
+        : null
+    : null;
   const content = explainHazard({
     hazard,
     selectedYear,
@@ -293,8 +312,13 @@ export function TrendsView({
           <Segmented legend="Explore past evidence for" value={hazard} onChange={setHazard} options={HAZARDS} />
 
           <div className="flex flex-col gap-2" aria-live="polite">
+            {band && bandLabel ? (
+              <div>
+                <BandChip band={band} label={bandLabel} />
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <h3 className="m-0 text-headline text-ink">{content.title}</h3>
+              <h3 className="m-0 text-title text-ink">{content.title}</h3>
               <ScaleBadge scale={content.scale} />
             </div>
             <p className="m-0 max-w-measure text-body text-ink"><strong>What to do:</strong> {content.action}</p>
@@ -304,9 +328,9 @@ export function TrendsView({
           {series && series.years.length > 0 ? (
             <div className="flex flex-col gap-1 border-t border-line pt-3">
               <Bars s={series} selectedYear={selectedYear} />
-              <label htmlFor={`trend-year-${fieldId}`} className="flex items-center justify-between gap-3 text-label text-ink">
+              <label htmlFor={`trend-year-${fieldId}`} className="flex items-center justify-between gap-3 text-body-sm text-ink">
                 <span>Choose a year</span>
-                <span className="tabular font-mono">{selectedYear}{selectedPoint?.value == null ? " · no data" : ` · ${Math.round(selectedPoint.value)} ${series.unit}`}</span>
+                <span className="tabular font-mono text-ink-muted">{selectedYear}{selectedPoint?.value == null ? " · no data" : ` · ${Math.round(selectedPoint.value)} ${series.unit}`}</span>
               </label>
               <input
                 id={`trend-year-${fieldId}`}
@@ -318,7 +342,7 @@ export function TrendsView({
                 onChange={(event) => setChosenYear(Number(event.currentTarget.value))}
                 className="min-h-tap w-full accent-field"
               />
-              <div className="flex justify-between text-source text-ink-muted" aria-hidden>
+              <div className="flex justify-between text-body-sm text-ink-muted" aria-hidden>
                 <span>{series.years[0].year}</span>
                 <span>{series.years.at(-1)!.year}</span>
               </div>
@@ -326,14 +350,14 @@ export function TrendsView({
           ) : null}
 
           <Disclosure title="Source, scale and method" className="bg-surface-sunken">
-            <p className="m-0 text-source text-ink-muted">{content.source}</p>
+            <p className="m-0 text-body-sm text-ink-muted">{content.source}</p>
             <p className="m-0 max-w-measure text-body-sm text-ink">
               Historical observations are analyzed at each dataset&apos;s native spatial resolution to preserve measurement integrity. Trends reflect multi-year observations without artificial interpolation or composite hazard masking.
             </p>
             {series ? <p className="m-0 text-body-sm text-ink-muted">{series.sentence}</p> : null}
           </Disclosure>
 
-          <Link href={`/fields/${field.id}/compare#what-if`} className="inline-flex min-h-tap items-center gap-2 self-start text-label font-medium text-field underline underline-offset-4 hover:text-ink">
+          <Link href={`/fields/${field.id}/compare#what-if`} className="inline-flex min-h-tap items-center gap-2 self-start text-body-sm font-medium text-field underline underline-offset-4 hover:text-ink">
             Test the crop plan in Compare
             <Icon name="next" />
           </Link>

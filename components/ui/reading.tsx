@@ -52,7 +52,7 @@ export function Reading({
 
   return (
     <Panel as="div" className={cn("flex flex-col gap-2 p-4", className)}>
-      <p className="m-0 text-label text-ink-muted">{label}</p>
+      <p className="m-0 text-body-sm font-medium text-ink-muted">{label}</p>
       <p className="tabular m-0 font-mono text-reading text-ink">
         {value}
         {unit ? <span className="ml-1 text-data text-ink-muted">{unit}</span> : null}

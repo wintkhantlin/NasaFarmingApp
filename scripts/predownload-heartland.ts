@@ -132,7 +132,7 @@ async function main() {
         coordinates: [info.lat, info.lon],
         hubs: info.hubs.map((h) => h.name),
         recordsCount: weather.dates.length,
-        file: filePath,
+        file: join("data", "predownload", "weather", `${safeKey}.json`),
       });
 
       // Small throttle to stay well below NASA POWER rate limits (30 req/min)
@@ -165,7 +165,7 @@ async function main() {
         coordinates: [hub.lat, hub.lng],
         ph: profile?.ph ?? null,
         texture: profile?.texture ?? null,
-        file: filePath,
+        file: join("data", "predownload", "soil", `${safeKey}.json`),
       });
 
       // Small throttle for SoilGrids

@@ -1,0 +1,533 @@
+{
+  "manifestVersion": "2.0.0",
+  "generatedAt": "2026-11-15T12:15:00Z",
+  "project": "Field Shift (NASA Space Apps Challenge 2026)",
+  "region": "Myanmar Heartland (Ayeyarwady Delta focus, Central Dry Zone, Shan Highlands, Bago)",
+  "datasets": [
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_hinthada_apex_20230101_20241231.json",
+      "bytes": 157148,
+      "sha256": "7a00f877d96538d5c751cff9192c6bfe5999262c45bf3ca58cdb8f88284f9f3e",
+      "recordsCount": 731,
+      "temporalRange": [
+        "20230101",
+        "20241231"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_hinthada_field_17.60_95.40.json",
+      "bytes": 286329,
+      "sha256": "42a91d928171fc70917691cfcda859c11bb7ebd3d5c385c21be9d7706c34bb7f",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_hinthada_town_17.65_95.45.json",
+      "bytes": 286331,
+      "sha256": "858ac77a6cf1e5e65685a015b47f6bcc6a45b5f0c151b1825b19bb76a61e9d2f",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_magway_dryzone_20230101_20241231.json",
+      "bytes": 156543,
+      "sha256": "0de642ea676d2ae5d83665d4fd71fc636af47393f5f371526320b57128ea90b2",
+      "recordsCount": 731,
+      "temporalRange": [
+        "20230101",
+        "20241231"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_mawlamyinegyun_delta_20230101_20241231.json",
+      "bytes": 157236,
+      "sha256": "37987b0376e5e296ff9a5a869428c1012fae69ebb3934d335470f9534a47503a",
+      "recordsCount": 731,
+      "temporalRange": [
+        "20230101",
+        "20241231"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_mawlamyinegyun_field_16.35_95.23.json",
+      "bytes": 286366,
+      "sha256": "6bacda1b4960ed2ce2775b4b756c8e9968f2dc94fd910cf4a71d8c9b29aef11f",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_mawlamyinegyun_town_16.38_95.27.json",
+      "bytes": 286366,
+      "sha256": "7946744f6798e6b058e811713248a15f57ee8fd298b26f763b1ed8c36e3595eb",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_myaungmya_field_16.60_94.92.json",
+      "bytes": 286339,
+      "sha256": "59f7ea333542028ce80d550e5f7079fb9ad6fc43ee54cb77e3ee5c1452195969",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_pathein_field_16.72_94.75.json",
+      "bytes": 286340,
+      "sha256": "1964713ac213917c3677bc0267a1f7100a3a38e9f0575f85a510b6f28a633300",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_pathein_town_16.78_94.73.json",
+      "bytes": 286317,
+      "sha256": "440a99c0c3314477404c34b60eff7cfc1feae40c38f5c389e1ecafea16daff35",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "NASA_POWER_Daily_Meteorology",
+      "product": "NASA POWER Agroclimatology Daily Point (v2.10.3)",
+      "file": "research/data/power_pyapon_field_16.30_95.68.json",
+      "bytes": 286471,
+      "sha256": "bf4b799a75c68c8e576bc10be6432ced50e74ec393f1da1f17c401e328ad9e40",
+      "recordsCount": 2130,
+      "temporalRange": [
+        "20210101",
+        "20261031"
+      ],
+      "spatialResolution": "0.5\u00b0 \u00d7 0.625\u00b0",
+      "parameters": [
+        "T2M",
+        "T2M_MAX",
+        "T2M_MIN",
+        "RH2M",
+        "WS2M",
+        "ALLSKY_SFC_SW_DWN",
+        "PRECTOTCORR",
+        "PS"
+      ],
+      "fillValue": -999.0,
+      "qaStatus": "VERIFIED_PHYSICALLY_BOUNDED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_hinthada_field_17.60_95.40.json",
+      "bytes": 4467,
+      "sha256": "33b3d747f21bbdf22eb4444084ec22ec9c1e378447af28475e3cafe84b57c212",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": true,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_hinthada_town_17.65_95.45.json",
+      "bytes": 4502,
+      "sha256": "4c086554f6e59aff3e539fcb3f35cacaf952f4af380eade6de40b3fe12ead54e",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": false,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_mawlamyinegyun_field_16.35_95.23.json",
+      "bytes": 4468,
+      "sha256": "7a24615cd5bf9b14ef8f16dfff4dd0d144d481ab4a6e9668088ec6864fae2f89",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": true,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_mawlamyinegyun_town_16.38_95.27.json",
+      "bytes": 4502,
+      "sha256": "8b3310a1f2a8052e29313ef3777b3ef50b6d561d1355ad7507f3ffd95b3f27fd",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": false,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_myaungmya_field_16.60_94.92.json",
+      "bytes": 4467,
+      "sha256": "0b2d4af0c7dc1b11c67ec09587b0397183b0876493ac6e99bf38e1ecc91ed2c5",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": true,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_pathein_field_16.72_94.75.json",
+      "bytes": 4468,
+      "sha256": "c3a5470d5003a82818c98002113d9f1dd061d7bd82087a37740f6f827514132e",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": true,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_pathein_town_16.78_94.73.json",
+      "bytes": 4501,
+      "sha256": "0f7f508da083db42fdae411e883546e9545c0d2d88cf7665ea9e8e0ff2378993",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": false,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "ISRIC_SoilGrids_v2",
+      "product": "ISRIC SoilGrids 250m v2.0 REST API",
+      "file": "research/data/soilgrids_pyapon_field_16.30_95.68.json",
+      "bytes": 4468,
+      "sha256": "2fb9e631a7d9ae284714a3e546036df87079ffbff48ef36adf0cc371d1e77867",
+      "spatialResolution": "250 m",
+      "depths": [
+        "0-5cm",
+        "5-15cm",
+        "15-30cm"
+      ],
+      "layers": [
+        "bdod",
+        "cec",
+        "clay",
+        "nitrogen",
+        "phh2o",
+        "sand",
+        "silt",
+        "soc",
+        "wv0033",
+        "wv1500"
+      ],
+      "hasValidSoilData": true,
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "Landsat_Collection2_Level2",
+      "product": "USGS Landsat Collection 2 Level 2 (MPC STAC)",
+      "file": "research/data/stac_landsat_c2_l2_ayeyarwady_2024.json",
+      "bytes": 232765,
+      "sha256": "4b218805ba3f0f15e2a5d05fa064e54acced0cf6f67d026aaf3388cb4dee5adb",
+      "doi": "10.5066/P9OGBGM6",
+      "spatialResolution": "30 m",
+      "temporalResolution": "16-day revisit",
+      "scaleFactor": 2.75e-05,
+      "addOffset": -0.2,
+      "qaMask": "QA_PIXEL 16-bit bitmask",
+      "qaStatus": "VERIFIED"
+    },
+    {
+      "category": "NASA_GPM_IMERG_V07",
+      "product": "GPM IMERG Final Precipitation L3 Daily 0.1\u00b0 (GPM_3IMERGDF)",
+      "file": "research/data/cmr_gpm_imerg_v07_ayeyarwady_sample.json",
+      "bytes": 66547,
+      "sha256": "9ba33e532f06656eff5e7e9946379fec087adf4fc8afb2be6a7579733edcdc76",
+      "doi": "10.5067/GPM/IMERGDF/DAY/07",
+      "collectionConceptId": "C2723754864-GES_DISC",
+      "spatialResolution": "0.1\u00b0 \u00d7 0.1\u00b0 (~10 km)",
+      "temporalResolution": "1 day (48 half-hour integrations)",
+      "protocol": "OPeNDAP DAP4 constraint URL",
+      "qaStatus": "VERIFIED"
+    }
+  ],
+  "predownloadedInventory": {
+    "weatherCellsCount": 22,
+    "soilProfilesCount": 25,
+    "groundTruthStations": 5,
+    "groundTruthFile": "data/validation/power-vs-ghcn.json",
+    "groundTruthSha256": "65f6e0d89c9a67f8875d4d7c3b3b7a4a2ea80738fa6cebc78569a6e72ac7f328"
+  }
+}

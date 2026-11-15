@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/shell/brand-mark";
-import { Button } from "@/components/ui/button";
-import { Panel } from "@/components/ui/panel";
+import { FlowNav } from "@/components/ui/flow-nav";
+import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/cn";
 import { getAppCopy, useAppCopy, useLocaleStore, type Locale } from "@/lib/store/locale-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
 
@@ -38,37 +39,59 @@ export function Welcome() {
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-md flex-col gap-6 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2.5rem,env(safe-area-inset-top))]">
+    // No tab bar on this screen, so the Continue bar sits at the very bottom.
+    <main className="mx-auto flex min-h-svh w-full max-w-md flex-col gap-6 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] [--tabbar-h:0px]">
       <div className="flex flex-col items-center gap-2 text-center">
         <BrandMark />
         <h1 className="text-title text-ink">{text.app.name}</h1>
-        <p className="m-0 text-body text-ink">{text.path.job}</p>
+        <p className="m-0 max-w-measure text-body text-ink">{text.path.job}</p>
       </div>
 
-      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="mb-1 text-label text-ink">{text.welcome.language}</legend>
-        <Panel as="div" className="divide-y divide-line">
-          {LANGS.map((l) => (
-            <label key={l.value} className="flex min-h-tap cursor-pointer items-center justify-between gap-3 px-4">
-              <span className="text-body text-ink">{l.label}</span>
-              <input type="radio" name="language" value={l.value} checked={locale === l.value} onChange={() => setLocale(l.value)} className="size-5 accent-[var(--color-field)]" />
-            </label>
-          ))}
-        </Panel>
+      {/* Language comes first: someone who cannot read this page must find it at once. */}
+      <fieldset className="m-0 flex flex-col gap-3 border-0 p-0">
+        <legend className="mb-2 flex items-center gap-2 text-headline text-ink">
+          <Icon name="language" size={22} />
+          {text.welcome.language}
+        </legend>
+        <div className="grid grid-cols-2 gap-3">
+          {LANGS.map((l) => {
+            const selected = locale === l.value;
+            return (
+              <label
+                key={l.value}
+                lang={l.value}
+                className={cn(
+                  "flex min-h-16 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-3 py-3 text-title transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-field/40",
+                  selected ? "border-field bg-field-soft font-semibold text-ink" : "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken",
+                )}
+              >
+                <input type="radio" name="language" value={l.value} checked={selected} onChange={() => setLocale(l.value)} className="sr-only" />
+                {selected ? <Icon name="check" size={22} strokeWidth={2.6} className="text-field" /> : null}
+                {l.label}
+              </label>
+            );
+          })}
+        </div>
       </fieldset>
 
-      <section aria-labelledby="notice" className="flex flex-col gap-3">
+      <section aria-labelledby="notice" className="flex flex-col gap-4 border-t border-line pt-5">
         <h2 id="notice" className="sr-only">{text.welcome.yourData}</h2>
         <div>
-          <h3 className="m-0 text-headline text-ink">{text.welcome.staysTitle}</h3>
-          <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
+          <h3 className="m-0 flex items-center gap-2 text-headline text-ink">
+            <Icon name="private" size={20} className="text-field" />
+            {text.welcome.staysTitle}
+          </h3>
+          <ul className="m-0 mt-1 list-disc pl-7 text-body text-ink">
             <li>{text.welcome.staysFields}</li>
             <li>{text.welcome.staysPriorities}</li>
           </ul>
         </div>
         <div>
-          <h3 className="m-0 text-headline text-ink">{text.welcome.leavesTitle}</h3>
-          <p className="m-0 mt-1 text-body text-ink-muted">{text.welcome.consentLine}</p>
+          <h3 className="m-0 flex items-center gap-2 text-headline text-ink">
+            <Icon name="location" size={20} className="text-field" />
+            {text.welcome.leavesTitle}
+          </h3>
+          <p className="m-0 mt-1 text-body text-ink">{text.welcome.consentLine}</p>
           <details className="mt-1">
             <summary className="flex min-h-tap cursor-pointer items-center text-label text-field">{text.welcome.more}</summary>
             <ul className="m-0 list-disc pl-5 text-body-sm text-ink-muted">
@@ -79,7 +102,7 @@ export function Welcome() {
         </div>
         {offline ? <p className="m-0 text-body-sm text-ink-muted">{text.welcome.offline}</p> : null}
         {/* Shown in both languages whichever is active: garbled Burmese cannot explain its own fix. */}
-        <div className="flex flex-col gap-1 rounded-md bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
+        <div className="flex flex-col gap-1 rounded-md border border-unknown-border/30 bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
           <p lang="my" className="m-0">{zawgyiMy}</p>
           <p lang="en" className="m-0">{zawgyiEn}</p>
         </div>
@@ -87,16 +110,15 @@ export function Welcome() {
       </section>
 
       <div className="mt-auto">
-        <Button
-          variant="primary"
-          block
-          onClick={() => {
-            accept();
-            router.replace("/");
+        <FlowNav
+          next={{
+            label: text.welcome.continue,
+            onClick: () => {
+              accept();
+              router.replace("/");
+            },
           }}
-        >
-          {text.welcome.continue}
-        </Button>
+        />
       </div>
     </main>
   );

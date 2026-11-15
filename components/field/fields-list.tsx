@@ -6,10 +6,11 @@ import { useEffect, useState } from "react";
 import TextField from "@mui/material/TextField";
 import { FirstRun } from "@/components/home/first-run";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
+import { usePick } from "@/components/shell/use-pick";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { Icon } from "@/components/ui/icon";
-import { ChevronRightGlyph } from "@/components/ui/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatAreaForLocale } from "@/lib/format-area";
 import { staticMapUrl } from "@/lib/geo/static-map";
@@ -23,6 +24,7 @@ const SEARCH_MIN_FIELDS = 6;
 
 function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }) {
   const t = useAppCopy();
+  const pick = usePick();
   const locale = useLocaleStore((s) => s.locale);
   const areaUnit = useLocaleStore((s) => s.areaUnit);
   const states = deriveStepStates(field, rotations);
@@ -43,9 +45,9 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
 
   return (
     <li className="min-w-0">
-      <article className="group relative flex h-full flex-col overflow-hidden rounded-md border border-line bg-surface-raised transition-colors hover:border-line-strong">
+      <article className="group relative flex h-full flex-col overflow-hidden rounded-md border border-line bg-surface-raised transition-[border-color,box-shadow,transform] duration-150 hover:border-line-strong hover:shadow-xs">
         {MAPBOX_TOKEN ? (
-          <div className="relative aspect-[2/1] w-full bg-surface-sunken">
+          <div className="relative aspect-[2/1] w-full bg-surface-sunken border-b border-line/60">
             <Image
               src={staticMapUrl(field.geometry, MAPBOX_TOKEN, 480, 240)}
               alt=""
@@ -59,7 +61,7 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
         ) : null}
 
         <div className="flex flex-1 flex-col gap-2 p-4">
-          <h3 className="min-w-0 text-headline text-ink">
+          <h3 className="min-w-0 text-title text-ink">
             {/* The stretched link makes the whole card one tap target */}
             <Link
               href={`/fields/${field.id}`}
@@ -69,16 +71,19 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
             </Link>
           </h3>
           <p className="m-0 text-body-sm text-ink-muted">{summary}</p>
+          {/* Status in words and an icon, never colour alone. */}
+          <p className="m-0 flex items-center gap-2 text-label text-ink">
+            <Icon name={hasRotation ? "success" : "checklist"} size={20} className="shrink-0 text-field" />
+            {hasRotation ? pick("Answer ready", "အဖြေ အဆင်သင့်ပါ") : pick("Add your crops next", "နောက်တစ်ဆင့် သီးနှံထည့်ပါ")}
+          </p>
 
-          <div className="mt-auto flex flex-col gap-2 border-t border-line pt-3">
+          <div className="mt-auto pt-2">
             <Link
               href={nextHref}
-              className="relative z-10 flex min-h-tap items-center justify-between gap-2 text-label text-field no-underline hover:underline"
+              className={buttonClass("secondary", "relative z-10 w-full justify-between no-underline")}
             >
-              <span>
-                {t.home.nextStepLabel} {next}
-              </span>
-              <ChevronRightGlyph className="shrink-0" />
+              <span>{next}</span>
+              <Icon name="next" />
             </Link>
           </div>
         </div>
@@ -136,12 +141,8 @@ export function FieldsList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header>
         <h1 className="text-title text-ink sm:text-display">{t.home.title}</h1>
-        <Link href="/fields/new" className={buttonClass("primary", "max-sm:w-full")}>
-          <Icon name="add" />
-          {t.home.addField}
-        </Link>
       </header>
 
       {showSearch ? (
@@ -179,6 +180,8 @@ export function FieldsList() {
       ) : null}
 
       {settingsLink}
+
+      <FlowNav next={{ label: t.home.addField, href: "/fields/new", icon: "add" }} />
     </div>
   );
 }

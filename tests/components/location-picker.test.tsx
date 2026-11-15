@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Field } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
@@ -111,33 +111,10 @@ describe("LocationPicker farmer inputs", () => {
     render(<LocationPicker />);
     expect(screen.getByText("The map isn't loading. Check your internet and try again.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("Browse by township")).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/NEXT_PUBLIC|env\.local/);
     // Corner entry is the only way in without a map, so it is open here.
     expect(screen.getByLabelText("South latitude")).toBeInTheDocument();
   });
 
-  it("retries township boundary loading after a temporary request failure", async () => {
-    const boundaries = {
-      type: "FeatureCollection",
-      features: [{
-        type: "Feature",
-        properties: { ST: "Example region", ST_PCODE: "ST1", DT: "Example district", DT_PCODE: "DT1", TS: "Example township", TS_PCODE: "TS1", TS_MMR: "" },
-        geometry: { type: "Polygon", coordinates: [[[95, 20], [96, 20], [96, 21], [95, 21], [95, 20]]] },
-      }],
-    };
-    const fetchMock = vi.fn()
-      .mockRejectedValueOnce(new Error("Network unavailable"))
-      .mockResolvedValueOnce({ ok: true, json: async () => boundaries });
-    vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    render(<LocationPicker field={field} />);
-
-    const townshipPicker = screen.getByText("Browse by township").closest("details");
-    expect(townshipPicker).not.toBeNull();
-    await within(townshipPicker!).findByText(/Township boundaries are unavailable/);
-    fireEvent.click(within(townshipPicker!).getByRole("button", { name: "Retry township boundaries" }));
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(await screen.findByLabelText("Region or state")).toBeInTheDocument();
-  });
 });

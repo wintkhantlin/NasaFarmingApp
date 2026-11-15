@@ -3,9 +3,10 @@
 import TextField from "@mui/material/TextField";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
 import { useLocaleStore } from "@/lib/store/locale-store";
-import { THEMES, pick, searchTopics, topicsInTheme, type LearnTopic } from "@/lib/learn/topics";
+import { THEMES, pick, searchTopics, topicsInTheme, type LearnTopic, type ThemeId } from "@/lib/learn/topics";
 import { DataUsageGuide } from "@/components/learn/data-usage-guide";
 
 const UI = {
@@ -28,6 +29,15 @@ const UI = {
     definitions: "အဓိပ္ပာယ်ဖွင့်ဆိုချက်နှင့် ဒေတာရင်းမြစ်များကို နောက်တစ်ဆင့်တွင် ကြည့်နိုင်သည်။",
   },
 } as const;
+
+/** One icon per theme, so a farmer who reads little can still find the right group. */
+const THEME_ICON: Record<ThemeId, IconName> = { weather: "rain", water: "water", soil: "soil", crops: "rotation", satellite: "satellite" };
+
+/** The first sentence of a topic's introduction: the short answer shown under the question. */
+function shortAnswer(text: string): string {
+  const m = text.match(/^.*?[.!?။](?=\s|$)/);
+  return (m ? m[0] : text).trim();
+}
 
 /** Learn hub (S15): farmer questions grouped into five themes, with search. Dataset names stay in each topic. */
 export function LearnHub() {
@@ -56,8 +66,8 @@ export function LearnHub() {
           placeholder={ui.placeholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          size="small"
           fullWidth
+          sx={{ "& .MuiInputBase-input": { fontSize: "1.0625rem", minHeight: 28 } }}
           slotProps={{ htmlInput: { "aria-label": ui.search } }}
         />
 
@@ -70,8 +80,9 @@ export function LearnHub() {
                 <a
                   key={t.id}
                   href={`#theme-${t.id}`}
-                  className="inline-flex min-h-tap items-center rounded-pill border border-line bg-surface-raised px-3 text-body-sm text-ink hover:border-line-strong"
+                  className="inline-flex min-h-tap items-center gap-2 rounded-pill border border-line bg-surface-raised px-3.5 text-body-sm text-ink transition-colors hover:border-line-strong hover:bg-surface-sunken active:bg-surface-sunken"
                 >
+                  <Icon name={THEME_ICON[t.id]} size={18} />
                   {pick(t.title, locale)}
                 </a>
               ))}
@@ -80,7 +91,10 @@ export function LearnHub() {
             {THEMES.map((theme) => (
               <section key={theme.id} id={`theme-${theme.id}`} aria-labelledby={`theme-${theme.id}-title`} className="flex scroll-mt-4 flex-col gap-2">
                 <div className="flex flex-col gap-1 px-1">
-                  <h3 id={`theme-${theme.id}-title`} className="m-0 text-source font-semibold text-ink-muted">{pick(theme.title, locale)}</h3>
+                  <h3 id={`theme-${theme.id}-title`} className="m-0 flex items-center gap-2 text-headline text-ink">
+                    <Icon name={THEME_ICON[theme.id]} size={20} className="shrink-0 text-field" />
+                    {pick(theme.title, locale)}
+                  </h3>
                   <p className="m-0 text-body-sm text-ink-muted">{pick(theme.intro, locale)}</p>
                 </div>
                 <Panel as="div" className="divide-y divide-line">
@@ -90,7 +104,7 @@ export function LearnHub() {
                 </Panel>
               </section>
             ))}
-            <p className="m-0 text-source text-ink-tertiary">{ui.definitions}</p>
+            <p className="m-0 text-body-sm text-ink-muted">{ui.definitions}</p>
           </>
         )}
       </section>
@@ -100,9 +114,12 @@ export function LearnHub() {
 
 function TopicLink({ topic, locale }: { topic: LearnTopic; locale: "en" | "my" }) {
   return (
-    <Link href={`/data/${topic.id}`} className="flex min-h-tap w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-label text-ink hover:bg-surface-sunken">
-      <span className="min-w-0 break-words">{pick(topic.question, locale)}</span>
-      <span aria-hidden className="shrink-0 text-ink-muted">›</span>
+    <Link href={`/data/${topic.id}`} className="group flex min-h-tap w-full items-center justify-between gap-3 px-4 py-3 text-left text-ink no-underline transition-colors hover:bg-surface-sunken active:bg-surface-sunken">
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="break-words text-body font-medium">{pick(topic.question, locale)}</span>
+        <span className="break-words text-body-sm text-ink-muted">{shortAnswer(pick(topic.intro, locale))}</span>
+      </span>
+      <Icon name="next" size={20} className="shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5" />
     </Link>
   );
 }
@@ -111,7 +128,7 @@ function SearchResults({ topics, locale, query, noneText, countText }: { topics:
   if (topics.length === 0) return <p className="text-body text-ink-muted">{noneText}</p>;
   return (
     <section aria-label={`Results for ${query}`} className="flex flex-col gap-2">
-      <p className="m-0 px-1 text-source text-ink-muted">{countText}</p>
+      <p className="m-0 px-1 text-body-sm text-ink-muted">{countText}</p>
       <Panel as="div" className="divide-y divide-line">
         {topics.map((t) => (
           <TopicLink key={t.id} topic={t} locale={locale} />

@@ -1,7 +1,8 @@
-/* Hallmark · v2.0.0 · redesign: full · scope: app · shape: app screen · posture: restrained · surface: absolute · system: Field Shift locked · light only · signature: field state and next action */
+/* Hallmark · v2.0.0 · redesign: full · scope: app · shape: app screen · posture: restrained · surface: absolute · system: Field Shift locked · light only · signature: field state and next action; compare: the season replay scoreboard */
 /* Critique · the field flow had complete data but weak priority; this pass makes progress and the next useful action visible before supporting records. */
 /* Hallmark · waive 7b · locked Field Shift light tokens specify a white canvas with quiet neutral raised surfaces · outdoor field screens need measured contrast and green actions */
 /* Hallmark · waive 26b · no aria-disabled control appears in the field evidence note · Check locally is static field guidance with no interactive states to style */
+/* Hallmark · dropped #h2h-title, #compare · the scoreboard replaced that heading, and the comparison sits right under the answer, so a button that only scrolled to it went */
 @import "tailwindcss";
 
 /*
@@ -155,11 +156,33 @@ code {
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1.5px;
   }
 
   ::selection {
     background: var(--color-field-soft);
     color: var(--color-ink);
+  }
+
+  /* Sleek custom scrollbars themed from design palette */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: var(--radius-pill);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-line-strong);
   }
 
   /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3).
@@ -203,6 +226,28 @@ code {
   }
 }
 
+/* Compare scoreboard: bars are drawn at full size and grow once with transform and opacity only,
+   so the figures are there with scripting or motion off. */
+@keyframes fs-grow-x {
+  from { transform: scaleX(0); }
+}
+@keyframes fs-fade-in {
+  from { opacity: 0; }
+}
+.fs-grow {
+  transform-origin: left center;
+  animation: fs-grow-x 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.fs-fade {
+  animation: fs-fade-in 300ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fs-grow,
+  .fs-fade {
+    animation: none;
+  }
+}
+
 /* Increase Contrast: hairlines become strong borders (DESIGN_SYSTEM.md 2.4) */
 @media (prefers-contrast: more) {
   :root {
@@ -210,17 +255,27 @@ code {
   }
 }
 
-/* The report is a document: no app chrome, no tint, sensible margins. */
+/* The report is a document: A4 portrait, 12mm margins, pure black and white, no app chrome. */
 @media print {
   @page {
-    margin: 14mm;
+    size: A4 portrait;
+    margin: 12mm;
   }
   body {
-    background: none;
-    color: var(--color-ink);
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 10pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   a {
     text-decoration: none;
+    color: inherit;
+  }
+  /* Remove any browser shadows or backdrop filters */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 }
 

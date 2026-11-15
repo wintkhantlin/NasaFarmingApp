@@ -3,7 +3,7 @@ import type { SoilProfile } from "../soil/soilgrids";
 import type { DailyWeather } from "../nasa/power";
 import type { ImergDay } from "../nasa/imerg";
 import type { PowerInfo } from "../engine/data";
-import type { EcostressData, HlsData, ModisData, RemoteState, SmapData, SrtmData } from "../server/remote-sensing";
+import type { EcostressData, EcostressMetData, HlsData, ModisData, RemoteState, SmapData, SrtmData } from "../server/remote-sensing";
 
 /** What `/api/field/:id/conditions` returns. Missing sources leave their fields undefined. */
 export interface ConditionsData {
@@ -88,6 +88,8 @@ export interface RemoteData {
   modis: RemoteState<ModisData>;
   ecostressLst: RemoteState<EcostressData>;
   ecostressEt: RemoteState<EcostressData>;
+  /** Added after the first cache version; optional so older saved responses remain readable. */
+  ecostressMet?: RemoteState<EcostressMetData>;
 }
 
 const REMOTE_CACHE_PREFIX = "remote_cache:";

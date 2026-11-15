@@ -67,7 +67,7 @@ export function SeasonStrip({ strip, field }: { strip: StripYear[]; field: Field
           </li>
         ))}
       </ol>
-      <ul aria-label="What the marks mean" className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-source text-ink-muted">
+      <ul aria-label="What the marks mean" className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-body-sm text-ink-muted">
         <li className="flex items-center gap-1.5">
           <Icon name="close" size={14} strokeWidth={2.6} className="text-stress" aria-hidden />
           Short of rain or too hot
@@ -93,7 +93,7 @@ export function SeasonStrip({ strip, field }: { strip: StripYear[]; field: Field
                 type="button"
                 aria-pressed={mine === a.value}
                 onClick={() => void save(open, a.value)}
-                className={cn("flex min-h-tap items-center justify-center rounded-md border px-3 text-label text-center", mine === a.value ? "border-field bg-field-soft text-ink" : "border-line bg-surface text-ink")}
+                className={cn("flex min-h-tap items-center justify-center rounded-md border px-3 text-body-sm font-medium text-center", mine === a.value ? "border-field bg-field-soft text-ink" : "border-line bg-surface text-ink")}
               >
                 {a.label}
               </button>
@@ -118,7 +118,7 @@ export function SeasonStripMini({ strip }: { strip: StripYear[] }) {
   if (strip.length === 0) return null;
   return (
     <div className="@container flex flex-col gap-1">
-      <p className="m-0 text-source text-ink-muted">
+      <p className="m-0 text-body-sm text-ink-muted">
         {known > 0
           ? `${stressedCount(strip)} of ${known} past seasons short of rain or too hot`
           : "Past-season stress not known"}
@@ -134,13 +134,13 @@ export function SeasonStripMini({ strip }: { strip: StripYear[] }) {
               s.stressed === null && "border-dashed border-unknown-border bg-unknown-bg text-unknown-text",
             )}
           >
-            <span className="tabular font-mono text-source leading-none">{s.year}</span>
+            <span className="tabular font-mono text-body-sm leading-none">{s.year}</span>
             {s.stressed === true ? (
               <Icon name="close" size={12} strokeWidth={2.6} aria-hidden />
             ) : s.stressed === false ? (
               <Icon name="done" size={12} strokeWidth={2.6} className="text-healthy" aria-hidden />
             ) : (
-              <span aria-hidden className="text-source font-semibold leading-3">?</span>
+              <span aria-hidden className="text-body-sm font-semibold leading-3">?</span>
             )}
             <span className="sr-only">{s.stressed === true ? "short of rain or too hot" : s.stressed === null ? "not known" : "no stress found"}</span>
           </li>

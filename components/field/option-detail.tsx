@@ -68,7 +68,7 @@ export function YourCallMarker({
               type="button"
               onClick={() => setOpen(!open)}
               aria-expanded={open}
-              className="inline-flex min-h-tap cursor-pointer items-center text-label text-field underline hover:text-ink"
+              className="inline-flex min-h-tap cursor-pointer items-center text-body-sm font-medium text-field underline hover:text-ink"
             >
               {open ? "Close" : "Not right for my field?"}
             </button>
@@ -79,7 +79,7 @@ export function YourCallMarker({
       </Message>
       {open ? (
         <div className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
-          <p className="text-source text-ink font-medium">
+          <p className="text-body-sm text-ink font-medium">
             Add what you see on your land (saved to your adviser report):
           </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -112,7 +112,7 @@ function SuitabilityBlock({ e }: { e: SlotEvaluation }) {
   if (!e.suitability) {
     return (
       <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3">
-        <p className="m-0 text-label text-ink">{e.name}</p>
+        <p className="m-0 text-body-sm font-medium text-ink">{e.name}</p>
         {e.unknowns.map((u) => (
           <p key={u} className="m-0 text-body-sm text-ink-muted">
             {u}
@@ -124,7 +124,7 @@ function SuitabilityBlock({ e }: { e: SlotEvaluation }) {
   return (
     <div className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="m-0 text-label text-ink">
+        <p className="m-0 text-body-sm font-medium text-ink">
           {e.name} <span className="text-body-sm font-normal text-ink-muted">{formatSpan(e.slot.plantDate, e.slot.harvestDate)}</span>
         </p>
         {e.suitability.overall !== "unknown" ? <RiskChip hazard={LEVEL[e.suitability.overall].hazard}>{LEVEL[e.suitability.overall].word}</RiskChip> : null}
@@ -137,7 +137,7 @@ function SuitabilityBlock({ e }: { e: SlotEvaluation }) {
               {c.level !== "unknown" ? <RiskChip hazard={LEVEL[c.level].hazard}>{LEVEL[c.level].word}</RiskChip> : null}
             </span>
             <span className="text-body-sm text-ink-muted">{c.detail}</span>
-            <span className="flex flex-wrap items-center gap-2 text-source text-ink-muted">
+            <span className="flex flex-wrap items-center gap-2 text-body-sm text-ink-muted">
               {c.inputSource ? <span>Input: {c.inputSource}</span> : null}
               {c.ruleSource ? <ScopeBadge scope={c.ruleSource.scope} refText={c.ruleSource.ref} /> : null}
             </span>
@@ -153,7 +153,7 @@ function WaterBlock({ e }: { e: SlotEvaluation }) {
   const n = e.rain.windows;
   return (
     <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
-      <p className="m-0 text-label text-ink">{e.name}</p>
+      <p className="m-0 text-body-sm font-medium text-ink">{e.name}</p>
       <p className="tabular m-0 text-data text-ink">
         Rain {fmt(e.rain.total.p50)} mm, demand {fmt(e.water?.etc.p50 ?? null)} mm, short by {fmt(e.water?.shortfall.p50 ?? null)} mm
       </p>
@@ -250,7 +250,7 @@ export function OptionDetail({
     <div className="flex flex-col gap-4">
       {o.fit === "does-not-fit" && o.noFitReason ? (
         <Panel as="div" tone="plain" className="flex flex-col gap-1 p-4">
-          <p className="m-0 text-label text-ink">Not a fit here</p>
+          <p className="m-0 text-body-sm font-medium text-ink">Not a fit here</p>
           <p className="m-0 text-body text-ink">{o.noFitReason}</p>
         </Panel>
       ) : null}
@@ -259,7 +259,7 @@ export function OptionDetail({
         <CropCalendar option={o} rainyMonths={rainyMonths} />
         {o.lowCover.length > 0 ? (
           <div className="flex flex-col gap-1">
-            <h4 className="m-0 text-label text-ink">{copy.compare.lowCoverTitle}</h4>
+            <h4 className="m-0 text-body-sm font-medium text-ink">{copy.compare.lowCoverTitle}</h4>
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
               {o.lowCover.map((g) => (
                 <li key={g.gap.from}>
@@ -312,7 +312,7 @@ export function OptionDetail({
       <Section id={`${o.id}-soil`} title={copy.compare.soilTitle} description="Published nitrogen and soil-cover ranges for these crops, with their sources.">
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
-            <h4 className="m-0 text-label text-ink">{copy.compare.nitrogenTitle}</h4>
+            <h4 className="m-0 text-body-sm font-medium text-ink">{copy.compare.nitrogenTitle}</h4>
             <p className="m-0 text-ink">
               {o.nitrogen.fixedKgHa ? `Legumes here can fix about ${fmt(o.nitrogen.fixedKgHa[0])} to ${fmt(o.nitrogen.fixedKgHa[1])} kg N/ha per cycle.` : "No nitrogen-fixing crop in this cycle."}
             </p>
@@ -326,7 +326,7 @@ export function OptionDetail({
             {o.nitrogen.scope && nitrogenSources(o).length === 0 ? <ScopeBadge scope={o.nitrogen.scope} className="self-start" /> : null}
           </div>
           <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
-            <h4 className="m-0 text-label text-ink">{copy.compare.erosionTitle}</h4>
+            <h4 className="m-0 text-body-sm font-medium text-ink">{copy.compare.erosionTitle}</h4>
             <RiskChip hazard={o.erosion.exposure === "elevated" ? "heat" : o.erosion.exposure === "possible" ? "drought" : o.erosion.exposure === "not-flagged" ? "healthy" : "drought"}>
               {o.erosion.exposure === "needs-slope-data" ? "Needs slope data" : o.erosion.exposure === "not-flagged" ? "Not flagged" : o.erosion.exposure === "possible" ? "Possible exposure" : "Elevated exposure"}
             </RiskChip>
@@ -339,7 +339,7 @@ export function OptionDetail({
           </div>
         </div>
         <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
-          <h4 className="m-0 text-label text-ink">{copy.compare.organicTitle}</h4>
+          <h4 className="m-0 text-body-sm font-medium text-ink">{copy.compare.organicTitle}</h4>
           {o.mechanisms.length === 0 ? <p className="m-0 text-ink-muted">No clear mechanism in this cycle.</p> : null}
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
             {o.mechanisms.map((m) => (
@@ -461,7 +461,7 @@ export function OptionDetail({
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {o.explanations.map((x) => (
             <li key={x.id} className="flex flex-col gap-0.5 border-b border-line pb-3 text-body-sm last:border-0 last:pb-0">
-              <p className="m-0 text-label text-ink">{x.claim}</p>
+              <p className="m-0 text-body-sm font-medium text-ink">{x.claim}</p>
               <p className="m-0 text-ink-muted"><span className="text-ink">Rule:</span> {x.rule}</p>
               <p className="m-0 text-ink-muted"><span className="text-ink">Input:</span> {x.input} · <span className="text-ink">Period:</span> {x.period}</p>
               <p className="m-0 text-ink-muted"><span className="text-ink">Data:</span> {x.source}</p>
@@ -489,7 +489,7 @@ export function OptionDetail({
               <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
                 {o.risks.map((r) => (
                   <li key={r.id} className="flex flex-col gap-1 border-t border-line pt-2.5 first:border-0 first:pt-0">
-                    <p className="m-0 text-label text-ink">{r.text}</p>
+                    <p className="m-0 text-body-sm font-medium text-ink">{r.text}</p>
                     <p className="m-0 text-body-sm text-ink-muted">
                       <span className="text-ink font-medium">What to check: </span>
                       {r.action}

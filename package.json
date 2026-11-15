@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/ensure-datasets.mjs && next build",
     "build:webpack": "next build --webpack",
+    "verify:datasets": "node scripts/ensure-datasets.mjs",
+    "predownload": "bun scripts/predownload-heartland.ts",
     "test:e2e": "playwright test",
     "start": "next start",
     "lint": "eslint",

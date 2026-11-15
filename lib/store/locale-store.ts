@@ -64,3 +64,5 @@ export function useAppCopy() {
   const locale = useLocaleStore((s) => s.locale);
   return locale === "my" ? copyMy : copyEn;
 }
+
+export type AppCopy = ReturnType<typeof useAppCopy>;

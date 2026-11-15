@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { Icon } from "@/components/ui/icon";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { FIT_HAZARD, OptionDetail } from "@/components/field/option-detail";
@@ -82,7 +83,7 @@ function CropPills({ names }: { names: string[] }) {
         return (
           <li key={`${n}-${occurrence}`} className="flex items-center gap-1.5">
             {i > 0 ? <Icon name="next" size={16} className="text-ink-muted" aria-hidden /> : null}
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-pill bg-field-soft px-3 text-body font-semibold text-ink">
+            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-pill border border-field/20 bg-field-soft px-3 text-body font-semibold text-ink shadow-xs">
               {n !== "Fallow" ? <Icon name="rotation" size={16} className="text-field" /> : null}
               {n.replace(/\s*\(.*\)\s*$/, "")}
             </span>
@@ -311,7 +312,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           <ol className="m-0 flex list-none flex-col gap-0.5 p-0">
             {o.rotation.slots.map((s, i) => (
               <li key={s.id}>
-                <span className="tabular font-mono text-source text-ink-muted">{i + 1} </span>
+                <span className="tabular font-mono text-body-sm text-ink-muted">{i + 1} </span>
                 {slotName(s)}
               </li>
             ))}
@@ -380,6 +381,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const optionName = (o: EvaluatedOption) =>
     o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : `Choice ${alternativeNumber.get(o.id) ?? ""}`.trim();
   const resultsModel = buildResultsModel({ field, comparison, display, options: displayOptions });
+  const showsBlocker = Boolean(blocker && (!hasAlternatives || !resultsModel));
   const visibleOptions = displayOptions.filter((o) => hasOwnRotation || o.id !== comparison.current.id || !hasAlternatives);
 
   return (
@@ -390,7 +392,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       <WhatIfBanner scenario={testScenario} recorded={field.irrigation} onReset={() => setScenario(NO_SCENARIO)} />
 
       {/* 1. The short answer. With choices to compare it is the verdict card inside the results below; a dead end shows one blocker card here instead, never two. */}
-      {blocker ? (
+      {blocker && showsBlocker ? (
         <ResultBlocker blocker={blocker} reasonsTitle={text.compare.blocker.limitsReasonsTitle} />
       ) : !hasAlternatives ? (
       <section aria-label="Comparison summary" className="flex flex-col gap-3 rounded-lg border border-field/30 bg-field-soft/40 p-4 sm:p-5">
@@ -463,20 +465,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </section>
       ) : null}
 
-      {/* 3. Without choices to compare there is no verdict card, so the way on sits here. */}
-      {!hasAlternatives ? (
-        <section aria-labelledby="next-step" className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4 sm:p-5 print:hidden">
-          <h2 id="next-step" className="m-0 text-headline text-ink">What would you like to do?</h2>
-          <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
-            <Icon name="report" />
-            See my farmer summary
-          </Link>
-          <Link href={`/fields/${field.id}/rotation`} className="inline-flex min-h-tap items-center self-start text-label text-field underline hover:text-ink">
-            Change my crops
-          </Link>
-        </section>
-      ) : null}
-
       <Disclosure title="Before planting: questions to check locally">
         <CheckLocally
           cropNames={[
@@ -494,18 +482,15 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
 
       {/* 4. Detail for advisers and extension workers, out of the farmer's way */}
       <section aria-labelledby="adviser-detail" className="flex flex-col gap-3 border-t border-line pt-5">
-        <div className="flex flex-col gap-1">
-          <h2 id="adviser-detail" className="m-0 text-label font-semibold text-ink">For advisers: more detail</h2>
-          <p className="m-0 text-body-sm text-ink-muted">You do not need these to decide. They show how the choices were checked.</p>
-        </div>
+        <h2 id="adviser-detail" className="m-0 text-headline text-ink">For advisers</h2>
 
-        <Link href={`/plan/crop-screen?fieldId=${encodeURIComponent(field.id)}`} className="inline-flex min-h-tap items-center self-start text-label text-field underline hover:text-ink">
+        <Link href={`/plan/crop-screen?fieldId=${encodeURIComponent(field.id)}`} className="inline-flex min-h-tap items-center self-start text-body-sm font-medium text-field underline hover:text-ink">
           Check next crops against this field&apos;s weather and soil
         </Link>
 
-        <Disclosure title="How we checked these choices" hint={display.state === "comparable" ? "Ready" : "Some information is missing"}>
+        <Disclosure title="How we checked these choices">
           <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-            We replayed {display.replay?.completeYears ?? 0} complete past years from 2016–2025 to compare how each choice handled the same weather.
+            We replayed {display.replay?.completeYears ?? 0} complete past years from 2016 to 2025 to compare how each choice handled the same weather.
           </p>
           <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
             <li>Regional weather: {plainSourceStatus(display.sourceStatuses?.power)}</li>
@@ -519,12 +504,12 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </Disclosure>
       {hasAlternatives && display.state === "comparable" ? (
         <details className="border-t border-line">
-          <summary className="min-h-tap cursor-pointer py-3 text-label text-ink">{copy.compare.measures}</summary>
+          <summary className="min-h-tap cursor-pointer py-3 text-body-sm font-medium text-ink">{copy.compare.measures}</summary>
           {/* Mobile: vertically organized comparison without wide tables */}
           <div className="flex flex-col divide-y divide-line md:hidden">
             {tableRows.map((g) => (
               <div key={g.group} className="flex flex-col gap-3 py-3">
-                <h4 className="m-0 text-label font-semibold text-ink">{g.group}</h4>
+                <h4 className="m-0 text-body-sm font-semibold text-ink">{g.group}</h4>
                 <div className="flex flex-col gap-4">
                   {g.items.map((it) => (
                     <div key={it.label} className="flex flex-col gap-2">
@@ -532,7 +517,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                       <div className="flex flex-col gap-2">
                         {displayOptions.map((o) => (
                           <div key={o.id} className="flex flex-col gap-1 border-t border-line/60 pt-2 first:border-0 first:pt-0">
-                            <div className="flex items-center gap-1.5 text-source font-medium text-ink-muted">
+                            <div className="flex items-center gap-1.5 text-body-sm font-medium text-ink-muted">
                               <span>{optionName(o)}</span>
                               {o.id === comparison.current.id && hasOwnRotation ? <StatusTag tag="yours" /> : null}
                               {o.id === bestId ? <StatusTag tag="best-match" /> : null}
@@ -608,7 +593,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       ) : null}
 
       {comparison.region !== "unsupported" && (hasOwnRotation || comparison.mcda.status === "ranked") ? (
-        <Disclosure title="How the choices were ordered" hint={comparison.mcda.status === "ranked" ? "Using what matters to you" : "No fair order yet"}>
+        <Disclosure title="How the choices were ordered">
           {comparison.mcda.status === "no-priorities" ? (
             <div className="flex flex-col items-start gap-2">
               <p className="m-0 max-w-measure text-body text-ink">{copy.compare.rankingNone}</p>
@@ -625,11 +610,11 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                   const o = displayOptions.find((x) => x.id === r.rotationId);
                   return (
                     <li key={r.rotationId} className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface p-3">
-                      <span className="tabular grid min-h-7 min-w-10 place-items-center rounded-pill border border-line-strong px-2 font-mono text-source">
+                      <span className="tabular grid min-h-7 min-w-10 place-items-center rounded-pill border border-line-strong px-2 font-mono text-body-sm">
                         {copy.compare.rankPlace(r.originalPlace)}
                       </span>
-                      <span className="min-w-0 flex-1 text-label text-ink">{o ? optionName(o) : ""}</span>
-                      {r.originalPlace === 1 && display.tiedFirst ? <span className="text-source text-ink-muted">Close score; no clear first choice</span> : null}
+                      <span className="min-w-0 flex-1 text-body-sm font-medium text-ink">{o ? optionName(o) : ""}</span>
+                      {r.originalPlace === 1 && display.tiedFirst ? <span className="text-body-sm text-ink-muted">Close score; no clear first choice</span> : null}
                       {o && o.badges.length > 0 ? <span className="w-full text-body-sm text-ink-muted">{o.badges.map(farmerBadge).join(" · ")}</span> : null}
                     </li>
                   );
@@ -640,7 +625,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           {comparison.mcda.status === "unresolved" ? <p className="m-0 max-w-measure text-body text-ink">There is not enough matching information to put these choices in a fair order. Review each choice and the local checks instead.</p> : null}
           {comparison.sensitivity.some((s) => s.topLabel) ? (
               <div className="flex flex-col gap-1">
-                <h3 className="m-0 text-label text-ink">{copy.compare.sensitivityTitle}</h3>
+                <h3 className="m-0 text-body-sm font-medium text-ink">{copy.compare.sensitivityTitle}</h3>
                 <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
                   {comparison.sensitivity
                     .filter((s) => s.topLabel)
@@ -655,12 +640,12 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                 </ul>
               </div>
             ) : null}
-            <p className="m-0 text-source text-ink-muted">
+            <p className="m-0 text-body-sm text-ink-muted">
               {copy.compare.rankCriteria(comparison.mcda.used.map((id) => CRITERIA.find((c) => c.id === id)?.label.toLowerCase()).join(", "))}
             </p>
           {comparison.mcda.partial.length > 0 ? (
             <div className="flex flex-col gap-1">
-              <h3 className="m-0 text-label text-ink">{copy.compare.partialTitle}</h3>
+              <h3 className="m-0 text-body-sm font-medium text-ink">{copy.compare.partialTitle}</h3>
               <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
                 {comparison.mcda.partial.map((x) => (
                   <li key={x.rotationId}>
@@ -672,7 +657,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           ) : null}
           {comparison.mcda.excluded.filter((x) => x.reason !== "no-priority").length > 0 ? (
             <div className="flex flex-col gap-1">
-              <h3 className="m-0 text-label text-ink">{copy.compare.notRankedTitle}</h3>
+              <h3 className="m-0 text-body-sm font-medium text-ink">{copy.compare.notRankedTitle}</h3>
               <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
                 {comparison.mcda.excluded
                   .filter((x) => x.reason !== "no-priority")
@@ -685,14 +670,14 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             </div>
           ) : null}
           <div className="flex flex-col items-start gap-2 border-t border-line pt-3">
-            <h3 className="m-0 text-label text-ink">{copy.compare.rankUsed}</h3>
+            <h3 className="m-0 text-body-sm font-medium text-ink">{copy.compare.rankUsed}</h3>
             {shapedByChips.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {shapedByChips.map((chip) => (
                   <Link
                     key={chip.label}
                     href={chip.href}
-                    className="inline-flex items-center rounded-pill border border-line bg-surface-raised px-2.5 py-1 text-source text-ink no-underline transition-colors hover:border-line-strong hover:bg-surface-sunken"
+                    className="inline-flex items-center rounded-pill border border-line bg-surface-raised px-2.5 py-1 text-body-sm text-ink no-underline transition-colors hover:border-line-strong hover:bg-surface-sunken"
                   >
                     {chip.label}
                   </Link>
@@ -701,7 +686,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             ) : (
               <p className="m-0 text-body-sm text-ink-muted">{copy.compare.rankUsedNothing}</p>
             )}
-            <Link href={`/fields/${field.id}/profile`} className="text-label text-field underline hover:text-ink">
+            <Link href={`/fields/${field.id}/profile`} className="text-body-sm font-medium text-field underline hover:text-ink">
               {copy.compare.rankChange}
             </Link>
           </div>
@@ -732,6 +717,13 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       </section>
 
       <NextSteps fieldId={field.id} current="compare" />
+
+      {/* The one way on, in the same place as every other screen: Back to crops, Next to the summary. */}
+      {showsBlocker ? null : <FlowNav
+        className="contents"
+        back={{ label: "Change crops", href: `/fields/${field.id}/rotation` }}
+        next={{ label: "See my summary", href: `/fields/${field.id}/report`, icon: "report" }}
+      />}
     </>
   );
 }
@@ -740,7 +732,7 @@ function TableGroup({ title, cols, children }: { title: string; cols: number; ch
   return (
     <>
       <tr className="border-t border-line bg-surface">
-        <th scope="colgroup" colSpan={cols} className="px-4 py-2 text-left text-label font-medium text-ink">
+        <th scope="colgroup" colSpan={cols} className="px-4 py-2 text-left text-body-sm font-medium text-ink">
           {title}
         </th>
       </tr>

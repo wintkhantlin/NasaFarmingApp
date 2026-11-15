@@ -67,7 +67,7 @@ export function Message({ tone, title, children, action, evidence, compact, role
         <Icon name={t.icon} size={20} strokeWidth={2.4} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="m-0 text-label font-semibold text-ink">
+        <p className="m-0 text-body-sm font-semibold text-ink">
           <span className="sr-only">{t.word}: </span>
           {title}
         </p>

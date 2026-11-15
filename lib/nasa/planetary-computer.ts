@@ -4,6 +4,7 @@ import { viUsable, viIsInlandWater, MODIS_NDVI_FILL } from "./qa/modis-vi";
 import type { FieldGeometry, LngLat } from "../types";
 import { pointInPolygon } from "../geo/shapes";
 import { toUtm, utmZoneFromEpsg } from "../geo/utm";
+import { pool } from "./imerg";
 
 /**
  * Microsoft Planetary Computer (MPC) STAC & COG Client.
@@ -359,6 +360,14 @@ export function projectorFor(geoKeys: Record<string, unknown> | null | undefined
   throw new Error(`Unsupported raster CRS (${String(geoKeys?.GTCitationGeoKey ?? projected)}); only WGS84 and WGS84 UTM are read.`);
 }
 
+let geotiffModulePromise: Promise<typeof import("geotiff")> | null = null;
+function getGeotiffModule() {
+  if (!geotiffModulePromise) {
+    geotiffModulePromise = import("geotiff");
+  }
+  return geotiffModulePromise;
+}
+
 /**
  * Reads the pixels around a field from a Cloud-Optimized GeoTIFF using HTTP range requests via
  * `geotiff`. The outline is projected into the raster's CRS first, so a UTM tile is never compared
@@ -372,7 +381,7 @@ export async function readCogWindow(
   if (opts.signal?.aborted) {
     throw new Error("Aborted");
   }
-  const { fromUrl } = await import("geotiff");
+  const { fromUrl } = await getGeotiffModule();
   const tiff = await fromUrl(signedUrl);
   const image = await tiff.getImage();
   // The pixel-to-map mapping below is the unrotated affine (b = d = 0). A rotated or sheared grid would put the
@@ -478,13 +487,12 @@ export async function processLandsatScene(
     signAssetUrl(qaAsset.href, item.collection, opts),
   ]);
 
-  const [redData, nirData, qaData] = await Promise.all([
+  const [redData, nirData, qaData, swirData] = await Promise.all([
     readCogWindow(signedRed, geometry, opts),
     readCogWindow(signedNir, geometry, opts),
     readCogWindow(signedQa, geometry, opts),
+    signedSwir ? readCogWindow(signedSwir, geometry, opts) : Promise.resolve(null),
   ]);
-
-  const swirData = signedSwir ? await readCogWindow(signedSwir, geometry, opts) : null;
 
   const count = Math.min(redData.values.length, nirData.values.length, qaData.values.length);
   // Only pixels inside the field outline count; the rest of the window belongs to the neighbours.
@@ -524,10 +532,11 @@ export async function processLandsatScene(
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
-  const coverage = validPixels / fieldPixels;
+  const clearCoverage = (validPixels + waterPixels) / fieldPixels;
+  const landCoverage = validPixels / fieldPixels;
   // Minimum clear-area gate (Section 6.2): too little of the parcel clear means no field value for this date.
-  const ndviMedian = sceneAdmitted(coverage) ? median(ndviValues) : null;
-  const ndmiMedian = sceneAdmitted(coverage) ? median(ndmiValues) : null;
+  const ndviMedian = sceneAdmitted(landCoverage) ? median(ndviValues) : null;
+  const ndmiMedian = sceneAdmitted(landCoverage) ? median(ndmiValues) : null;
 
   return {
     itemId: item.id,
@@ -539,7 +548,7 @@ export async function processLandsatScene(
     validPixels,
     totalPixels: fieldPixels,
     waterPixels,
-    coverage: Math.round(coverage * 1000) / 1000,
+    coverage: Math.round(clearCoverage * 1000) / 1000,
   };
 }
 
@@ -556,6 +565,7 @@ export async function ingestPlanetaryComputerLandsat(
     apiKey?: string;
     maxCloudCover?: number;
     limit?: number;
+    concurrency?: number;
   } = {},
 ): Promise<PlanetaryComputerResult> {
   const bbox = geometryBbox(field.geometry);
@@ -565,19 +575,21 @@ export async function ingestPlanetaryComputerLandsat(
     start: period.start,
     end: period.end,
     maxCloudCover: opts.maxCloudCover ?? 40,
-    limit: opts.limit ?? 50,
+    limit: opts.limit ?? 16,
     fetch: opts.fetch,
     signal: opts.signal,
     apiKey: opts.apiKey,
   });
 
-  const observations: ObservationSummary[] = [];
+  // Prioritize scenes with lowest cloud cover to gather clear observations as fast as possible
+  items.sort((a, b) => Number(a.properties["eo:cloud_cover"] ?? 0) - Number(b.properties["eo:cloud_cover"] ?? 0));
 
-  for (const item of items) {
+  const concurrency = opts.concurrency ?? 8;
+  const results = await pool(items, concurrency, async (item): Promise<ObservationSummary | null> => {
     try {
       const obs = await processLandsatScene(item, field.geometry, opts);
       if (obs && obs.validPixels > 0) {
-        observations.push({
+        return {
           date: obs.date,
           ndviMedian: obs.ndviMedian,
           ndmiMedian: obs.ndmiMedian,
@@ -585,13 +597,19 @@ export async function ingestPlanetaryComputerLandsat(
           totalPixels: obs.totalPixels,
           waterPixels: obs.waterPixels,
           coverage: obs.coverage,
-        });
+        };
       }
+      return null;
     } catch (e) {
       // Individual scene extraction failure does not abort the whole time series
       console.warn(`MPC Landsat scene ${item.id} skipped:`, e instanceof Error ? e.message : e);
+      return null;
     }
-  }
+  });
+
+  const observations: ObservationSummary[] = results.filter(
+    (r): r is ObservationSummary => r !== null && !(r instanceof Error),
+  );
 
   // Sort chronological
   observations.sort((a, b) => a.date.localeCompare(b.date));
@@ -641,6 +659,7 @@ export async function ingestPlanetaryComputerModisVi(
     signal?: AbortSignal;
     apiKey?: string;
     limit?: number;
+    concurrency?: number;
   } = {},
 ): Promise<ModisViResult> {
   const bbox = geometryBbox(field.geometry);
@@ -649,22 +668,21 @@ export async function ingestPlanetaryComputerModisVi(
     bbox,
     start: period.start,
     end: period.end,
-    limit: opts.limit ?? 50,
+    limit: opts.limit ?? 16,
     fetch: opts.fetch,
     signal: opts.signal,
     apiKey: opts.apiKey,
   });
 
-  const observations: ObservationSummary[] = [];
-
-  for (const item of items) {
+  const concurrency = opts.concurrency ?? 8;
+  const results = await pool(items, concurrency, async (item): Promise<ObservationSummary | null> => {
     const ndviAsset = item.assets["250m_16_days_NDVI"];
     const qaAsset = item.assets["250m_16_days_VI_Quality"];
     const relAsset = item.assets["250m_16_days_pixel_reliability"];
 
-    if (!ndviAsset || !qaAsset) continue;
+    if (!ndviAsset || !qaAsset) return null;
     const date = extractModisDate(item);
-    if (!date) continue;
+    if (!date) return null;
 
     try {
       const [signedNdvi, signedQa, signedRel] = await Promise.all([
@@ -673,15 +691,15 @@ export async function ingestPlanetaryComputerModisVi(
         relAsset ? signAssetUrl(relAsset.href, item.collection, opts) : Promise.resolve(null),
       ]);
 
-      const [ndviData, qaData] = await Promise.all([
+      const [ndviData, qaData, relData] = await Promise.all([
         readCogWindow(signedNdvi, field.geometry, opts),
         readCogWindow(signedQa, field.geometry, opts),
+        signedRel ? readCogWindow(signedRel, field.geometry, opts) : Promise.resolve(null),
       ]);
-      const relData = signedRel ? await readCogWindow(signedRel, field.geometry, opts) : null;
 
       const count = Math.min(ndviData.values.length, qaData.values.length);
       const fieldPixels = ndviData.inside.slice(0, count).filter(Boolean).length;
-      if (fieldPixels === 0) continue;
+      if (fieldPixels === 0) return null;
 
       const validNdvi: number[] = [];
       let waterCount = 0;
@@ -712,7 +730,7 @@ export async function ingestPlanetaryComputerModisVi(
 
       const med = sceneAdmitted(validNdvi.length / fieldPixels) ? median(validNdvi) : null;
       if (validNdvi.length > 0) {
-        observations.push({
+        return {
           date,
           ndviMedian: med !== null ? Math.round(med * 1000) / 1000 : null,
           ndmiMedian: null, // MOD13Q1 250m standard composite does not include SWIR NDMI
@@ -720,12 +738,18 @@ export async function ingestPlanetaryComputerModisVi(
           totalPixels: fieldPixels,
           waterPixels: waterCount,
           coverage: Math.round((validNdvi.length / fieldPixels) * 1000) / 1000,
-        });
+        };
       }
+      return null;
     } catch (e) {
       console.warn(`MPC MODIS item ${item.id} skipped:`, e instanceof Error ? e.message : e);
+      return null;
     }
-  }
+  });
+
+  const observations: ObservationSummary[] = results.filter(
+    (r): r is ObservationSummary => r !== null && !(r instanceof Error),
+  );
 
   observations.sort((a, b) => a.date.localeCompare(b.date));
 

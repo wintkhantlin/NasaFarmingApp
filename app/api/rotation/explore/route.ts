@@ -2,6 +2,8 @@ import { buildEngineRequest, parseFarmerRequest } from "@/lib/rotation/farmer-re
 import { resolveEnvironment } from "@/lib/rotation/environment";
 import { POST as runRecommendation } from "../route";
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   let input;
   try {

@@ -17,6 +17,10 @@ export interface FarmerDecisionInput {
   availableWater: FarmerWaterAccess;
   budgetMaxMmkHa?: number | null;
   equipment: FarmerLaborEquipment;
+  /** How much help the farmer has at busy times. Unset or "unknown" is never read as plenty. */
+  labour?: "low" | "medium" | "high" | "unknown";
+  /** Calendar months (1 to 12) when labour is stretched. */
+  peakMonths?: number[];
   canSellCropIds?: string[];
   avoidCropIds?: string[];
   marketStatus?: FarmerMarketConstraint;
@@ -216,6 +220,32 @@ export function classifyRotationFeasibility(
     // Most Myanmar smallholder crops can be established manually or with power tiller
   } else if (input.equipment === "unknown") {
     unconfirmedFactors.push("EQUIPMENT_UNCONFIRMED");
+  }
+
+  // 6. Labour. A sowing or harvest in the farmer's busiest months, or two sowings a year with very little help,
+  // is something to check, not a veto: how much work a crop takes is not measured in the library.
+  if (input.peakMonths && input.peakMonths.length > 0) {
+    const peak = new Set(input.peakMonths);
+    const month = (iso: string) => Number(iso.slice(5, 7));
+    const hits = cropSlots.flatMap((s) => [month(s.plantDate), month(s.harvestDate)]).filter((m) => peak.has(m));
+    if (hits.length >= 2) {
+      unconfirmedFactors.push("LABOUR_PEAK_CONFLICT");
+      reasons.push({
+        code: "LABOUR_PEAK_CONFLICT",
+        type: "missing_evidence",
+        message: "Sowing and harvest fall in your busiest months. Check that you will have help at those times.",
+        fieldSource: "farmer_constraint",
+      });
+    }
+  }
+  if (input.labour === "low" && cropSlots.length / Math.max(1, rotation.cycleYears) >= 2) {
+    unconfirmedFactors.push("LABOUR_LOW_TWO_CROPS");
+    reasons.push({
+      code: "LABOUR_LOW_TWO_CROPS",
+      type: "missing_evidence",
+      message: "Two sowings and harvests a year need more help than you said you have. Check who can help at those times.",
+      fieldSource: "farmer_constraint",
+    });
   }
 
   let status: FeasibilityStatus = "feasible";

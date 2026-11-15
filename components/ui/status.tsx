@@ -15,7 +15,7 @@ const SCALE: Record<Scale, { word: string; glyph: string }> = {
   estimated: { word: "Estimated map", glyph: "▦" },
 };
 
-const pill = "inline-flex min-h-6 items-center gap-1 rounded-pill px-2.5 py-0.5 text-source";
+const pill = "inline-flex min-h-7 items-center gap-1 rounded-pill px-2.5 py-0.5 text-body-sm";
 
 export function ScaleBadge({ scale, className }: { scale: Scale; className?: string }) {
   const s = SCALE[scale];

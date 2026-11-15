@@ -117,9 +117,30 @@ describe("resolveBlocker", () => {
     const noCrops = build({ region: "magway", centroid: [94.95, 20.15] }, { rotation: undefined, comparison: null });
     const blocker = resolveBlocker(noCrops.display, null, noCrops.field, ctx());
     expect(blocker?.kind).toBe("setup-incomplete");
-    expect(blocker?.primary.href).toBe(`/fields/${noCrops.field.id}/rotation`);
+    expect(blocker?.primary.href).toBe(`/fields/${noCrops.field.id}/rotation?mode=record`);
     const noLocation = build({ region: "magway", centroid: [94.95, 20.15], locationConfirmed: false }, { comparison: null });
     expect(resolveBlocker(noLocation.display, null, noLocation.field, ctx())?.primary.href).toBe(`/fields/${noLocation.field.id}/location`);
+  });
+
+  it("opens crop recording after a saved plan instead of restarting plan ideas", () => {
+    const base = build({ region: "magway", centroid: [94.95, 20.15] });
+    const savedPlan = { ...mine(base.field.id), id: `guided-plan-${base.field.id}`, source: "strategy" as const };
+    const display = adaptComparison({
+      mode: "field",
+      phase: "ready",
+      field: base.field,
+      rotation: savedPlan,
+      data: null,
+      comparison: null,
+      inputRevision: "1",
+      resultRevision: "1",
+    });
+
+    expect(display.headline).toBe("Your plan is saved");
+    expect(resolveBlocker(display, null, base.field, ctx())?.primary).toEqual({
+      label: "Tell us what grows here now",
+      href: `/fields/${base.field.id}/rotation?mode=record`,
+    });
   });
 
   it("an unresolved ranking asks what matters most", () => {

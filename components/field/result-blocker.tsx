@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { buttonClass } from "@/components/ui/button";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { Panel } from "@/components/ui/panel";
 import { cn } from "@/lib/cn";
 import type { ComparisonResult } from "@/lib/engine/compare";
@@ -75,7 +75,7 @@ export function resolveBlocker(
         kind: "setup-incomplete", tone: "needs", title: display.headline, body: display.detail,
         primary: needsLocation
           ? { label: t.setupLocationAction, href: `${base}/location` }
-          : { label: t.setupCropsAction, href: `${base}/rotation` },
+          : { label: t.setupCropsAction, href: `${base}/rotation?mode=record` },
       };
     }
     case "stale":
@@ -146,6 +146,7 @@ export function ResultBlocker({
   const Heading = heading;
   const { primary, secondary } = blocker;
   return (
+    <>
     <Panel
       as="section"
       role="status"
@@ -162,7 +163,7 @@ export function ResultBlocker({
       </div>
       {blocker.reasons && blocker.reasons.length > 0 ? (
         <details open className="w-full">
-          <summary className="min-h-tap cursor-pointer text-label text-ink">{reasonsTitle}</summary>
+          <summary className="min-h-tap cursor-pointer text-body-sm font-medium text-ink">{reasonsTitle}</summary>
           <ul className="m-0 mt-1 flex list-disc flex-col gap-1.5 pl-5 text-body-sm text-ink-muted">
             {blocker.reasons.map((reason) => (
               <li key={reason}>{reason}</li>
@@ -170,27 +171,30 @@ export function ResultBlocker({
           </ul>
         </details>
       ) : null}
-      {primary.href ? (
-        <Link href={primary.href} className={buttonClass("primary", "w-full sm:w-auto")}>
-          {primary.label}
-        </Link>
-      ) : (
-        <button type="button" onClick={primary.onClick} disabled={primary.disabled} className={buttonClass("primary", "w-full sm:w-auto")}>
-          {primary.label}
-        </button>
-      )}
       {secondary ? (
         secondary.href ? (
-          <Link href={secondary.href} className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
+          <Link href={secondary.href} className="inline-flex min-h-tap items-center text-body-sm font-medium text-field underline hover:text-ink">
             {secondary.label}
           </Link>
         ) : (
-          <button type="button" onClick={secondary.onClick} className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
+          <button type="button" onClick={secondary.onClick} className="inline-flex min-h-tap items-center text-body-sm font-medium text-field underline hover:text-ink">
             {secondary.label}
           </button>
         )
       ) : null}
     </Panel>
+    {/* The one action sits in the same bottom bar as every other screen. */}
+    <FlowNav
+      className="contents"
+      next={{
+        label: primary.label,
+        href: primary.href,
+        onClick: primary.onClick,
+        disabled: primary.disabled,
+        icon: primary.href ? "next" : "retry",
+      }}
+    />
+    </>
   );
 }
 

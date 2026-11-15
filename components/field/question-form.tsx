@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Message } from "@/components/ui/message";
-import { Button, buttonClass } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
@@ -98,28 +99,29 @@ function QuestionBody({ field, question }: { field: Field; question: Question })
                 aria-checked={selected}
                 disabled={saving}
                 onClick={() => { setError(null); setValue(c.value); }}
-                className={`flex min-h-tap items-center gap-3 rounded-md border px-3.5 py-3 text-left text-body transition-colors ${
+                className={`flex min-h-[52px] items-center gap-3 rounded-md border px-4 py-3 text-left text-body transition-colors ${
                   selected ? "border-field bg-field-soft text-ink" : isUnknown ? "border-dashed border-line-strong bg-surface text-ink-muted hover:border-line-strong" : "border-line bg-surface text-ink hover:border-line-strong"
                 }`}
               >
                 <span aria-hidden className={`grid size-5 shrink-0 place-items-center rounded-full border ${selected ? "border-field bg-field text-white" : "border-line-strong"}`}>
                   {selected ? <Icon name="done" size={12} /> : null}
                 </span>
-                {c.label}
+                <span className="min-w-0 flex-1">{c.label}</span>
+                {isUnknown ? <Icon name="help" size={18} className="shrink-0 text-ink-muted" aria-hidden /> : null}
               </button>
             );
           })}
         </div>
-        <p className="m-0 rounded-md bg-surface-sunken p-3 text-body-sm text-ink-muted">
-          <span className="font-medium text-ink">{t.helps} </span>{benefit}
+        <p className="m-0 rounded-md bg-surface-sunken p-3 text-body text-ink-muted">
+          <span className="inline-flex items-center gap-1 font-medium text-ink"><Icon name="tip" size={16} aria-hidden />{t.helps} </span>{benefit}
         </p>
         {error ? <Message tone="problem" role="alert" title={t.didNotSave}>{error}</Message> : null}
         {savedValue !== null ? <Message tone="success" role="status" title={savedValue === UNSURE ? t.savedUnknown : t.saved} /> : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="primary" size="lg" iconEnd="done" onClick={save} disabled={saving}>{t.save}</Button>
-          <Link href={backHref} className="text-label text-ink-muted hover:text-ink">{t.notNow}</Link>
-        </div>
       </Panel>
+      <FlowNav
+        back={{ label: t.notNow, href: backHref }}
+        next={{ label: t.save, icon: "done", onClick: save, disabled: saving }}
+      />
     </div>
   );
 }

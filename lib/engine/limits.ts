@@ -27,7 +27,8 @@ function answered(k: LimitKey, c: FarmConstraints | undefined): boolean {
     case "water": return c.irrigation !== undefined;
     case "market": return c.canSell !== undefined;
     case "household": return c.mustGrow !== undefined;
-    case "labour": return c.peakMonths !== undefined;
+    // The quick question stores a level (low, medium, high); the farm form stores busy months. Either is an answer.
+    case "labour": return c.peakMonths !== undefined || c.labour !== undefined;
     case "land": return c.land !== undefined;
   }
 }
@@ -62,11 +63,18 @@ function limitCheck(
         : { limit: k, result: "pass" };
     }
     case "labour": {
-      const peak = new Set(con.peakMonths ?? []);
-      const hits = r.slots.filter((s) => s.kind === "crop").flatMap((s) => [monthOf(s.plantDate), monthOf(s.harvestDate)]).filter((m) => peak.has(m));
-      return hits.length >= 2
-        ? { limit: k, result: "fail", reason: "Sowing and harvest fall in your busiest months." }
-        : { limit: k, result: "pass" };
+      const crops = r.slots.filter((s) => s.kind === "crop");
+      if (con.peakMonths !== undefined) {
+        const peak = new Set(con.peakMonths);
+        const hits = crops.flatMap((s) => [monthOf(s.plantDate), monthOf(s.harvestDate)]).filter((m) => peak.has(m));
+        if (hits.length >= 2) return { limit: k, result: "fail", reason: "Sowing and harvest fall in your busiest months." };
+      }
+      // Only a level was given. With very little help, two or more sowings a year means two sets of sowing and
+      // harvest rushes a year. That is a rule of thumb, stated as one; it is not a measured labour requirement.
+      if (con.labour === "low" && con.peakMonths === undefined && crops.length / Math.max(1, r.cycleYears) >= 2) {
+        return { limit: k, result: "fail", reason: "Two sowings and harvests a year need more help than you said you have." };
+      }
+      return { limit: k, result: "pass" };
     }
     case "land": {
       const land = con.land as NonNullable<FarmConstraints["land"]>;

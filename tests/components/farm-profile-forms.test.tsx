@@ -51,11 +51,11 @@ describe("FarmProfile forms", () => {
     const more = screen.getByText("More about my farm").closest("details");
     expect(more).not.toBeNull();
     expect(more).not.toHaveAttribute("open");
-    // The two everyday water and work questions stay outside it.
+    // The everyday water, labour and market questions stay outside it, as big tiles.
     expect(more!.contains(screen.getByText("Water for crops"))).toBe(false);
     expect(more!.contains(screen.getByText("Labour at busy times"))).toBe(false);
+    expect(more!.contains(screen.getByText("Market access"))).toBe(false);
     expect(more!.contains(screen.getByText("Equipment"))).toBe(true);
-    expect(more!.contains(screen.getByText("Market access"))).toBe(true);
     // The on-page nav is gone.
     expect(screen.queryByRole("navigation", { name: "On this page" })).toBeNull();
   });
@@ -63,7 +63,7 @@ describe("FarmProfile forms", () => {
   it("opens 'More about my farm' when a value in it is already set", () => {
     useFieldsStore.setState({
       status: "ready",
-      fields: [{ ...field, constraints: { marketAccess: "good" } }],
+      fields: [{ ...field, constraints: { equipment: ["tractor"] } }],
       rotations: { [field.id]: [] },
       load: vi.fn(),
       loadRotations: vi.fn(),
@@ -72,14 +72,26 @@ describe("FarmProfile forms", () => {
     expect(screen.getByText("More about my farm").closest("details")).toHaveAttribute("open");
   });
 
-  it("hides pump, soil dryness and paddy figures until the farmer says they have a record", () => {
+  it("shows water details only when there is irrigation, and pump figures only after 'I have a pump record'", () => {
     setStore();
     render(<FarmProfile fieldId={field.id} />);
+    // Rain only: no water details at all.
+    expect(screen.queryByText("Water details (optional)")).toBeNull();
     expect(screen.queryByLabelText(/Pump output/)).toBeNull();
-    expect(screen.queryByLabelText(/Soil dryness at planting/)).toBeNull();
-    expect(screen.queryByLabelText(/Paddy bund height/)).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "Some irrigation" }));
+    expect(screen.getByText("Water details (optional)").closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByLabelText(/Pump output/)).toBeNull();
     fireEvent.click(screen.getByRole("switch", { name: "I have a pump record" }));
-    expect(screen.getByLabelText(/Soil dryness at planting/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Pump output/)).toBeInTheDocument();
+    // Back to rain only: the details go away again.
+    fireEvent.click(screen.getByRole("radio", { name: "Rain only" }));
+    expect(screen.queryByText("Water details (optional)")).toBeNull();
+  });
+
+  it("hides paddy figures until the farmer says they know them", () => {
+    setStore();
+    render(<FarmProfile fieldId={field.id} />);
+    expect(screen.queryByLabelText(/Paddy bund height/)).toBeNull();
     fireEvent.click(screen.getByRole("switch", { name: "I know my paddy bund and seepage" }));
     expect(screen.getByLabelText(/Paddy bund height/)).toBeInTheDocument();
   });
@@ -114,17 +126,16 @@ describe("FarmProfile forms", () => {
     expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
   });
 
-  it("shows the save bar only after a change, and Save and stay keeps the farmer here with a saved note", async () => {
+  it("has one bottom button, See my answer, that saves what the farmer changed", async () => {
     const update = setStore();
     render(<FarmProfile fieldId={field.id} />);
     expect(screen.queryByRole("button", { name: "Save and stay" })).toBeNull();
-    expect(screen.getByRole("link", { name: /See my answer/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /See my answer/ })).toHaveLength(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Low" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save and stay" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Low" }));
+    fireEvent.click(screen.getByRole("button", { name: /See my answer/ }));
     await waitFor(() => expect(update).toHaveBeenCalled());
-    expect(await screen.findByText("Saved on this phone")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save and stay" })).toBeNull();
+    expect(update.mock.calls[0][1].constraints.labour).toBe("low");
   });
 
   it("names the limits toggle 'Add this limit' and shows its fields only when it is on", () => {

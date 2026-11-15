@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useState, useMemo, type ReactNode } from "react";
+import { Bilingual } from "@/components/ui/bilingual";
 import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { Icon } from "@/components/ui/icon";
 import { Message } from "@/components/ui/message";
 import { Panel } from "@/components/ui/panel";
+import { Rating, type Level } from "@/components/field/results/plan-scale";
 import { cn } from "@/lib/cn";
 import { getCropById } from "@/lib/data/crops";
 import { REGIONS } from "@/lib/data/regions";
@@ -22,7 +26,9 @@ import { useFieldsStore } from "@/lib/store/fields-store";
 import type { Field, PriorityId, Rotation, RotationSlot } from "@/lib/types";
 import { MoistureClockRibbon } from "./moisture-clock-ribbon";
 import { PRIORITY_IDS, PRIORITY_INFO } from "./priority-order";
-import { daysBetween, formatDay } from "@/lib/rotation-format";
+import { regionShort, suggestedPriorities } from "@/lib/plan/profile-defaults";
+import { autoFillRotationDates } from "@/lib/plan/auto-dates";
+import { addDaysToIso, daysBetween, formatDay } from "@/lib/rotation-format";
 
 export interface FarmerGuidedFlowProps {
   field: Field;
@@ -109,16 +115,6 @@ const TOP_PRIORITY_FOR: Partial<Record<PriorityId, FarmerTopPriority>> = {
   "lower-inputs": "low_cash",
 };
 
-/** English label with the Burmese translation as quieter help text beneath. */
-function Bilingual({ en, my, className }: { en: ReactNode; my: string; className?: string }) {
-  return (
-    <span className={cn("flex min-w-0 flex-col", className)}>
-      <span>{en}</span>
-      <span lang="my" className="text-source font-normal text-ink-muted">{my}</span>
-    </span>
-  );
-}
-
 function ChoiceButton({
   selected,
   onClick,
@@ -162,9 +158,12 @@ export function FarmerGuidedFlow({
   const [refineOpen, setRefineOpen] = useState(false);
   const update = useFieldsStore((st) => st.update);
   // Start from what the farm profile already holds, so the two screens never disagree.
+  // With nothing saved, start from what a typical farmer in this region picks, so there is nothing to fill in.
+  const savedPriorities = (field.priorities?.order ?? []).filter((id) => PRIORITY_IDS.includes(id)).slice(0, 2);
   const [priorityOrder, setPriorityOrder] = useState<PriorityId[]>(() =>
-    (field.priorities?.order ?? []).filter((id) => PRIORITY_IDS.includes(id)).slice(0, 2),
+    savedPriorities.length > 0 ? savedPriorities : suggestedPriorities(field.region).slice(0, 2),
   );
+  const [prioritiesSuggested, setPrioritiesSuggested] = useState(savedPriorities.length === 0);
   const [prioritiesSaved, setPrioritiesSaved] = useState<"idle" | "saved" | "failed">("idle");
 
   // Legacy fields often carry a top-level default; only the explicit constraint counts as an answer.
@@ -217,6 +216,7 @@ export function FarmerGuidedFlow({
     rotation: Rotation;
     feasibility: CandidateFeasibility;
     waterRisk: string;
+    waterLevel: Level;
     whyThisOption: string;
     mainRisk: string;
     localCheck: string;
@@ -326,6 +326,7 @@ export function FarmerGuidedFlow({
         titleMy: "မိုးစပါး - မတ်ပဲ",
         rotation: ricePulseRot,
         feasibility: pulseFeas,
+        waterLevel: "good",
         waterRisk: "Low: pulse establishes on residual monsoon moisture; zero supplemental irrigation required.",
         whyThisOption: "A pulse after rice may use moisture left in the soil. The benefit depends on your soil, drainage and crop management.",
         mainRisk: "Standing water or rain during flowering can damage the crop.",
@@ -338,6 +339,7 @@ export function FarmerGuidedFlow({
         titleMy: "မိုးစပါး - နှမ်း",
         rotation: riceSesameRot,
         feasibility: sesameFeas,
+        waterLevel: "fair",
         waterRisk: "Low to Moderate: deep taproot tolerates dry spell but requires friable tilth for germination.",
         whyThisOption: "Sesame offers a different crop after rice. Check whether the soil and local selling price make it practical.",
         mainRisk: "Sesame may not establish well in wet, compacted soil.",
@@ -350,6 +352,7 @@ export function FarmerGuidedFlow({
         titleMy: "မိုးစပါး - နွေစပါး",
         rotation: doubleRiceRot,
         feasibility: doubleRiceFeas,
+        waterLevel: "risky",
         waterRisk: "High: requires 900–1,200 mm continuous irrigation through hot dry months.",
         whyThisOption: "A second rice crop is an option to discuss where dry-season water is reliable.",
         mainRisk: "The crop can fail if irrigation stops. Pumping costs may also reduce the return.",
@@ -360,6 +363,7 @@ export function FarmerGuidedFlow({
   }, [field.id, field.economics, decisionInputs, currentSlots]);
 
   const togglePriority = (id: PriorityId) => {
+    setPrioritiesSuggested(false);
     setPriorityOrder((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
       return prev.length >= 2 ? [prev[1], id] : [...prev, id];
@@ -388,19 +392,29 @@ export function FarmerGuidedFlow({
     }
   };
 
-  const baseSelectedCandidate = candidates.find((c) => c.id === selectedCandidateId);
+  // The first option that can work and is not what the farmer already grows is chosen for them; they can pick another.
+  const defaultCandidateId =
+    (candidates.find((c) => c.feasibility.status !== "infeasible" && !c.isCurrent) ?? candidates.find((c) => c.feasibility.status !== "infeasible"))?.id ?? null;
+  const activeCandidateId = selectedCandidateId ?? defaultCandidateId;
+  const baseSelectedCandidate = candidates.find((c) => c.id === activeCandidateId);
+  // Dates come filled in: each crop in its next usual sowing season from today, one after another.
+  // Dates the farmer types are kept (and marked exact); the crops after them follow.
   const selectedCandidate = baseSelectedCandidate
-    ? {
-        ...baseSelectedCandidate,
-        rotation: {
-          ...baseSelectedCandidate.rotation,
-          slots: baseSelectedCandidate.rotation.slots.map((slot) => ({
-            ...slot,
-            ...dateEdits[`${baseSelectedCandidate.id}:${slot.id}`],
-            dateConfidence: "exact" as const,
-          })),
-        },
-      }
+    ? (() => {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const region = field.region && field.region !== "unsupported" ? field.region : undefined;
+        const first = autoFillRotationDates(baseSelectedCandidate.rotation.slots, { region, notBefore: todayIso }).slots;
+        const merged = first.map((slot, i) => {
+          const edit = dateEdits[`${baseSelectedCandidate.id}:${baseSelectedCandidate.rotation.slots[i].id}`];
+          if (!edit || (!edit.plantDate && !edit.harvestDate)) return slot;
+          const plantDate = edit.plantDate ?? slot.plantDate;
+          const harvestDate =
+            edit.harvestDate ?? (edit.plantDate ? addDaysToIso(edit.plantDate, Math.max(1, daysBetween(slot.plantDate, slot.harvestDate))) : slot.harvestDate);
+          return { ...slot, plantDate, harvestDate, dateConfidence: "exact" as const };
+        });
+        const slots = autoFillRotationDates(merged, { region, notBefore: todayIso }).slots;
+        return { ...baseSelectedCandidate, rotation: { ...baseSelectedCandidate.rotation, slots } };
+      })()
     : undefined;
   const dateError = selectedCandidate
     ? selectedCandidate.rotation.slots.some((slot, index, slots) => {
@@ -410,30 +424,37 @@ export function FarmerGuidedFlow({
       })
     : false;
 
+
+
+  const savePlan = async () => {
+    if (!selectedCandidate) return;
+    setSavingPlan(true);
+    setSaveMessage("");
+    try {
+      await onApplyPlan(selectedCandidate.rotation.slots, selectedCandidate.rotation.cycleYears ?? cycleYears);
+      setSaveFailed(false);
+      setSaveMessage("Plan saved on this phone. Its suggested dates still need your review.");
+    } catch {
+      setSaveFailed(true);
+      setSaveMessage("Could not save the plan. Check that this phone allows saving, then try again.");
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const backLabel = <Bilingual center en="Back" my="နောက်သို့" />;
+
   return (
     <div className={cn("flex flex-col gap-6", className)}>
-      {/* Back lives at the top, where the page bar's Back lives, never beside the main action */}
-      {step > 1 ? (
-        <button
-          type="button"
-          onClick={() => setStep(step === 3 ? 2 : 1)}
-          aria-label={step === 3 ? "Back to options" : "Back"}
-          className="-mb-2 -ml-2 inline-flex min-h-tap w-fit cursor-pointer items-center gap-0.5 rounded-md pr-3 pl-1 text-label text-field hover:bg-field-soft active:bg-field-soft"
-        >
-          <Icon name="back" size={22} />
-          {step === 3 ? <Bilingual en="Back to options" my="ရွေးချယ်စရာများသို့ ပြန်သွားမည်" /> : <Bilingual en="Back" my="ရှေ့သို့ ပြန်သွားမည်" />}
-        </button>
-      ) : null}
-
-      {/* Step header */}
-      <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-xs sm:p-5">
+      {/* Step header: where you are, in one line and a bar. Back and Next live in the bottom bar. */}
+      <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <span className="grid size-7 shrink-0 place-items-center rounded-pill bg-field font-mono text-source font-semibold text-on-field">
+          <span className="grid size-8 shrink-0 place-items-center rounded-pill bg-field font-mono text-body-sm font-semibold text-on-field">
             {step}
           </span>
           <div className="min-w-0">
-            <p className="m-0 text-source text-ink-muted">Step {step} of 3</p>
-            <Bilingual en={STEPS[step].title} my={STEPS[step].titleMy} className="text-headline font-semibold text-ink" />
+            <p className="m-0 text-body-sm text-ink-muted">Step {step} of 3</p>
+            <Bilingual en={STEPS[step].title} my={STEPS[step].titleMy} className="text-title font-semibold text-ink" />
           </div>
         </div>
         <div className="flex h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" aria-hidden>
@@ -447,7 +468,7 @@ export function FarmerGuidedFlow({
       {step !== 3 ? (
         <section
           aria-label="Field details used"
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-line bg-surface-sunken px-4 py-3"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface-sunken px-4 py-3"
         >
           <dl className="m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm">
             <div className="flex items-center gap-1.5">
@@ -467,7 +488,7 @@ export function FarmerGuidedFlow({
                   <button
                     type="button"
                     onClick={() => setUnit(unit === "acre" ? "ha" : "acre")}
-                    className="cursor-pointer rounded-sm text-ink underline decoration-dotted underline-offset-2"
+                    className="min-h-tap cursor-pointer rounded-sm text-ink underline decoration-dotted underline-offset-2"
                     aria-label={`${areaDisplay}. Show in ${unit === "acre" ? "hectares" : "acres"}`}
                   >
                     {areaDisplay}
@@ -481,7 +502,7 @@ export function FarmerGuidedFlow({
               <dd className="m-0 text-ink">{waterSummary}</dd>
             </div>
           </dl>
-          <Link href={`/fields/${field.id}/profile`} className="text-label font-medium text-field">
+          <Link href={`/fields/${field.id}/profile`} className="inline-flex min-h-tap items-center text-body-sm font-medium text-field underline">
             Edit field
           </Link>
         </section>
@@ -489,16 +510,24 @@ export function FarmerGuidedFlow({
 
       {/* STEP 1: Priorities */}
       {step === 1 && (
-        <Panel as="section" className="flex flex-col gap-5 p-4 sm:p-6">
-          {priorityOrder.length === 0 ? (
-            <>
-              <p className="m-0 text-body-sm text-ink-muted">
-                Choose one or two priorities. No priority is preselected.
+        <section className="flex flex-col gap-4">
+          {prioritiesSuggested ? (
+            <div className="flex flex-col gap-1">
+              <p className="m-0 flex items-center gap-2 text-body font-semibold text-ink">
+                <Icon name="estimate" size={18} aria-hidden className="text-field" />
+                <Bilingual en={`Suggested for ${regionShort(field.region).en}`} my={`${regionShort(field.region).my} အတွက် အကြံပြုချက်`} />
               </p>
-              <p lang="my" className="m-0 text-body-sm text-ink-muted">အရေးကြီးဆုံးအချက် တစ်ခု သို့မဟုတ် နှစ်ခုကို ရွေးပါ။ ကြိုတင်ရွေးထားခြင်း မရှိပါ။</p>
+              <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+                <Bilingual en="We picked these for your area. Change them if they are not right, or just continue." my="သင့်ဒေသအတွက် ကျွန်ုပ်တို့ ရွေးပေးထားပါသည်။ မမှန်ပါက ပြောင်းပါ၊ သို့မဟုတ် ဆက်သွားပါ။" />
+              </p>
+            </div>
+          ) : priorityOrder.length === 0 ? (
+            <>
+              <p className="m-0 max-w-measure text-body text-ink">Choose one or two priorities.</p>
+              <p lang="my" className="m-0 max-w-measure text-body-sm text-ink-muted">အရေးကြီးဆုံးအချက် တစ်ခု သို့မဟုတ် နှစ်ခုကို ရွေးပါ။</p>
             </>
           ) : (
-            <p className="m-0 text-body-sm text-ink-muted">
+            <p className="m-0 max-w-measure text-body text-ink">
               Choose one or two. We keep your choice in your farm profile, so it is the same everywhere.
             </p>
           )}
@@ -516,48 +545,32 @@ export function FarmerGuidedFlow({
                   aria-pressed={selected}
                   onClick={() => togglePriority(id)}
                   className={cn(
-                    "flex min-h-tap cursor-pointer flex-col gap-1 rounded-xl border p-4 text-left shadow-xs transition-all",
+                    "flex min-h-tap cursor-pointer flex-col gap-1 rounded-xl border p-4 text-left transition-colors",
                     selected
                       ? "border-field bg-field-soft text-ink ring-2 ring-field/40"
                       : "border-line bg-surface hover:border-line-strong hover:bg-surface-sunken",
                   )}
                 >
                   <span className="flex items-start justify-between gap-2">
-                    <span className="flex items-start gap-2 text-label font-semibold text-ink">
-                      <Icon name={info.icon} size={20} className="mt-0.5 shrink-0 text-field" />
+                    <span className="flex items-start gap-2 text-body font-semibold text-ink">
+                      <Icon name={info.icon} size={22} className="mt-0.5 shrink-0 text-field" />
                       <Bilingual en={info.label} my={my.title} />
                     </span>
                     {selected ? (
-                      <span className="grid size-6 shrink-0 place-items-center rounded-pill bg-field font-mono text-source font-bold text-on-field">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-pill bg-field font-mono text-body-sm font-bold text-on-field">
+                        <span className="sr-only">Priority </span>
                         {rankNum}
                       </span>
                     ) : null}
                   </span>
-                  <span className="pl-7 text-source text-ink-muted">
+                  <span className="pl-8 text-body-sm text-ink-muted">
                     <Bilingual en={info.help} my={my.help} />
                   </span>
                 </button>
               );
             })}
           </div>
-
-          <div className="flex justify-end border-t border-line pt-4">
-            {priorityOrder.length === 0 ? <p className="m-0 text-body-sm text-ink-muted">Choose at least one priority to continue. / ဆက်လုပ်ရန် ဦးစားပေးတစ်ခု အနည်းဆုံးရွေးပါ။</p> : null}
-            <Button
-              variant="primary"
-              size="lg"
-              iconEnd="next"
-              disabled={priorityOrder.length === 0}
-              onClick={() => {
-                void savePriorities();
-                setStep(2);
-              }}
-              className="min-h-tap w-full sm:w-auto"
-            >
-              Show options
-            </Button>
-          </div>
-        </Panel>
+        </section>
       )}
 
       {/* STEP 2: Compare, with optional refinements */}
@@ -575,7 +588,7 @@ export function FarmerGuidedFlow({
           <Message
             tone="info"
             role="status"
-            title="Regional Rotation Scenarios — Ready for Comparison"
+            title="Planning examples — not a ranked recommendation"
             action={
               <Button
                 variant="secondary"
@@ -597,7 +610,7 @@ export function FarmerGuidedFlow({
           {refineOpen ? (
             <Panel as="section" id="guided-refine" aria-label="Optional farm details" className="flex flex-col gap-5 p-4 sm:p-5">
               <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                <legend className="mb-2 p-0 text-label font-semibold text-ink">
+                <legend className="mb-2 p-0 text-body font-semibold text-ink">
                   <Bilingual en="Dry-season water" my="နွေရာသီရေရရှိနိုင်မှု" />
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-4">
@@ -614,7 +627,7 @@ export function FarmerGuidedFlow({
               </fieldset>
 
               <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                <legend className="mb-2 p-0 text-label font-semibold text-ink">
+                <legend className="mb-2 p-0 text-body font-semibold text-ink">
                   <Bilingual en="Machinery and labour" my="စက်ယန္တရားနှင့် လုပ်သား" />
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-4">
@@ -631,7 +644,7 @@ export function FarmerGuidedFlow({
               </fieldset>
 
               <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                <legend className="mb-2 p-0 text-label font-semibold text-ink">
+                <legend className="mb-2 p-0 text-body font-semibold text-ink">
                   <Bilingual en="Cash you can spend before harvest" my="စိုက်ထုတ်ငွေကန့်သတ်ချက်" />
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-4">
@@ -645,7 +658,7 @@ export function FarmerGuidedFlow({
                     />
                   ))}
                 </div>
-                <p className="m-0 text-source text-ink-muted">
+                <p className="m-0 text-body-sm text-ink-muted">
                   {budget === "unanswered"
                     ? "Not answered yet, so upfront costs are not checked against a budget."
                     : budget === "unsure"
@@ -664,8 +677,8 @@ export function FarmerGuidedFlow({
           />
 
           <div className="grid gap-4 lg:grid-cols-3">
-            {candidates.map((cand, idx) => {
-              const isSelected = cand.id === selectedCandidateId;
+            {candidates.map((cand) => {
+              const isSelected = cand.id === activeCandidateId;
               const status = cand.feasibility.status;
               const toCheck = stillToCheck(cand.feasibility, budget);
 
@@ -674,35 +687,45 @@ export function FarmerGuidedFlow({
                   as="article"
                   key={cand.id}
                   className={cn(
-                    "flex flex-col justify-between gap-4 rounded-xl border p-5 shadow-xs transition-all",
-                    isSelected ? "border-field bg-surface ring-2 ring-field/50" : "border-line bg-surface hover:border-line-strong",
+                    "flex flex-col justify-between gap-4 rounded-xl border p-5 transition-colors",
+                    isSelected ? "border-field bg-field-soft/40 ring-2 ring-field/50" : "border-line bg-surface hover:border-line-strong",
                   )}
                 >
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="rounded-pill bg-field-soft px-2.5 py-0.5 text-source font-semibold text-field">
-                        Example sequence
+                  <div className="flex flex-col gap-4">
+                    {/* Status first: does anything in your answers rule this out? */}
+                    {status === "feasible" ? (
+                      <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
+                        <Icon name="success" size={18} className="text-healthy" /> No conflict found
                       </span>
-                      {status === "feasible" ? (
-                        <span className="flex items-center gap-1 text-source font-medium text-healthy">
-                          <Icon name="done" size={14} /> No conflict found
-                        </span>
-                      ) : status === "needs_review" ? (
-                        <span className="flex items-center gap-1 text-source font-medium text-drought">
-                          <Icon name="conditions" size={14} /> Needs a check
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-source font-medium text-heat">
-                          <Icon name="close" size={14} /> Ruled out by your answers
-                        </span>
-                      )}
-                    </div>
+                    ) : status === "needs_review" ? (
+                      <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
+                        <Icon name="alert" size={18} className="text-drought" /> Needs a check
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">
+                        <Icon name="warning" size={18} className="text-heat" /> Ruled out by your answers
+                      </span>
+                    )}
 
+                    {/* The plan, as a big plain sentence */}
                     <div>
-                      <h3 className="m-0 text-headline font-bold text-ink">{cand.title}</h3>
-                      <p lang="my" className="m-0 mt-0.5 text-source font-medium text-ink-muted">{cand.titleMy}</p>
+                      <h3 className="m-0 text-title text-ink">{cand.title}</h3>
+                      <p lang="my" className="m-0 mt-0.5 text-body-sm font-medium text-ink-muted">{cand.titleMy}</p>
                     </div>
 
+                    {/* One-line reason */}
+                    <p className="m-0 text-body text-ink">{cand.whyThisOption}</p>
+
+                    {/* Scale: how much extra water this plan needs */}
+                    <div className="flex items-start gap-4">
+                      <span className="flex items-center gap-1.5 pt-0.5 text-body-sm text-ink-muted">
+                        <Icon name="water" size={16} aria-hidden />
+                        Water needed
+                      </span>
+                      <Rating level={cand.waterLevel} detail={cand.waterRisk} />
+                    </div>
+
+                    {/* Warnings that can change the decision stay visible */}
                     {cand.feasibility.hardConstraintVetoes.includes("BUDGET_EXCEEDED") ? (
                       <Message tone="problem" compact title="May cost more than your budget">
                         The whole sequence is checked against the limit you set.
@@ -710,25 +733,20 @@ export function FarmerGuidedFlow({
                     ) : null}
                     {cand.feasibility.hardConstraintVetoes.some((v) => v.startsWith("WATER_UNAVAILABLE")) ? (
                       <Message tone="problem" compact title="Needs dry-season irrigation">
-                      You confirmed that this field has rain only.
+                        You confirmed that this field has rain only.
                       </Message>
                     ) : null}
                     {toCheck.length > 0 ? (
                       <Message tone="needs" compact title={`Add to check: ${toCheck.join(", ")}`} />
                     ) : null}
+                    <Message tone="caution" compact title="What could go wrong">
+                      {cand.mainRisk}
+                    </Message>
 
-                    <div className="flex flex-col gap-2 text-body-sm">
-                      <div>
-                        <strong className="text-ink">Why consider it? </strong>
-                        <span className="text-ink-muted">{cand.whyThisOption}</span>
-                      </div>
-                      <Message tone="caution" compact title="What could go wrong">
-                        {cand.mainRisk}
-                      </Message>
-                      <Message tone="needs" compact title="Before you decide">
-                        {cand.localCheck}
-                      </Message>
-                    </div>
+                    <Disclosure title="Before you decide">
+                      <p className="m-0 text-body-sm text-ink">{cand.localCheck}</p>
+                      <p className="m-0 text-body-sm text-ink-muted">{cand.waterRisk}</p>
+                    </Disclosure>
                   </div>
 
                   <Button
@@ -737,121 +755,99 @@ export function FarmerGuidedFlow({
                     onClick={() => setSelectedCandidateId(cand.id)}
                     aria-pressed={isSelected}
                     aria-label={isSelected ? "Your choice" : "Choose this option"}
-                    className="mt-2 w-full min-h-tap"
+                    className="w-full min-h-tap"
                   >
                     {isSelected ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <Icon name="done" size={16} />
-                        <Bilingual en="Your choice" my="သင့်ရွေးချယ်မှု" />
+                        <Icon name="done" size={18} />
+                        <Bilingual inherit en="Your choice" my="သင့်ရွေးချယ်မှု" />
                       </span>
                     ) : (
-                      <Bilingual en="Choose this option" my="ဤအစီအစဉ်ကို ရွေးမည်" />
+                      <Bilingual center en="Choose this option" my="ဤအစီအစဉ်ကို ရွေးမည်" />
                     )}
                   </Button>
                 </Panel>
               );
             })}
           </div>
-
-          <div className="flex justify-end gap-3 border-t border-line pt-4">
-            <Button
-              variant="primary"
-              size="lg"
-              iconEnd="next"
-              disabled={!selectedCandidate || selectedCandidate.feasibility.status === "infeasible"}
-              onClick={() => setStep(3)}
-              aria-label={selectedCandidate ? `Continue with ${selectedCandidate.title}` : "Choose an option to continue"}
-              className="min-h-tap w-full sm:w-auto"
-            >
-              {selectedCandidate ? (
-                <Bilingual en={`Continue with ${selectedCandidate.title}`} my={`${selectedCandidate.titleMy} ဖြင့် ဆက်လုပ်မည်`} />
-              ) : (
-                <Bilingual en="Choose an option to continue" my="ဆက်လုပ်ရန် ရွေးချယ်စရာတစ်ခု ရွေးပါ" />
-              )}
-            </Button>
-          </div>
         </div>
       )}
 
       {/* STEP 3: Plan & checklist */}
       {step === 3 && selectedCandidate && (
-        <Panel as="section" className="flex flex-col gap-6 p-4 sm:p-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="m-0 text-headline font-semibold text-ink">{selectedCandidate.title}</h2>
-            <p className="m-0 text-body-sm text-ink-muted">
-              Enter the dates you plan to use. No dates are preselected; check the local planting calendar before saving.
+        <section className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <h2 className="m-0 text-title text-ink">{selectedCandidate.title}</h2>
+            <p className="m-0 max-w-measure text-body text-ink">
+              We filled in the usual dates for your area, starting from today. Change a date only if your plan is different.
             </p>
-            <p lang="my" className="m-0 text-body-sm text-ink-muted">စိုက်ပျိုးရန် စီစဉ်ထားသော ရက်များကို ထည့်ပါ။ ကြိုတင်ရက်သတ်မှတ်ထားခြင်း မရှိပါ။ မသိမ်းမီ ဒေသ၏ စိုက်ပျိုးချိန်ကို စစ်ဆေးပါ။</p>
+            <p lang="my" className="m-0 max-w-measure text-body-sm text-ink-muted">သင့်ဒေသ၏ ပုံမှန်ရက်များကို ယနေ့မှစ၍ ဖြည့်ပေးထားပါသည်။ သင့်အစီအစဉ် ကွဲပြားမှသာ ရက်ကို ပြောင်းပါ။ မသိမ်းမီ ဒေသ၏ စိုက်ပျိုးချိန်ကို စစ်ဆေးပါ။</p>
           </div>
 
           <div className="flex flex-col gap-3">
-            <Bilingual en="Crop sequence" my="သီးနှံအစီအစဉ်" className="text-label font-semibold text-ink" />
-            <ol className="m-0 flex list-none flex-col gap-2 p-0">
+            <Bilingual en="Crop sequence" my="သီးနှံအစီအစဉ်" className="text-body font-semibold text-ink" />
+            <ol className="m-0 flex list-none flex-col gap-4 p-0">
               {selectedCandidate.rotation.slots.map((s, i) => (
-                <li key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface p-3.5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-6 shrink-0 place-items-center rounded-pill bg-field font-mono text-source font-bold text-on-field">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="m-0 text-label font-semibold text-ink">
-                        {getCropById(s.cropId ?? "")?.names.common ?? s.cropId}
-                      </p>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <label className="flex flex-col gap-1 text-source text-ink-muted">
-                          <Bilingual en="Sow date (DD/MM/YYYY)" my="စိုက်ပျိုးမည့်ရက် (ရက်/လ/ခုနှစ်)" />
-                          <input
-                            type="date"
-                            required
-                            value={s.plantDate}
-                            onChange={(event) => setDateEdits((prev) => ({
-                              ...prev,
-                              [`${selectedCandidate.id}:${s.id}`]: {
-                                ...prev[`${selectedCandidate.id}:${s.id}`],
-                                plantDate: event.target.value,
-                              },
-                            }))}
-                            className="min-h-tap rounded-sm border border-line-strong bg-surface px-2 text-body text-ink"
-                          />
-                        </label>
-                        <label className="flex flex-col gap-1 text-source text-ink-muted">
-                          <Bilingual en="Harvest date (DD/MM/YYYY)" my="ရိတ်သိမ်းမည့်ရက် (ရက်/လ/ခုနှစ်)" />
-                          <input
-                            type="date"
-                            required
-                            value={s.harvestDate}
-                            onChange={(event) => setDateEdits((prev) => ({
-                              ...prev,
-                              [`${selectedCandidate.id}:${s.id}`]: {
-                                ...prev[`${selectedCandidate.id}:${s.id}`],
-                                harvestDate: event.target.value,
-                              },
-                            }))}
-                            className="min-h-tap rounded-sm border border-line-strong bg-surface px-2 text-body text-ink"
-                          />
-                        </label>
-                      </div>
-                      <p className="m-0 text-source text-ink-muted">
-                        {s.plantDate && s.harvestDate
-                          ? `Your dates: ${formatDay(s.plantDate)} to ${formatDay(s.harvestDate)} (${daysBetween(s.plantDate, s.harvestDate)} days).`
-                          : "Enter both dates; check the sowing window with a local adviser."}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-pill border border-dashed border-line-strong px-2.5 py-1 text-source font-medium text-ink-muted">
-                    Dates to enter
+                <li key={s.id} className="flex items-start gap-3 border-t border-line pt-4 first:border-0 first:pt-0">
+                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-pill bg-field font-mono text-body-sm font-bold text-on-field">
+                    {i + 1}
                   </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 text-body font-semibold text-ink">
+                      {getCropById(s.cropId ?? "")?.names.common ?? s.cropId}
+                    </p>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      <label className="flex flex-col gap-1 text-body-sm text-ink-muted">
+                        <Bilingual en="Sow date (DD/MM/YYYY)" my="စိုက်ပျိုးမည့်ရက် (ရက်/လ/ခုနှစ်)" />
+                        <input
+                          type="date"
+                          required
+                          value={s.plantDate}
+                          onChange={(event) => setDateEdits((prev) => ({
+                            ...prev,
+                            [`${selectedCandidate.id}:${s.id}`]: {
+                              ...prev[`${selectedCandidate.id}:${s.id}`],
+                              plantDate: event.target.value,
+                            },
+                          }))}
+                          className="min-h-tap rounded-sm border border-line-strong bg-surface px-2 text-body text-ink"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-body-sm text-ink-muted">
+                        <Bilingual en="Harvest date (DD/MM/YYYY)" my="ရိတ်သိမ်းမည့်ရက် (ရက်/လ/ခုနှစ်)" />
+                        <input
+                          type="date"
+                          required
+                          value={s.harvestDate}
+                          onChange={(event) => setDateEdits((prev) => ({
+                            ...prev,
+                            [`${selectedCandidate.id}:${s.id}`]: {
+                              ...prev[`${selectedCandidate.id}:${s.id}`],
+                              harvestDate: event.target.value,
+                            },
+                          }))}
+                          className="min-h-tap rounded-sm border border-line-strong bg-surface px-2 text-body text-ink"
+                        />
+                      </label>
+                    </div>
+                    <p className="m-0 mt-2 flex items-center gap-1.5 text-body-sm text-ink-muted">
+                      {s.plantDate && s.harvestDate ? <Icon name="success" size={16} className="shrink-0 text-healthy" aria-hidden /> : <Icon name="calendar" size={16} className="shrink-0" aria-hidden />}
+                      {s.plantDate && s.harvestDate
+                        ? `${s.dateConfidence === "exact" ? "Your dates" : "Suggested dates"}: ${formatDay(s.plantDate)} to ${formatDay(s.harvestDate)} (${daysBetween(s.plantDate, s.harvestDate)} days).`
+                        : "Enter both dates; check the sowing window with a local adviser."}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ol>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-field/30 bg-field-soft/20 p-4">
+          <div className="flex flex-col gap-3 rounded-lg bg-field-soft/40 p-4">
             <div className="flex items-start gap-2">
-              <Icon name="done" size={18} className="mt-0.5 shrink-0 text-field" />
-              <Bilingual en="Before planting" my="စိုက်ပျိုးမီ လက်တွေ့စစ်ဆေးရမည့်အချက်များ" className="text-label font-semibold text-ink" />
+              <Icon name="checklist" size={20} className="mt-0.5 shrink-0 text-field" />
+              <Bilingual en="Before planting" my="စိုက်ပျိုးမီ လက်တွေ့စစ်ဆေးရမည့်အချက်များ" className="text-body font-semibold text-ink" />
             </div>
-            <ul className="m-0 flex flex-col gap-1.5 pl-5 text-body-sm text-ink">
+            <ul className="m-0 flex flex-col gap-2 pl-5 text-body-sm text-ink">
               <li><Bilingual en="Test seed germination with a wet cloth 7 days before sowing." my="မစိုက်မီ ၇ ရက်အလိုတွင် မျိုးစေ့ကို စိုသောအဝတ်ဖြင့် အပင်ပေါက်နှုန်း စမ်းသပ်ပါ။" /></li>
               <li><Bilingual en="Clear drainage ditches so water does not stand after the monsoon." my="မိုးရာသီနောက်တွင် ရေမတင်စေရန် ရေနုတ်မြောင်းများ ရှင်းလင်းပါ။" /></li>
               <li><Bilingual en="Check local buying prices before you spend on seed." my="မျိုးစေ့ဝယ်ယူစရိတ် မသုံးမီ ဒေသဈေးနှုန်းကို စစ်ဆေးပါ။" /></li>
@@ -868,43 +864,61 @@ export function FarmerGuidedFlow({
             </Message>
           ) : null}
 
-          <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end">
-            <Button
-              variant="primary"
-              size="lg"
-              disabled={savingPlan || selectedCandidate.feasibility.status === "infeasible" || dateError}
-              aria-label={savingPlan ? "Saving plan…" : "Save this plan"}
-              onClick={async () => {
-                setSavingPlan(true);
-                setSaveMessage("");
-                try {
-                  await onApplyPlan(selectedCandidate.rotation.slots, selectedCandidate.rotation.cycleYears ?? cycleYears);
-                  setSaveFailed(false);
-                  setSaveMessage("Plan saved on this phone. Its suggested dates still need your review.");
-                } catch {
-                  setSaveFailed(true);
-                  setSaveMessage("Could not save the plan. Check that this phone allows saving, then try again.");
-                } finally {
-                  setSavingPlan(false);
-                }
-              }}
-              className="min-h-tap w-full sm:w-auto"
+          {saveMessage ? (
+            <Message
+              role="status"
+              tone={saveFailed ? "problem" : "success"}
+              title={saveFailed ? "Plan save failed" : "Plan saved on this phone"}
             >
-              <Bilingual en={savingPlan ? "Saving plan…" : "Save this plan"} my={savingPlan ? "သိမ်းဆည်းနေပါသည်…" : "ဤအစီအစဉ်ကို သိမ်းမည်"} />
-            </Button>
-            {saveMessage ? (
-              <Message
-                className="w-full"
-                role="status"
-                tone={saveFailed ? "problem" : "success"}
-                title={saveFailed ? "Plan save failed" : "Plan saved on this phone"}
-              >
-                {saveFailed ? "Check that this phone allows saving, then try again." : "Its suggested dates still need your review."}
-              </Message>
-            ) : null}
-          </div>
-        </Panel>
+              {saveFailed ? "Check that this phone allows saving, then try again." : "Its suggested dates still need your review."}
+            </Message>
+          ) : null}
+        </section>
       )}
+
+      {/* The one way on: Back left, Next right, pinned above the tab bar on phones. */}
+      {step === 1 ? (
+        <FlowNav
+          className="contents"
+          next={{
+            label: <Bilingual center inherit en="Show options" my="ရွေးချယ်စရာများ ကြည့်မည်" />,
+            disabled: priorityOrder.length === 0,
+            disabledReason: undefined,
+            onClick: () => {
+              void savePriorities();
+              setStep(2);
+            },
+          }}
+          hint={priorityOrder.length === 0 ? "Choose at least one priority to continue. / ဆက်လုပ်ရန် ဦးစားပေးတစ်ခု အနည်းဆုံးရွေးပါ။" : undefined}
+        />
+      ) : null}
+      {step === 2 ? (
+        <FlowNav
+          className="contents"
+          back={{ label: backLabel, onClick: () => setStep(1) }}
+          next={{
+            label: selectedCandidate ? (
+              <Bilingual center inherit en="Continue with this plan" my="ဤအစီအစဉ်ဖြင့် ဆက်လုပ်မည်" />
+            ) : (
+              <Bilingual center inherit en="Choose an option to continue" my="ဆက်လုပ်ရန် ရွေးချယ်စရာတစ်ခု ရွေးပါ" />
+            ),
+            disabled: !selectedCandidate || selectedCandidate.feasibility.status === "infeasible",
+            onClick: () => setStep(3),
+          }}
+        />
+      ) : null}
+      {step === 3 && selectedCandidate ? (
+        <FlowNav
+          className="contents"
+          back={{ label: <Bilingual center en="Back to options" my="ရွေးချယ်စရာများသို့" />, onClick: () => setStep(2) }}
+          next={{
+            label: <Bilingual center inherit en={savingPlan ? "Saving plan…" : "Save this plan"} my={savingPlan ? "သိမ်းဆည်းနေပါသည်…" : "ဤအစီအစဉ်ကို သိမ်းမည်"} />,
+            icon: "done",
+            disabled: savingPlan || selectedCandidate.feasibility.status === "infeasible" || dateError,
+            onClick: () => void savePlan(),
+          }}
+        />
+      ) : null}
     </div>
   );
 }

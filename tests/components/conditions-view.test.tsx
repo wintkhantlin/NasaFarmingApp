@@ -65,10 +65,10 @@ describe("ConditionsView (S07)", () => {
     currentField = field;
   });
 
-  it("shows the Dry Zone rainfall caution directly under the annual rainfall headline, in amber", () => {
+  it("shows the Dry Zone rainfall caution directly under the seasonal rain headline, in amber", () => {
     analysis = ready(monthlyTminC);
     render(<ConditionsView fieldId="f1" />);
-    const heading = screen.getByRole("heading", { name: /About 822 mm of rain a year/ });
+    const heading = screen.getByRole("heading", { name: /Most rain falls .* months run drier than crops need/ });
     const note = screen.getByText(/In the Dry Zone, NASA POWER rain was about 51% lower/).closest("p")!;
     expect(heading.nextElementSibling).toBe(note);
     expect(note.className).toContain("bg-unknown-bg");
@@ -87,6 +87,29 @@ describe("ConditionsView (S07)", () => {
     expect(screen.queryByText(/Rain 822 mm a year/)).toBeNull();
     expect(screen.queryByText(/Hottest: highs near/)).toBeNull();
     expect(screen.queryByText(/Coldest nights near/)).toBeNull();
+  });
+
+  it("prefers a field-scale ECOSTRESS air-temperature snapshot over the wide regional value", () => {
+    analysis = {
+      ...ready(monthlyTminC),
+      remote: {
+        fieldId: "f1",
+        checkedAt: "2026-04-12T00:00:00Z",
+        smap: { status: "unconfigured" },
+        hls: { status: "unconfigured" },
+        srtm: { status: "unconfigured" },
+        modis: { status: "unconfigured" },
+        ecostressLst: { status: "unconfigured" },
+        ecostressEt: { status: "unconfigured" },
+        ecostressMet: {
+          status: "ok",
+          data: { observations: [{ date: "2026-04-12", airTemperatureC: 34.4, relativeHumidityPct: 61, validPixels: 8, totalPixels: 10 }] },
+        },
+      },
+    };
+    render(<ConditionsView fieldId="f1" />);
+    expect(screen.getAllByText("Field air temperature").length).toBeGreaterThan(0);
+    expect(screen.getByText("ECOSTRESS snapshot 2026-04-12, 70 m")).toBeInTheDocument();
   });
 
   it("puts the temperature panel under More detail unless a frost or heat limit is hit", () => {
@@ -112,7 +135,8 @@ describe("ConditionsView (S07)", () => {
     const visible = container.cloneNode(true) as HTMLElement;
     visible.querySelectorAll("details > :not(summary)").forEach((n) => n.remove());
     const text = visible.textContent ?? "";
-    expect(text).toContain("This number is averaged over a wide area (about 50 km across), not your exact field.");
+    expect(text).toContain("Weather history covers an area about 50 km across.");
+    expect(text).toContain("SoilGrids map, 250 m · 0–30 cm");
     expect(text).not.toContain("0.5°");
     expect(text).not.toContain("ET₀");
     expect(text).not.toMatch(/ET0/);
@@ -153,13 +177,14 @@ describe("SourceStatusPanel wording", () => {
     expect(text).not.toMatch(/on the server|did not answer|Earthdata|login|token|credential/i);
   });
 
-  it("shows three plain rows first and keeps acronyms inside the nested technical details", () => {
+  it("shows plain source scopes first and keeps acronyms inside the nested technical details", () => {
     const remote = { smap: { status: "unconfigured" }, hls: { status: "pending" }, srtm: { status: "unconfigured" }, modis: { status: "unconfigured" }, ecostressLst: { status: "unconfigured" }, ecostressEt: { status: "unconfigured" } };
     const { container } = render(<SourceStatusPanel conditions={unconfigured as never} remote={remote as never} />);
     const visible = container.cloneNode(true) as HTMLElement;
     visible.querySelectorAll("details > :not(summary)").forEach((n) => n.remove());
     const text = visible.textContent ?? "";
     expect(text).toContain("Rain detail");
+    expect(text).toContain("Field air temperature");
     expect(text).toContain("Soil wetness");
     expect(text).toContain("Field photo");
     expect(text).toContain("This detail isn't available for your area yet.");
@@ -172,7 +197,7 @@ describe("SourceStatusPanel wording", () => {
     const remote = { smap: { status: "unconfigured" }, hls: { status: "pending" }, srtm: { status: "unconfigured" }, modis: { status: "unconfigured" }, ecostressLst: { status: "unconfigured" }, ecostressEt: { status: "unconfigured" } };
     const { container } = render(<SourceStatusPanel conditions={unconfigured as never} remote={remote as never} />);
     const plainRows = container.querySelectorAll("section > ul:first-of-type > li");
-    expect(plainRows).toHaveLength(3);
+    expect(plainRows).toHaveLength(4);
     expect(plainRows[0].className).toContain("py-3");
     expect(plainRows[0].className).not.toMatch(/rounded|border/);
     expect(container.querySelectorAll("section > details")).toHaveLength(1);

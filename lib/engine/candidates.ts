@@ -34,6 +34,7 @@ export const TEMPLATES: Record<RegionId, Template[]> = {
     { id: "mg-sesame-green-gram", label: "Sesame, then green gram", headline: "Sesame, then green gram", rationale: "Follows an oilseed with a short legume that is sown after the early rains.", cropIds: ["sesame", "green-gram"] },
     { id: "mg-groundnut-chickpea", label: "Groundnut, then chickpea", headline: "Groundnut, then chickpea on stored moisture", rationale: "Follows a rainy-season legume with a cool-season pulse that uses stored moisture.", cropIds: ["groundnut", "chickpea"] },
     { id: "mg-pigeon-pea-sesame", label: "Pigeon pea, then sesame", headline: "Pigeon pea one year, sesame the next", rationale: "A deep-rooting, drought-tolerant legume followed by an oilseed.", cropIds: ["pigeon-pea", "sesame"] },
+    { id: "mg-sesame-sunflower", label: "Sesame, then winter sunflower", headline: "Sesame, then winter sunflower on late moisture", rationale: "Follows an early oilseed with a deep-rooting drought-resilient oilseed for local pressing.", cropIds: ["sesame", "sunflower"] },
     { id: "mg-groundnut-green-gram", label: "Groundnut, then green gram", headline: "Groundnut, then green gram", rationale: "Two legumes in sequence with different pest and disease profiles.", cropIds: ["groundnut", "green-gram"] },
   ],
   shan: [
@@ -58,9 +59,14 @@ function nextPlantDate(after: string, window: [string, string]): string {
   return `${y + 2}-${window[0]}`;
 }
 
+/** Why a candidate is in the set even if it would not otherwise be: the set always tries to hold both. */
+export type CandidateRole = "low-risk" | "low-input";
+
 export interface BuiltCandidate {
   rotation: Rotation;
   template: Template;
+  /** Set when this is the lowest-risk or lowest-input choice among everything that fit. Unset otherwise. */
+  roles?: CandidateRole[];
 }
 
 export interface RejectedCandidate {
@@ -73,6 +79,8 @@ export interface CandidateResult {
   rejected: RejectedCandidate[];
   /** Set when fewer than two feasible alternatives could be offered. */
   shortfall: string | null;
+  /** Feasible templates left out because they were near-copies of one already kept. Never ranked, never hidden. */
+  similarDropped?: RejectedCandidate[];
 }
 
 function buildSlots(
@@ -167,6 +175,97 @@ export function sequenceKey(cropIds: string[]): string {
   return rots.sort()[0];
 }
 
+/* ---------------- Choosing a varied set ---------------- */
+
+/** Crops in a template, with fallow left out. */
+const cropsOfTemplate = (t: Template) => [...new Set(t.cropIds.filter((c) => c !== "fallow"))];
+
+/** 0 (same crops) to 1 (nothing in common), blending shared crops and shared crop families. */
+export function templateDistance(a: Template, b: Template): number {
+  const ca = new Set(cropsOfTemplate(a));
+  const cb = new Set(cropsOfTemplate(b));
+  const fa = new Set([...ca].map((c) => getCropById(c)?.family ?? c));
+  const fb = new Set([...cb].map((c) => getCropById(c)?.family ?? c));
+  const jac = (x: Set<string>, y: Set<string>) => {
+    const union = new Set([...x, ...y]).size;
+    if (union === 0) return 1;
+    return [...x].filter((v) => y.has(v)).length / union;
+  };
+  // Fallow versus a crop is a real difference even though fallow has no family.
+  const fallowDiff = a.cropIds.includes("fallow") !== b.cropIds.includes("fallow") ? 0.2 : 0;
+  return Math.min(1, 1 - (0.6 * jac(ca, cb) + 0.4 * jac(fa, fb)) + fallowDiff);
+}
+
+/** Below this distance two templates are treated as near-copies (for example two pulses after the same rice). */
+export const NEAR_DUPLICATE_DISTANCE = 0.45;
+
+/** External nitrogen the crops need per year, from the library. Null when a crop is not in it. */
+function nitrogenPerYear(c: BuiltCandidate): number | null {
+  let total = 0;
+  for (const s of c.rotation.slots) {
+    if (s.kind === "fallow" || !s.cropId) continue;
+    const crop = getCropById(s.cropId);
+    if (!crop) return null;
+    total += crop.nDemandKgHa;
+  }
+  return total / Math.max(1, c.rotation.cycleYears);
+}
+
+/** Average drought tolerance (1 sensitive to 5 tolerant) of the crops. Fallow has no crop to fail. */
+function droughtToleranceOf(c: BuiltCandidate): number | null {
+  const tol = c.rotation.slots
+    .filter((s) => s.kind !== "fallow" && s.cropId)
+    .map((s) => getCropById(s.cropId as string)?.water.droughtTolerance)
+    .filter((v): v is NonNullable<typeof v> => v !== undefined);
+  return tol.length === 0 ? null : tol.reduce((a, b) => a + b, 0) / tol.length;
+}
+
+/**
+ * Picks up to `max` candidates so the farmer sees different choices, not variations of one.
+ * Rules, in order: keep the farmer's preferred crops first; keep the lowest-input and the lowest-risk option when
+ * any exists (risk here is a rain-fed plan of drought-tolerant crops, since weather replay has not run yet);
+ * fill the rest by taking the option least like those already chosen. When nothing needs dropping the order is
+ * untouched, so this changes a result only where the old rule cut a candidate by list position.
+ */
+export function selectDiverse(built: BuiltCandidate[], max: number, preferred: Set<string>): { kept: BuiltCandidate[]; dropped: Array<{ candidate: BuiltCandidate; similarTo: BuiltCandidate }> } {
+  const withRoles = built.map((c) => ({ ...c, roles: [] as CandidateRole[] }));
+  const scored = withRoles.map((c) => ({ c, n: nitrogenPerYear(c), d: droughtToleranceOf(c) }));
+  const lowInput = scored.filter((x) => x.n !== null).sort((a, b) => (a.n as number) - (b.n as number))[0];
+  const lowRisk = scored
+    .filter((x) => x.d !== null && !x.c.template.requiresIrrigation)
+    .sort((a, b) => (b.d as number) - (a.d as number) || (a.n ?? Infinity) - (b.n ?? Infinity))[0];
+  // A role is only worth naming when it actually sets the option apart from the rest.
+  if (lowInput && scored.some((x) => x !== lowInput && x.n !== null && (x.n as number) > (lowInput.n as number) + 1e-9)) lowInput.c.roles.push("low-input");
+  if (lowRisk && scored.some((x) => x !== lowRisk && x.d !== null && (x.d as number) < (lowRisk.d as number) - 1e-9)) lowRisk.c.roles.push("low-risk");
+
+  if (withRoles.length <= max) return { kept: withRoles.map((c) => (c.roles.length ? c : { rotation: c.rotation, template: c.template })), dropped: [] };
+
+  const wantsPreferred = (c: BuiltCandidate) => c.template.cropIds.some((id) => preferred.has(id));
+  const chosen: BuiltCandidate[] = [];
+  const add = (c: BuiltCandidate) => {
+    if (!chosen.includes(c)) chosen.push(c);
+  };
+  // 1. The two roles first (at most two places), then preferred crops, while there is room.
+  for (const c of withRoles.filter((x) => x.roles.length > 0)) if (chosen.length < max) add(c);
+  for (const c of withRoles.filter(wantsPreferred)) if (chosen.length < max) add(c);
+  // 2. Fill with the option furthest from everything already chosen; the old list order breaks ties.
+  while (chosen.length < max) {
+    const rest = withRoles.filter((c) => !chosen.includes(c));
+    if (rest.length === 0) break;
+    const far = (c: BuiltCandidate) => (chosen.length === 0 ? 1 : Math.min(...chosen.map((k) => templateDistance(c.template, k.template))));
+    rest.sort((a, b) => far(b) - far(a) || withRoles.indexOf(a) - withRoles.indexOf(b));
+    add(rest[0]);
+  }
+  const kept = withRoles.filter((c) => chosen.includes(c)).map((c) => (c.roles.length ? c : { rotation: c.rotation, template: c.template }));
+  const dropped = withRoles
+    .filter((c) => !chosen.includes(c))
+    .map((c) => {
+      const near = [...chosen].sort((a, b) => templateDistance(c.template, a.template) - templateDistance(c.template, b.template))[0];
+      return { candidate: { rotation: c.rotation, template: c.template }, similarTo: near };
+    });
+  return { kept, dropped };
+}
+
 export function generateCandidates(input: {
   fieldId: string;
   region: ResolvedRegion;
@@ -185,7 +284,7 @@ export function generateCandidates(input: {
   const preferred = new Set(input.constraints?.preferredCropIds ?? []);
 
   const templates = [...TEMPLATES[region]].sort((a, b) => Number(b.cropIds.some((c) => preferred.has(c))) - Number(a.cropIds.some((c) => preferred.has(c))));
-  const alternatives: BuiltCandidate[] = [];
+  const feasible: BuiltCandidate[] = [];
   const rejected: RejectedCandidate[] = [];
   const max = input.max ?? 4;
   for (const t of templates) {
@@ -204,25 +303,33 @@ export function generateCandidates(input: {
       rejected.push({ template: t, reason: built.reason });
       continue;
     }
-    if (alternatives.length < max) {
-      alternatives.push({
-        template: t,
-        rotation: {
-          id: `strategy-${t.id}`,
-          fieldId: input.fieldId,
-          label: t.label,
-          cycleYears: built.cycleYears,
-          cycleDays: built.cycleDays,
-          slots: built.slots,
-          source: "strategy",
-          strategyId: t.id,
-        },
-      });
-    }
+    feasible.push({
+      template: t,
+      rotation: {
+        id: `strategy-${t.id}`,
+        fieldId: input.fieldId,
+        label: t.label,
+        cycleYears: built.cycleYears,
+        cycleDays: built.cycleDays,
+        slots: built.slots,
+        source: "strategy",
+        strategyId: t.id,
+      },
+    });
   }
+  const { kept, dropped } = selectDiverse(feasible, max, preferred);
+  const alternatives = kept;
+  const similarDropped: RejectedCandidate[] = dropped.map((d) => ({
+    template: d.candidate.template,
+    reason:
+      templateDistance(d.candidate.template, d.similarTo.template) < NEAR_DUPLICATE_DISTANCE
+        ? `Left out because it is very like "${d.similarTo.template.label}".`
+        : "Left out to keep the choices different from each other.",
+  }));
   return {
     alternatives,
     rejected,
+    similarDropped,
     shortfall: alternatives.length < 2 ? `Only ${alternatives.length} defined alternative${alternatives.length === 1 ? "" : "s"} fit your region and limits. The comparison needs at least two.` : null,
   };
 }

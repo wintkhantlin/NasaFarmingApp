@@ -1,9 +1,9 @@
 "use client";
 
-import { ActionBar } from "@/components/ui/action-bar";
+import { FlowNav } from "@/components/ui/flow-nav";
 import { Icon } from "@/components/ui/icon";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MONTHS, RainWaterChart, TemperatureChart } from "@/components/ui/charts";
 import { buttonClass, Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -20,6 +20,17 @@ import { CropCalendar } from "@/components/field/crop-calendar";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { TrendsView } from "@/components/field/trends-view";
 import { DryZoneRainNote, SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
+import { ConditionsSummary } from "@/components/field/conditions-summary";
+import { BandChip, StatusChip, bandCarbon, bandPh } from "@/components/field/conditions/bands";
+import { RiskEntryGrid } from "@/components/field/conditions/risk-entry-grid";
+import { RiskExplorer } from "@/components/field/conditions/risk-explorer";
+import { WaterStressPanel } from "@/components/field/conditions/risk-panels/water-stress-panel";
+import { FloodPanel } from "@/components/field/conditions/risk-panels/flood-panel";
+import { ErosionPanel } from "@/components/field/conditions/risk-panels/erosion-panel";
+import { HeatColdPanel } from "@/components/field/conditions/risk-panels/heat-cold-panel";
+import { buildRiskEvidenceMap, type RiskKind } from "@/lib/conditions/condition-evidence";
+import { fieldIdentity } from "@/lib/conditions/explorer-model";
+import type { TrendSeries } from "@/lib/server/trends";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
 import { compareRotations } from "@/lib/engine/compare";
@@ -105,6 +116,85 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
     return [...seen.entries()].map(([value, label]) => ({ value, label }));
   }, [rotations]);
 
+  const cropId = cropChoice ?? rotationCrops[0]?.value ?? "maize";
+  const crop = getCropById(cropId);
+  const cropName = rotationCrops.find((c) => c.value === cropId)?.label ?? crop?.names.common ?? "maize";
+
+  const [activeView, setActiveView] = useState<"overview" | "explorer">("overview");
+  const opener = useRef<string>("explore-entry");
+  const openExplorer = (risk: RiskKind) => {
+    opener.current = document.activeElement?.id || "explore-entry";
+    setSelectedRisk(risk);
+    setActiveView("explorer");
+    // One history entry, so the phone's Back gesture closes the map instead of leaving the field.
+    window.history.pushState({ riskExplorer: true }, "");
+  };
+  const closeExplorer = () => {
+    setActiveView("overview");
+    if (typeof window !== "undefined" && window.history.state?.riskExplorer) window.history.back();
+  };
+  useEffect(() => {
+    const onPop = () => setActiveView("overview");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  // After the map closes, put focus back where the farmer opened it.
+  const wasExplorer = useRef(false);
+  useEffect(() => {
+    if (activeView === "explorer") wasExplorer.current = true;
+    else if (wasExplorer.current) {
+      wasExplorer.current = false;
+      (document.getElementById(opener.current) ?? document.getElementById("explore-entry"))?.focus();
+    }
+  }, [activeView]);
+  const [selectedRisk, setSelectedRisk] = useState<RiskKind>("water_stress");
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+  const [trendsData, setTrendsData] = useState<{ trends: TrendSeries[]; through: number } | null>(null);
+
+  const lng = field?.centroid[0];
+  const lat = field?.centroid[1];
+  useEffect(() => {
+    if (lng === undefined || lat === undefined) return;
+    const ctl = new AbortController();
+    fetch(`/api/field/${fieldId}/trends?lng=${lng}&lat=${lat}`, { signal: ctl.signal })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && !d.error) setTrendsData(d);
+      })
+      .catch(() => {});
+    return () => ctl.abort();
+  }, [fieldId, lng, lat]);
+
+  // /conditions?risk=flood opens the map on that risk (used by Compare).
+  const deepLinked = useRef(false);
+
+  const evidenceMap = useMemo(() => {
+    if (!field) return null;
+    return buildRiskEvidenceMap({
+      conditions: data,
+      remote: analysis.remote,
+      trends: trendsData,
+      field,
+      selectedYear,
+      selectedDate,
+      crop,
+      comparison,
+    });
+  }, [data, analysis.remote, trendsData, field, selectedYear, selectedDate, crop, comparison]);
+
+  useEffect(() => {
+    if (deepLinked.current || !evidenceMap || typeof window === "undefined") return;
+    const r = new URLSearchParams(window.location.search).get("risk");
+    if (r === "water_stress" || r === "flood" || r === "erosion" || r === "heat_cold") {
+      deepLinked.current = true;
+      window.history.replaceState(window.history.state, "", window.location.pathname);
+      setSelectedRisk(r);
+      setActiveView("explorer");
+      window.history.pushState({ riskExplorer: true }, "");
+    }
+  }, [evidenceMap]);
+
   if (status === "idle" || status === "loading") {
     return (
       <div role="status" aria-label={copy.home.loading} className="flex flex-col gap-4">
@@ -125,16 +215,18 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
     );
   }
 
-  const cropId = cropChoice ?? rotationCrops[0]?.value ?? "maize";
-  const crop = getCropById(cropId);
-  const cropName = rotationCrops.find((c) => c.value === cropId)?.label ?? crop?.names.common ?? "maize";
-
   const rain = data?.monthlyRainMm;
   const et0 = data?.monthlyEt0Mm;
   const tmax = data?.monthlyTmaxC;
   const tmin = data?.monthlyTminC;
   const soil = data?.soil ?? null;
   const stale = data ? isStale(data.fetchedAt, 48) : false;
+  const latestSmapRootzone = [...(analysis.remote?.smap?.data?.days ?? [])]
+    .reverse()
+    .find((day) => day.rootzone !== null);
+  const rootWetnessPct = latestSmapRootzone?.rootzone !== null && latestSmapRootzone?.rootzone !== undefined
+    ? Math.round(latestSmapRootzone.rootzone * 100)
+    : data?.rootWetnessPct;
 
   const dryMonths = rain && et0 ? rain.map((r, i) => (et0[i] > r ? i : -1)).filter((i) => i >= 0) : [];
   const annual = data?.annualRainMm;
@@ -142,15 +234,21 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
   const dryZone = isDryZone(regionId);
 
   const headline =
-    annual !== undefined && rain
-      ? `About ${annual} mm of rain a year, mostly ${wettestSeason(rain)}`
-      : "Climate data isn't available for this field right now";
+    rain && et0
+      ? dryMonths.length === 12
+        ? `Rain peaks ${wettestSeason(rain)} but never covers what crops use`
+        : dryMonths.length > 0
+          ? `Most rain falls ${wettestSeason(rain)}. ${dryMonths.length} ${dryMonths.length === 1 ? "month runs" : "months run"} drier than crops need`
+          : `Rain keeps up with crop water use all year, with most falling ${wettestSeason(rain)}`
+      : rain
+        ? `Most rain falls ${wettestSeason(rain)}`
+        : "Climate data isn't available for this field right now";
   const reason =
     rain && et0
       ? dryMonths.length === 12
-        ? "On average, rain falls short of how much water crops would use in every month, so most crops here need irrigation or stored soil water."
+        ? "Most crops here need irrigation or stored soil water in every month."
         : dryMonths.length > 0
-          ? `Rain falls short of how much water crops would use in ${dryMonths.length} ${dryMonths.length === 1 ? "month" : "months"} (${listMonths(dryMonths)}). Plan water for those months, or time planting to avoid them.`
+          ? `Dry months: ${listMonths(dryMonths)}. Plan water for them, or time planting to avoid them.`
           : "On average, rain keeps up with how much water crops would use in every month."
       : rain
         ? "Soil information is below. Temperature and crop water use could not be read."
@@ -184,7 +282,9 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
         {frostHit ? (
           <div>
             <RiskChip hazard="frost">
-              Frost possible: nights near {Math.round(tmin[coldest])} °C in {MONTHS[coldest]}
+              {tmin[coldest] <= 0
+                ? `Frost possible: nights near ${Math.round(tmin[coldest])} °C in ${MONTHS[coldest]}`
+                : `Cold stress: nights near ${Math.round(tmin[coldest])} °C in ${MONTHS[coldest]}`}
             </RiskChip>
           </div>
         ) : null}
@@ -201,13 +301,43 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           band={crop ? [crop.temp.optMinC, crop.temp.optMaxC] : undefined}
           bandLabel={crop ? `${cropName} grows best at ${crop.temp.optMinC} to ${crop.temp.optMaxC} °C` : undefined}
         />
-        <p className="m-0 max-w-measure text-body-sm text-ink-muted">Monthly averages. Check local frost dates before planting.</p>
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">Monthly averages. Check local cold sensitivity and sowing dates before planting.</p>
       </section>
     ) : null;
 
+  if (activeView === "explorer" && evidenceMap) {
+    return (
+      <RiskExplorer
+        field={field}
+        evidenceMap={evidenceMap}
+        initialRisk={selectedRisk}
+        selectedYear={selectedYear}
+        onYearChange={setSelectedYear}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        trends={trendsData}
+        remote={analysis.remote}
+        onBack={closeExplorer}
+        renderRiskPanel={(risk, evidence) => {
+          if (risk === "water_stress") return <WaterStressPanel evidence={evidence} crop={crop} />;
+          if (risk === "flood") return <FloodPanel evidence={evidence} />;
+          if (risk === "erosion") return <ErosionPanel evidence={evidence} />;
+          if (risk === "heat_cold") return <HeatColdPanel evidence={evidence} crop={crop} />;
+          return null;
+        }}
+      />
+    );
+  }
+
   return (
     <>
-      <FieldPageHeader title={copy.conditions.title} summary="Rain, heat and soil around this field." />
+      <FieldPageHeader
+        title={copy.conditions.title}
+        summary={(() => {
+          const id = fieldIdentity(field);
+          return id.context ? `${id.name} · ${id.context}` : id.name;
+        })()}
+      />
 
       {phase === "loading" ? (
         <AnalysisLoading
@@ -247,29 +377,59 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             </Panel>
           ) : null}
 
-          {/* The answer first */}
-          <Panel as="section" radius="lg" aria-labelledby="summary" className="flex flex-col gap-4 p-5 sm:p-6">
-            <div className="flex flex-col gap-2">
-              <h2 id="summary" className="text-balance text-title text-ink sm:text-display">
-                {headline}
-              </h2>
-              {annual !== undefined && rain && dryZone ? <DryZoneRainNote /> : null}
-              <p className="max-w-measure text-body text-ink-muted">{reason}</p>
-            </div>
-            <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.conditions.cellResolutionNote}</p>
-            {analysis.retrieving ? (
+          {/* 1 · The answer: one seasonal insight */}
+          <section aria-labelledby="summary" className="flex flex-col gap-2">
+            <h2 id="summary" className="m-0 max-w-measure text-balance text-title text-ink sm:text-display">
+              {headline}
+            </h2>
+            {annual !== undefined && rain && dryZone ? <DryZoneRainNote /> : null}
+            <p className="m-0 max-w-measure text-body text-ink-muted">{reason}</p>
+            <ul aria-label="Status" className="m-0 flex list-none flex-wrap gap-2 p-0">
+              {rain && et0 ? (
+                <li>
+                  <StatusChip icon={dryMonths.length > 0 ? "rain" : "success"} tone={dryMonths.length > 0 ? "watch" : "good"}>
+                    {dryMonths.length === 0 ? "Rain is enough" : dryMonths.length === 12 ? "Dry all year" : `${dryMonths.length} dry ${dryMonths.length === 1 ? "month" : "months"}`}
+                  </StatusChip>
+                </li>
+              ) : null}
+              {frostHit && tmin ? (
+                <li>
+                  <StatusChip icon="frost" tone="watch">{tmin[coldest] <= 0 ? "Frost possible" : "Cold nights"}</StatusChip>
+                </li>
+              ) : null}
+              {heatHit && tmax ? (
+                <li>
+                  <StatusChip icon="heat" tone="watch">Very hot month</StatusChip>
+                </li>
+              ) : null}
+              {textureFits === false ? (
+                <li>
+                  <StatusChip icon="soil" tone="watch">Soil not a usual fit</StatusChip>
+                </li>
+              ) : null}
+            </ul>
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+              {copy.conditions.cellResolutionNote} Updated {formatFetched(data.fetchedAt)}.
+            </p>
+            {(analysis.satelliteImageryPending ?? analysis.retrieving) ? (
               <p role="status" className="m-0 flex items-center gap-2 text-body-sm text-ink-muted">
                 <InfoGlyph className="shrink-0" />
                 {copy.conditions.checkingPhotos}
               </p>
             ) : null}
-          </Panel>
+          </section>
+
+          {/* 2 · The evidence: three numbers and one local check */}
+          <ConditionsSummary conditions={data} crop={crop} cropName={cropName} effectivePh={effectivePh} remote={analysis.remote} />
+
+          {/* 3 · The way in: explore the vulnerabilities on the map */}
+          {evidenceMap ? <RiskEntryGrid evidenceMap={evidenceMap} geometry={field.geometry} onSelectRisk={openExplorer} /> : null}
 
           {manyCrops ? cropPicker : null}
 
           {/* Rain and crop water use */}
           <section aria-labelledby="rain" className={supportingSection}>
-            <PanelHeader id="rain" title={<span className="inline-flex items-center gap-2"><Icon name="water" />Rain and dry months</span>} description="Usual rain against the water crops may need." />
+            <PanelHeader id="rain" title={<span className="inline-flex items-center gap-2"><Icon name="rain" />Rain and dry months</span>} description="Usual rain against the water crops may need." />
             {rain ? (
               <RainWaterChart rain={rain} cropUse={et0} />
             ) : (
@@ -289,27 +449,17 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     : "not available for your area yet, so NASA weather (about 50 km) is used"}
               </p>
               <p className="m-0 text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
-              <p className="m-0 text-source text-ink-muted">{copy.conditions.cellResolutionTechnical} Daily values, averaged by month.</p>
+              <p className="m-0 text-body-sm text-ink-muted">{copy.conditions.cellResolutionTechnical} Daily values, averaged by month.</p>
             </Disclosure>
           </section>
 
           {/* Heat and frost: first screen only when a limit is hit */}
           {tempFirst ? temperaturePanel : null}
 
-          <section aria-labelledby="history" className={supportingSection}>
-            <PanelHeader
-              id="history"
-              title={<span className="inline-flex items-center gap-2"><Icon name="trends" />Field history and vulnerabilities</span>}
-              description="Explore past evidence for water stress, flood, erosion, heat and cold. Past observations are not a forecast."
-            />
-            <TrendsView
-              fieldId={field.id}
-              embedded
-              conditions={data}
-              remote={analysis.remote}
-              comparison={comparison}
-            />
-          </section>
+          <Disclosure title="Long-term trends" hint="1981 to now" lazy className="border-0 bg-surface-sunken">
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">Past observations for this area. They are not a forecast.</p>
+            <TrendsView fieldId={field.id} embedded conditions={data} remote={analysis.remote} comparison={comparison} />
+          </Disclosure>
 
           <Disclosure title="Crop, climate and source details" className="border-0 bg-transparent [&>summary]:px-0 [&>div]:px-0">
             {!manyCrops ? cropPicker : null}
@@ -351,6 +501,23 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                 </div>
               </div>
             ) : (
+              <>
+              <ul aria-label="Soil at a glance" className="m-0 flex list-none flex-wrap gap-2 p-0">
+                {effectivePh !== null ? (
+                  <li>
+                    <span className="inline-flex items-center gap-2 text-body-sm text-ink">
+                      Acidity <BandChip band={bandPh(effectivePh, phBand ?? null)} />
+                    </span>
+                  </li>
+                ) : null}
+                {effectiveSoc !== null ? (
+                  <li>
+                    <span className="inline-flex items-center gap-2 text-body-sm text-ink">
+                      Organic carbon <BandChip band={bandCarbon(effectiveSoc)} />
+                    </span>
+                  </li>
+                ) : null}
+              </ul>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {effectivePh !== null ? (
                   <Reading
@@ -388,16 +555,19 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     }}
                   />
                 ) : null}
-                {data.rootWetnessPct !== undefined ? (
+                {rootWetnessPct !== undefined ? (
                   <Reading
                     label="Root-zone wetness"
-                    value={data.rootWetnessPct}
+                    value={rootWetnessPct}
                     unit="% full"
                     scale={[0, 100]}
-                    source={{ dataset: "NASA POWER", resolution: "about 50 km", dates: "long-term mean" }}
+                    source={latestSmapRootzone
+                      ? { dataset: "NASA SMAP L4", resolution: "about 9 km", dates: latestSmapRootzone.date }
+                      : { dataset: "NASA POWER", resolution: "about 50 km", dates: "long-term mean" }}
                   />
                 ) : null}
               </div>
+              </>
             )}
 
             {texture ? (
@@ -411,7 +581,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
 
             <Disclosure title="About these soil numbers" className="border-0 bg-surface-sunken">
               <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-                Map values (SoilGrids) are model estimates for a 250 m area and are not a soil test. {data.rootWetnessPct !== undefined ? "Root-zone wetness is a long-term average from NASA POWER, a model for a regional cell, not a reading of your field. " : ""}Soil changes slowly, so these are not forecasts.
+                Map values (SoilGrids) are model estimates for a 250 m area and are not a soil test. {rootWetnessPct !== undefined ? latestSmapRootzone ? "Root-zone wetness is a 9 km SMAP model-and-satellite estimate, not a reading of your field. " : "Root-zone wetness is a long-term average from NASA POWER, a model for a regional cell, not a reading of your field. " : ""}Soil changes slowly, so these are not forecasts.
               </p>
               <p className="m-0 max-w-measure text-body-sm text-ink-muted">
                 {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : copy.data.sourceSoilGrids + "."}
@@ -419,12 +589,10 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             </Disclosure>
           </section>
 
-          <ActionBar>
-            <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "flex-1", "lg")}>
-              {copy.conditions.compareButton}
-              <Icon name="next" />
-            </Link>
-          </ActionBar>
+          <FlowNav
+            back={{ label: "Back", href: `/fields/${field.id}` }}
+            next={{ label: copy.conditions.compareButton, href: `/fields/${field.id}/compare` }}
+          />
 
           <NextSteps fieldId={field.id} current="conditions" />
         </>

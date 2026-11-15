@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { loadTrends } from "@/lib/server/trends";
 
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lng = parseFloat(searchParams.get("lng") ?? "");

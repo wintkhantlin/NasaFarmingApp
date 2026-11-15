@@ -5,7 +5,7 @@
 **Domain:** Computational Agroclimatology, Satellite Remote Sensing, Soil Hydrology, Operations Research  
 **Edition:** Scientific Methods and System Design — Research Prototype v3.3  
 **Version:** 3.3  
-**Evidence level:** Methods and design documentation. The models are unit-tested for internal consistency, verified across 543 automated tests, and evaluated against NOAA GHCN-Daily Myanmar ground station benchmarks (Section 12).  
+**Evidence level:** Methods and design documentation. The models are unit-tested for internal consistency, verified across 854 automated tests across 102 test files, and evaluated against NOAA GHCN-Daily Myanmar ground station benchmarks (Section 12).  
 
 ---
 
@@ -32,7 +32,7 @@ Each capability carries one of three statuses, and a separate statement of valid
 - **Partially implemented:** code exists but the capability needs credentials, a live check, or a missing step before it produces results for a farmer.
 - **Proposed:** designed or documented here, with at most a helper in the code; nothing in the application uses it.
 
-**Validated** means checked against independent observations (station rainfall, soil-moisture probes, measured yields, field-measured water depth). The project maintains 543 automated tests checking formula transcription, conservation identities and error handling, alongside an empirical validation suite (`npm run validate:weather`) against NOAA GHCN-Daily stations (2015–2024). Section 12 details the ground station validation findings and operational limitations.
+**Validated** means checked against independent observations (station rainfall, soil-moisture probes, measured yields, field-measured water depth). The project maintains 854 automated tests across 102 test suites checking formula transcription, conservation identities and error handling, alongside an empirical validation suite (`npm run validate:weather`) against NOAA GHCN-Daily stations (2015–2024). Section 12 details the ground station validation findings and operational limitations.
 
 | Capability | Status | What exists | What is missing or gated |
 | --- | --- | --- | --- |
@@ -1124,6 +1124,24 @@ classDiagram
     }
 ```
 
+### 10.0 Master Dataset Update Cadence, Latency & Freshness Matrix
+
+| Dataset / Product Code | Source Agency & DAAC | Spatial Resolution | Temporal Resolution / Cadence | Production Latency (Freshness Lag) | Historical Archive Span | Operational Ingestion Pipeline & Update Mechanism | Fallback & Degraded State Policy |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **NASA POWER Agroclimatology**<br>`MERRA-2` / `GEOS-FP` | NASA Langley Research Center (LaRC) | $0.5^\circ \times 0.625^\circ$<br>($\approx 50 \times 60\text{ km}$) | Daily summaries (aggregated from hourly) | **2 to 3 days** trailing latency | 1981-01-01 to present (app uses 2016–present) | Synchronous HTTPS Point API; cached locally in SQLite; forward processing driven by GEOS-FP | Primary weather source; zero-fill converted strictly to `null`; triggers Hargreaves $ET_0$ fallback if solar/wind missing |
+| **NASA GPM IMERG Final Daily**<br>`GPM_3IMERGDF` (V07) | NASA GSFC / GES DISC | $0.1^\circ \times 0.1^\circ$<br>($\approx 11 \times 11\text{ km}$) | Daily total (aggregated from half-hourly) | **~3.5 months** (due to GPCC gauge calibration) | 1998-01-01 to 2025-09-30 (V07 end date) | Earthdata CMR discovery + OPeNDAP DAP4 point slicing with `EARTHDATA_TOKEN` | Used only if $\ge 95\%$ baseline days present; otherwise falls back to POWER `PRECTOTCORR`. Products are never blended |
+| **NASA GPM IMERG Late Run**<br>`GPM_3IMERGDL` | NASA GSFC / GES DISC | $0.1^\circ \times 0.1^\circ$<br>($\approx 11 \times 11\text{ km}$) | Daily accumulation | **~14 hours** post-observation | Operational moving window (last 3.5 months) | Bidirectional morphing via Earthdata Cloud; operational near-real-time monitoring | Used for current-season tracking; falls back to NASA POWER if unauthenticated |
+| **NASA GPM IMERG Early Run**<br>`GPM_3IMERGIS` | NASA GSFC / GES DISC | $0.1^\circ \times 0.1^\circ$<br>($\approx 11 \times 11\text{ km}$) | Half-hourly / Daily | **~4 hours** post-observation | Operational moving window | Forward-only morphing; flash flood screening | Rapid alert screening only; not used for multi-season baseline replay |
+| **USGS Landsat C2 L2**<br>`landsat-c2-l2` (OLI/ETM+) | USGS / NASA LP DAAC | $30\text{ m} \times 30\text{ m}$ | 16-day repeat per satellite (8-day combined 8/9) | **2 to 3 days** post-overpass | 1982-08-22 to present | Microsoft Planetary Computer STAC discovery + SAS token HTTP byte-range window retrieval on COGs | Cloud/shadow screened via `qa_pixel`; requires $f_{\text{valid}} \ge 0.25$; falls back to AppEEARS MODIS |
+| **MODIS Terra/Aqua VI**<br>`MOD13Q1.061` / `MYD13Q1` | NASA LP DAAC | $250\text{ m} \times 250\text{ m}$ | 16-day composite (Maximum Value Composite) | **2 to 4 days** post 16-day period | 2000-02-18 to present | Planetary Computer STAC discovery + Azure COG range reads; AppEEARS area job fallback | Used for 25-year regional phenology context; filtered via 16-bit `VI_Quality` bitmask |
+| **NASA SMAP Level-4**<br>`SPL4SMGP.008` | NASA NSIDC / LP DAAC | $9\text{ km} \times 9\text{ km}$ EASE-Grid 2.0 | Daily composite (from 3-hourly snapshots) | **~2.5 to 3.0 days** (constrained by GEOS-FP) | 2015-03-31 to present | NASA AppEEARS Point API; asynchronous job polling; Earthdata login required | Regional root-zone wetness percentile only; never presented as field-gate moisture; reports `unknown` if missing |
+| **NASA ECOSTRESS L2/L3**<br>`LSTE.002` / `JET.002` | NASA JPL / LP DAAC | $\approx 70\text{ m} \times 70\text{ m}$ (precessing swath) | Non-sun-synchronous (1 to 5 day variable revisit) | **1 to 2 days** post-acquisition | 2018-07-09 to present | NASA AppEEARS Area Subsetting API; filtered by cloud/water and conservative LST-QA | Thermal canopy depression and evapotranspiration context; never substituted for 2m air temperature |
+| **NASA SRTM DEM**<br>`SRTMGL1_NC.003` | NASA JPL / LP DAAC | $1\text{ arc-sec} \approx 30\text{ m}$ | Static Topographic Baseline | **Static reference** (flown Feb 2000) | 2000-02-11 to 2000-02-22 | NASA AppEEARS Area Subsetting API | Feeds Horn's $3 \times 3$ slope gradient and atmospheric pressure elevation adjustments; static |
+| **Harmonized Landsat-Sentinel**<br>`HLSL30.020` / `HLSS30.020` | NASA LP DAAC | $30\text{ m} \times 30\text{ m}$ | 2 to 3 days combined constellation revisit | **2 to 3 days** post-overpass | 2013-04-11 (L30) / 2015-11-28 (S30) to present | NASA AppEEARS Extraction API; Fmask QA screening | Sub-field gap vegetation screening; Earthdata-gated; degrades to Landsat C2 |
+| **ISRIC SoilGrids v2.0**<br>`soilgrids.org` | ISRIC World Soil Information | $250\text{ m} \times 250\text{ m}$ | Static Modern Pedometric Baseline | **Static baseline** (v2.0 model released 2020) | Modern soil profile synthesis (1950–present) | Public REST API (`https://rest.isric.org/soilgrids/v2.0`); depth-weighted $0\text{--}30\text{ cm}$ integration | Tier 2 soil water retention fallback; superseded immediately by farmer lab test or field kit |
+| **NOAA GHCN-Daily**<br>`GHCND` | NOAA NCEI | Station-specific coordinates | Daily meteorological observations | **1 to 2 days** (trailing station uploads) | Multi-decadal (100+ years globally) | Offline benchmark validation harness (`lib/validation/`, 2015–2024 records) | Used for ground-truth empirical auditing of satellite reanalysis inputs; not queried at runtime |
+| **Myanmar Market Benchmarks**<br>DOA / Bayintnaung / MPBMSMA | DOA / Bayintnaung Wholesale / MPBMSMA | Regional production clusters | Seasonal / Annual market price surveys | **Updated Annually** (2024–2026 calibrated dataset) | 2020 to 2026 economic seasons | Static agronomic dictionary (`lib/data/crops/real-world-economics.ts`) | Feeds interval gross margin and regional income utility anchors ($M_{\text{bench}}$); overridden by farmer entry |
+
 ### 10.1 NASA POWER Agroclimatology (MERRA-2 & CERES)
 - **Governing Body:** NASA Langley Research Center (LaRC).
 - **Physical Provenance:** MERRA-2 atmospheric assimilation model coupled with CERES satellite solar flux retrievals.
@@ -1262,6 +1280,52 @@ Ground-truth validation of NASA POWER daily variables against NOAA GHCN-Daily st
   - `wv0033`: Volumetric water content at $-33\text{ kPa}$ (field capacity, $\theta_{FC}$), reported in $10^{-2}\text{ cm}^3\cdot\text{cm}^{-3}$ with $d_{\text{factor}} = 10$; the volumetric fraction is the raw value divided by $1000$ (Section 4.6).
   - `wv1500`: Volumetric water content at $-1500\text{ kPa}$ (permanent wilting point, $\theta_{WP}$), same units and conversion.
   - Destination: USDA soil texture classification, Available Water Capacity ($AWC$) as Tier 2 of the Section 4.1 retention hierarchy (only when the farmer has given neither a water-capacity value nor the sand, clay and organic carbon needed for Tier 1), and soil chemical suitability envelopes.
+
+---
+
+### 10.9 Harmonized Landsat Sentinel-2 (HLS v2.0)
+- **Governing Body:** NASA Land Processes Distributed Active Archive Center (LP DAAC) & USGS.
+- **Sensors:** Operational Land Imager (OLI/OLI-2) on Landsat 8/9 and Multi-Spectral Instrument (MSI) on Sentinel-2A/2B.
+- **Products:** `HLSL30.020` (Landsat-derived 30m) and `HLSS30.020` (Sentinel-2 derived 30m).
+- **Spatial Resolution:** $30\text{ m} \times 30\text{ m}$ gridded to the Sentinel-2 Military Grid Reference System (MGRS).
+- **Temporal Cadence:** Combined constellation revisit of $2\text{ to }3\text{ days}$ globally (cloud conditions permitting).
+- **Temporal Coverage:** April 2013 (Landsat-30) / November 2015 (Sentinel-30) to present.
+- **Access Protocol:** NASA AppEEARS Point / Area Extraction API. Requires Earthdata login (`EARTHDATA_USERNAME`, `EARTHDATA_PASSWORD`).
+- **Radiometric Calibration:** Harmonized surface reflectance normalized to nadir BRDF (NBAR):
+  $$\rho_\lambda = \text{DN} \times 0.0001, \quad \text{Fill} = -1000$$
+- **Quality Assessment (Fmask):** Screened via 8-bit Fmask bitmask: reject fill (255), cloud (bit 1), adjacent cloud/shadow (bit 2), shadow (bit 3), snow (bit 4), and high aerosol (bits 6–7 = 11). Water (bit 5) is separated from land.
+- **Destination:** High-frequency gap vegetation tracking, greenness transitions, and bare-soil validation.
+
+---
+
+### 10.10 NOAA Global Historical Climatology Network (GHCN-Daily) Ground Records
+- **Governing Body:** NOAA National Centers for Environmental Information (NCEI).
+- **Physical Provenance:** Physical ground station meteorological observations calibrated and quality-controlled across global meteorological services.
+- **Product Code:** `GHCND` (Global Historical Climatology Network - Daily).
+- **Spatial Resolution:** Point-specific surface weather stations.
+- **Temporal Cadence:** Daily observation reporting.
+- **Historical Baseline in Harness:** 10 continuous years ($2015\text{–}2024$) across 5 Myanmar benchmark meteorological stations:
+  - Mandalay International ($21.98^\circ\text{N}, 96.08^\circ\text{E}$, $76\text{ m}$)
+  - Sittwe ($20.13^\circ\text{N}, 92.88^\circ\text{E}$, $8\text{ m}$)
+  - Kawthaung ($10.02^\circ\text{N}, 98.55^\circ\text{E}$, $15\text{ m}$)
+  - Yangon International ($16.77^\circ\text{N}, 96.17^\circ\text{E}$, $14\text{ m}$)
+  - Myitkyina ($25.38^\circ\text{N}, 97.40^\circ\text{E}$, $145\text{ m}$)
+- **Access Protocol:** Offline ground-truth validation harness (`lib/validation/weather.ts`, `data/validation/power-vs-ghcn.json`).
+- **Destination:** Ground-truth benchmarking of satellite reanalysis data; error bound derivation for temperature and precipitation biases.
+
+---
+
+### 10.11 Regional Agricultural Commodity Market Benchmarks
+- **Governing Bodies:** Myanmar Department of Agriculture (DOA), Bayintnaung Wholesale Agricultural Commodity Exchange, and Myanmar Pulses, Beans & Sesame Seeds Merchants Association (MPBMSMA).
+- **Physical Provenance:** Real-world regional wholesale market transactional records, commodity auction data, and certified agricultural production cost surveys.
+- **Spatial Coverage:** Key production clusters: Ayeyarwady Delta (lowland rice, pulses), Central Dry Zone / Magway (sesame, groundnut, pulses), and Shan State Highlands (maize, soybean).
+- **Temporal Update Cadence:** Updated annually across seasonal market transitions (current dataset: 2024–2026 calibrated parameters).
+- **Access Protocol:** Structured agronomic dictionary (`lib/data/crops/real-world-economics.ts`).
+- **Extracted Financial Envelopes:**
+  - Crop yield intervals: $[Y_{\min}, Y_{\max}]$ in $\text{kg}\cdot\text{ha}^{-1}$ (or regional basket units: *tin*, *pyi*).
+  - Wholesale market price intervals: $[P_{\min}, P_{\max}]$ in $\text{MMK}\cdot\text{kg}^{-1}$.
+  - Variable production cost intervals: $[C_{\min}, C_{\max}]$ in $\text{MMK}\cdot\text{ha}^{-1}$ (seed, fertilizer, fuel, labor, harvest).
+- **Destination:** Interval gross margin calculation and fixed regional anchor baseline ($M_{\text{bench}}$) for MCDA income utility normalization.
 
 ---
 

@@ -5,6 +5,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useCompareViewedStore } from "@/lib/store/compare-viewed";
 import { PageBar } from "@/components/ui/page-bar";
+import { usePick } from "@/components/shell/use-pick";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import {
@@ -15,12 +16,12 @@ import {
 } from "@/lib/store/fields-store";
 import { REGIONS } from "@/lib/data/regions";
 
-const TABS: Array<{ label: string; path: string; icon: IconName; step?: StepId }> = [
-  { label: "Overview", path: "", icon: "fields" },
-  { label: "Farm", path: "/profile", icon: "profile", step: "profile" },
-  { label: "Crops", path: "/rotation", icon: "rotation", step: "rotation" },
-  { label: "Conditions", path: "/conditions", icon: "conditions" },
-  { label: "Compare", path: "/compare", icon: "compare", step: "compare" },
+const TABS: Array<{ label: string; labelMy: string; path: string; icon: IconName; step?: StepId }> = [
+  { label: "Overview", labelMy: "အနှစ်ချုပ်", path: "", icon: "fields" },
+  { label: "Farm", labelMy: "လယ်ယာ", path: "/profile", icon: "profile", step: "profile" },
+  { label: "Crops", labelMy: "သီးနှံ", path: "/rotation", icon: "rotation", step: "rotation" },
+  { label: "Conditions", labelMy: "ရာသီဥတု", path: "/conditions", icon: "conditions" },
+  { label: "Compare", labelMy: "နှိုင်းယှဉ်", path: "/compare", icon: "compare", step: "compare" },
 ];
 
 function activeTab(pathname: string, base: string): string {
@@ -70,6 +71,7 @@ function FieldTabs({
   hasRegionalCatalog: boolean;
 }) {
   const selectedPath = activeTab(pathname, base);
+  const pick = usePick();
   return (
     <nav
       aria-label={`Pages for ${fieldName}`}
@@ -87,14 +89,15 @@ function FieldTabs({
                 href={`${base}${tab.path}`}
                 aria-current={selected ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 border-b-2 px-1 text-source no-underline transition-colors sm:min-h-tap sm:flex-row sm:gap-2 sm:px-3 sm:text-label",
-                  selected ? "border-field font-semibold text-field" : "border-transparent text-ink-muted hover:text-ink",
+                  "relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 border-b-4 px-1 text-source no-underline transition-colors active:bg-surface-sunken/60 sm:min-h-tap sm:flex-row sm:gap-2 sm:px-3 sm:text-label sm:hover:bg-surface-sunken/40",
+                  selected ? "border-field bg-field-soft font-bold text-field" : "border-transparent text-ink-muted hover:text-ink",
                 )}
               >
-                <Icon name={tab.icon} size={18} className="shrink-0" />
+                <Icon name={tab.icon} size={22} className="shrink-0" strokeWidth={selected ? 2.4 : 1.8} />
                 <span className="inline-flex items-center gap-1">
-                  {tab.label}
-                  {done ? <Icon name="done" size={13} strokeWidth={2.6} aria-hidden className="text-field" /> : null}
+                  {pick(tab.label, tab.labelMy)}
+                  {/* On phones the check is a badge on the icon so the label keeps its full width. */}
+                  {done ? <Icon name="done" size={15} strokeWidth={2.8} aria-hidden className="text-field max-sm:absolute max-sm:left-1/2 max-sm:top-1 max-sm:ml-1.5 max-sm:rounded-full max-sm:bg-surface max-sm:p-px" /> : null}
                 </span>
                 {stepState ? (
                   <span className="sr-only">{tabStateText({ done, compare, hasRegionalCatalog, state: stepState })}</span>

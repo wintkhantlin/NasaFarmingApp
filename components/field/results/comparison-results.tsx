@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { topicsForIndicator } from "@/lib/learn/topics";
 import { SeasonStrip } from "@/components/field/season-strip";
+import { CropLine } from "@/components/field/results/crop-line";
 import { VerdictCard } from "@/components/field/results/verdict-card";
 import { Disclosure } from "@/components/ui/disclosure";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -31,25 +32,25 @@ const MISSING_ICON: Record<MissingKind, IconName> = { unknown: "help", "not-meas
 
 function MissingTag({ kind }: { kind: MissingKind }) {
   return (
-    <span className="inline-flex min-h-6 items-center gap-1 rounded-pill border border-dashed border-unknown-border bg-unknown-bg px-2 text-source font-medium text-unknown-text">
+    <span className="inline-flex min-h-6 items-center gap-1 rounded-pill border border-dashed border-unknown-border bg-unknown-bg px-2 text-body-sm font-medium text-unknown-text">
       <Icon name={MISSING_ICON[kind]} size={14} aria-hidden />
       {MISSING_WORDS[kind].label}
     </span>
   );
 }
 
-function CellView({ cell }: { cell: Cell }) {
+function CellView({ cell, showBasis = true }: { cell: Cell; showBasis?: boolean }) {
   return (
     <span className="flex min-w-0 flex-col items-start gap-1">
       {cell.missing ? <MissingTag kind={cell.missing} /> : null}
       {cell.tone === "deficit" ? (
-        <span className="inline-flex min-h-6 items-center gap-1 rounded-pill border border-drought/25 bg-drought-soft px-2 text-source font-medium text-drought">
+        <span className="inline-flex min-h-6 items-center gap-1 rounded-pill border border-drought/25 bg-drought-soft px-2 text-body-sm font-medium text-drought">
           <Icon name="alert" size={14} aria-hidden />
           Deficit
         </span>
       ) : null}
       <span className={cn("text-body-sm", cell.missing ? "text-ink-muted" : "text-ink")}>{cell.text}</span>
-      {cell.basis ? <span className="text-source text-ink-muted">{BASIS_WORDS[cell.basis]}</span> : null}
+      {cell.basis && showBasis ? <span className="text-body-sm text-ink-muted">{BASIS_WORDS[cell.basis]}</span> : null}
     </span>
   );
 }
@@ -66,23 +67,9 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
   );
 }
 
-function CropLine({ crops }: { crops: string[] }) {
-  if (crops.length === 0) return <span className="text-body-sm text-ink-muted">No crops recorded</span>;
+function Switcher({ options, value, onChange, bestId }: { options: OptionRef[]; value: string; onChange: (id: string) => void; bestId?: string }) {
   return (
-    <ol aria-label="Crops in order" className="m-0 flex list-none flex-wrap items-center gap-1 p-0">
-      {crops.map((c, i) => (
-        <li key={`${c}-${i}`} className="flex items-center gap-1">
-          {i > 0 ? <Icon name="next" size={14} className="text-ink-muted" aria-hidden /> : null}
-          <span className="rounded-pill bg-field-soft px-2.5 py-0.5 text-body-sm font-semibold text-ink">{c.replace(/\s*\(.*\)\s*$/, "")}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function Switcher({ options, value, onChange }: { options: OptionRef[]; value: string; onChange: (id: string) => void }) {
-  return (
-    <div role="group" aria-label="Choose a rotation to look at" className="flex flex-wrap gap-2">
+    <div role="group" aria-label="Choose a rotation to look at" className="flex gap-1 overflow-x-auto rounded-md border border-line bg-surface-sunken p-1 [scrollbar-width:none]">
       {options.map((o) => (
         <button
           key={o.id}
@@ -90,10 +77,11 @@ function Switcher({ options, value, onChange }: { options: OptionRef[]; value: s
           aria-pressed={value === o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "min-h-tap cursor-pointer rounded-pill border px-4 text-label transition-colors",
-            value === o.id ? "border-field bg-field text-on-field" : "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken",
+            "inline-flex min-h-tap flex-1 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-sm px-3 text-body-sm font-medium whitespace-nowrap transition-colors",
+            value === o.id ? "bg-surface-raised font-semibold text-ink shadow-xs ring-1 ring-field/40" : "text-ink-muted hover:bg-surface-raised",
           )}
         >
+          {o.id === bestId ? <Icon name="check" size={14} strokeWidth={2.8} className="text-accent-text" aria-label="Best match" /> : null}
           {o.name}
         </button>
       ))}
@@ -131,65 +119,84 @@ const KEY_DIMENSIONS = ["suitability", "water", "climate", "economics"];
 function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; focusId: string; setFocus: (id: string) => void }) {
   const yours = model.options[0];
   const focus = model.options.find((o) => o.id === focusId) ?? yours;
+  const top = model.ranking[0];
+  const bestId = model.status === "complete" && top && !top.closeToNext ? top.optionId : undefined;
   // The four measures that decide most choices. Every other measure is in "See why" and the adviser table.
   // A measure that carries a warning (for example a nitrogen deficit) is never tucked away.
   const keyDimensions = model.dimensions.filter(
     (d) => KEY_DIMENSIONS.includes(d.id) || Object.values(d.cells).some((c) => c.tone === "deficit"),
   );
   return (
-    <Section id="compare" title="Rotation comparison" intro="Each line says what was found, which way is better, and whether it is an estimate or something you entered.">
+    <Section id="compare" title="Rotation comparison">
       <div className="md:hidden">
-        <Switcher options={model.options} value={focus.id} onChange={setFocus} />
+        <Switcher options={model.options} value={focus.id} onChange={setFocus} bestId={bestId} />
       </div>
 
-      {/* Desktop: all rotations side by side */}
-      <div className="hidden overflow-x-auto rounded-lg border border-line md:block">
+      {/* Desktop: all rotations side by side. The best match column is tinted and capped, and the measure column stays put when the table scrolls. */}
+      <div className="hidden overflow-x-auto rounded-lg border border-line bg-surface md:block">
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">Rotation comparison by dimension</caption>
           <thead>
             <tr>
-              <th scope="col" className="w-[22%] bg-surface-raised p-3"><span className="sr-only">Dimension</span></th>
+              <th scope="col" className="sticky left-0 z-10 w-[22%] bg-surface-raised p-4"><span className="sr-only">Dimension</span></th>
               {model.options.map((o) => (
-                <th key={o.id} scope="col" className="p-3 align-top">
-                  <span className="block text-label text-ink">{o.name}</span>
-                  <span className="mt-1 block font-normal"><CropLine crops={o.crops} /></span>
+                <th
+                  key={o.id}
+                  scope="col"
+                  className={cn("p-4 align-top font-normal", o.id === bestId ? "border-t-4 border-t-field bg-field-soft/60" : "border-t-4 border-t-transparent")}
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-body-sm font-semibold text-ink">{o.name}</span>
+                    {o.id === bestId ? (
+                      <span className="inline-flex min-h-6 items-center gap-1 rounded-pill bg-field px-2.5 text-body-sm font-semibold text-on-field">
+                        <Icon name="check" size={12} strokeWidth={2.8} aria-hidden />
+                        Best match
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="mt-2 block"><CropLine crops={o.crops} /></span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {keyDimensions.map((d) => (
+            {keyDimensions.map((d) => {
+              const bases = new Set(model.options.map((o) => d.cells[o.id]?.basis));
+              const shared = bases.size === 1 ? [...bases][0] : undefined;
+              return (
               <tr key={d.id} className="border-t border-line align-top">
-                <th scope="row" className="bg-surface-raised p-3 text-left font-normal">
-                  <span className="block text-label font-semibold text-ink">{d.label}</span>
-                  <span className="block text-source text-ink-muted">{d.better}</span>
+                <th scope="row" className="sticky left-0 z-10 bg-surface-raised p-4 text-left font-normal">
+                  <span className="block text-body-sm font-semibold text-ink">{d.label}</span>
+                  <span className="mt-0.5 block text-body-sm text-ink-muted">{d.better}</span>
+                  {shared ? <span className="mt-0.5 block text-body-sm text-ink-muted">{BASIS_WORDS[shared]}</span> : null}
                   <details className="mt-1">
-                    <summary className="cursor-pointer text-source text-field">About this</summary>
+                    <summary className="cursor-pointer text-body-sm text-field">About this</summary>
                     <div className="pt-2"><DimensionHelp d={d} /></div>
                   </details>
                 </th>
                 {model.options.map((o) => (
-                  <td key={o.id} className="p-3">
-                    <CellView cell={d.cells[o.id]} />
+                  <td key={o.id} className={cn("p-4", o.id === bestId && "bg-field-soft/40")}>
+                    <CellView cell={d.cells[o.id]} showBasis={!shared} />
                   </td>
                 ))}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Mobile: one rotation card at a time, with yours underneath each line */}
-      <article aria-label={`${focus.name} compared`} className="flex flex-col gap-3 md:hidden">
+      {/* Mobile: one rotation at a time, with yours underneath each line */}
+      <article aria-label={`${focus.name} compared`} className={cn("flex flex-col gap-4 rounded-lg border p-4 md:hidden", focus.id === bestId ? "border-field bg-field-soft/40" : "border-line bg-surface-raised")}>
         <CropLine crops={focus.crops} />
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {keyDimensions.map((d) => (
             <li key={d.id} className="flex flex-col gap-1.5 border-t border-line pt-3 first:border-0 first:pt-0">
-              <span className="text-label font-semibold text-ink">{d.label}</span>
+              <span className="text-body-sm font-semibold text-ink">{d.label}</span>
               <CellView cell={d.cells[focus.id]} />
-              {!focus.isYours ? <span className="text-source text-ink-muted">Yours now: {d.cells[yours.id].text}</span> : null}
+              {!focus.isYours ? <span className="text-body-sm text-ink-muted">Yours now: {d.cells[yours.id].text}</span> : null}
               <details>
-                <summary className="min-h-tap cursor-pointer py-2 text-source text-field">About this</summary>
+                <summary className="min-h-tap cursor-pointer py-2 text-body-sm text-field">About this</summary>
                 <DimensionHelp d={d} />
               </details>
             </li>
@@ -205,7 +212,7 @@ function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; foc
 function WaterBlock({ opt, rows }: { opt: OptionRef; rows: WaterRow[] }) {
   return (
     <article className="flex flex-col gap-3">
-      <h3 className="m-0 text-label font-semibold text-ink">{opt.name}</h3>
+      <h3 className="m-0 text-body-sm font-semibold text-ink">{opt.name}</h3>
       {rows.length === 0 ? (
         <p className="m-0 text-body-sm text-ink-muted"><MissingTag kind="not-available" /> Water results are not available for these crops.</p>
       ) : (
@@ -227,7 +234,7 @@ function WaterBlock({ opt, rows }: { opt: OptionRef; rows: WaterRow[] }) {
             ) : null}
             <Disclosure title="Measurements and method">
               <dl className="m-0 grid gap-2 text-body-sm sm:grid-cols-2">
-                <div><dt className="text-ink-muted">Crop water demand (ETc)</dt><dd className="tabular m-0 text-ink">{sp(r.demand)}</dd></div>
+                <div><dt className="text-ink-muted">Crop water demand</dt><dd className="tabular m-0 text-ink">{sp(r.demand)}</dd></div>
                 <div><dt className="text-ink-muted">Rain in the crop window</dt><dd className="tabular m-0 text-ink">{sp(r.rain)}</dd></div>
                 <div><dt className="text-ink-muted">Rain shortfall</dt><dd className="tabular m-0 text-ink">{sp(r.shortfall)}</dd></div>
                 <div><dt className="text-ink-muted">Longest dry spell</dt><dd className="tabular m-0 text-ink">{sp(r.longestDry, "days")}</dd></div>
@@ -235,7 +242,7 @@ function WaterBlock({ opt, rows }: { opt: OptionRef; rows: WaterRow[] }) {
               {r.stages.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-body-sm">
-                    <caption className="mb-1 text-left text-label text-ink">Heat, cold and heavy rain by growth stage (past seasons)</caption>
+                    <caption className="mb-1 text-left text-body-sm font-medium text-ink">Heat, cold and heavy rain by growth stage (past seasons)</caption>
                     <thead><tr className="text-ink-muted"><th scope="col" className="py-1 pr-2 font-normal">Stage</th><th scope="col" className="py-1 pr-2 font-normal">Hot days</th><th scope="col" className="py-1 pr-2 font-normal">Cold days</th><th scope="col" className="py-1 font-normal">Heavy rain</th></tr></thead>
                     <tbody>
                       {r.stages.map((s) => (
@@ -245,7 +252,7 @@ function WaterBlock({ opt, rows }: { opt: OptionRef; rows: WaterRow[] }) {
                   </table>
                 </div>
               ) : <p className="m-0 text-body-sm text-ink-muted"><MissingTag kind="unknown" /> No stage thresholds in the crop library for this crop.</p>}
-              <p className="m-0 text-source text-ink-muted">Demand = crop coefficient × reference evapotranspiration from NASA POWER weather. Shortfall = demand − rain, never below zero. Runoff, stored soil water and irrigation are ignored.</p>
+              <p className="m-0 text-body-sm text-ink-muted">Demand = crop water need calculated from local weather. Shortfall = demand − rain, never below zero. Runoff, stored soil water and irrigation are ignored.</p>
             </Disclosure>
           </div>
         ))
@@ -268,7 +275,7 @@ function WaterClimate({ field, model, focusId }: { field: Field; model: ResultsM
       </Message>
       {model.strips[focus.id]?.length ? (
         <div className="flex flex-col gap-1">
-          <p className="m-0 text-label text-ink">Season by season: {focus.name}</p>
+          <p className="m-0 text-body-sm font-medium text-ink">Season by season: {focus.name}</p>
           <SeasonStrip strip={model.strips[focus.id]} field={field} />
         </div>
       ) : null}
@@ -284,12 +291,12 @@ function SoilSection({ model }: { model: ResultsModel }) {
       <ul className="m-0 grid list-none gap-x-6 gap-y-5 p-0 md:grid-cols-2">
         {model.soil.map((d) => (
           <li key={d.id} className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
-            <h3 className="m-0 text-label font-semibold text-ink">{d.label}</h3>
+            <h3 className="m-0 text-body-sm font-semibold text-ink">{d.label}</h3>
             <p className="m-0 text-body-sm text-ink-muted">{d.measures}</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {model.options.map((o) => (
                 <li key={o.id} className="flex flex-col gap-0.5 border-t border-line pt-2">
-                  <span className="text-source font-medium text-ink-muted">{o.name}</span>
+                  <span className="text-body-sm font-medium text-ink-muted">{o.name}</span>
                   <CellView cell={d.cells[o.id]} />
                 </li>
               ))}
@@ -342,7 +349,7 @@ function EconomicsBlock({
 
   return (
     <article className="flex flex-col gap-3">
-      <h3 className="m-0 text-label font-semibold text-ink">{opt.name}</h3>
+      <h3 className="m-0 text-body-sm font-semibold text-ink">{opt.name}</h3>
       <CellView cell={total} />
       <dl className="m-0 flex flex-col gap-2 border-t border-line pt-3 text-body-sm">
         <div>
@@ -364,7 +371,7 @@ function EconomicsBlock({
           </div>
         ) : null}
       </dl>
-      <p className="m-0 text-source text-ink-muted">{sourceText}.</p>
+      <p className="m-0 text-body-sm text-ink-muted">{sourceText}.</p>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {rows.map((r, i) => (
           <li key={`${r.crop}-${i}`} className="flex flex-col gap-1 border-t border-line pt-2">
@@ -375,13 +382,13 @@ function EconomicsBlock({
               <div><dt className="text-ink-muted">Variable cost range</dt><dd className="tabular m-0">{span(r.costMmkHa, "MMK/ha") ?? "Not entered"}</dd></div>
               <div><dt className="text-ink-muted">Margin range</dt><dd className="tabular m-0">{span(r.marginMmkHa, "MMK/ha") ?? "Needs all three ranges"}</dd></div>
             </dl>
-            <span className="text-source text-ink-muted">
+            <span className="text-body-sm text-ink-muted">
               {r.basis === "farmer" ? "Entered by you" : r.basis === "benchmark" ? `Regional benchmark${r.source ? `: ${r.source}` : ""}` : "No yield, price or cost values"}
             </span>
           </li>
         ))}
       </ul>
-      <p className="m-0 text-source text-ink-muted">{basisText}</p>
+      <p className="m-0 text-body-sm text-ink-muted">{basisText}</p>
     </article>
   );
 }
@@ -405,7 +412,9 @@ function Money({ model, field }: { model: ResultsModel; field: Field }) {
         ))}
       </div>
       {model.benchmarkText ? <p className="m-0 max-w-measure text-body-sm text-ink-muted">{model.benchmarkText}</p> : null}
-      <p className="m-0 max-w-measure text-body-sm text-ink-muted">Fixed costs, labour you do not pay for, and price swings are not all included. Replace benchmark values with your own on the field profile.</p>
+      <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+        <strong className="font-semibold text-ink">Upfront seed cash:</strong> Groundnut requires substantial upfront cash for seed (typically 3.5–5 Lakhs/acre), whereas sesame needs minimal seed capital (~0.2 Lakhs/acre). Fixed costs, unpaid family labour, and seasonal price swings are not all included. Replace benchmark values with your own on the field profile.
+      </p>
     </Section>
   );
 }
@@ -416,7 +425,7 @@ function ContribList({ title, items, icon }: { title: string; items: ResultsMode
   if (items.length === 0) return null;
   return (
     <div className="flex flex-col gap-1">
-      <h4 className="m-0 flex items-center gap-1.5 text-label text-ink"><Icon name={icon} size={16} aria-hidden />{title}</h4>
+      <h4 className="m-0 flex items-center gap-1.5 text-body-sm font-medium text-ink"><Icon name={icon} size={16} aria-hidden />{title}</h4>
       <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink">
         {items.map((c) => (
           <li key={c.criterion}>{c.label}: {c.value}{c.yoursValue ? <span className="text-ink-muted"> (yours now: {c.yoursValue})</span> : null}</li>
@@ -432,7 +441,7 @@ function WhySection({ model }: { model: ResultsModel }) {
   return (
     <Section id="why" title="Why this rotation?" intro="Reasons come straight from the ranking and checks. Where the engine gave no reason, none is made up.">
       <div className="flex flex-col gap-3">
-        <h3 className="m-0 text-label text-ink">How the options were ordered</h3>
+        <h3 className="m-0 text-body-sm font-medium text-ink">How the options were ordered</h3>
         {model.status === "unresolved" ? (
           <p className="m-0 text-body text-ink">We can&apos;t pick one best plan yet. Read each choice below instead.</p>
         ) : model.ranking.length === 0 ? (
@@ -441,14 +450,14 @@ function WhySection({ model }: { model: ResultsModel }) {
           <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
             {model.ranking.map((r) => (
               <li key={r.optionId} className="flex flex-wrap items-center gap-2 text-body-sm">
-                <span className="tabular grid min-h-7 min-w-9 place-items-center rounded-pill border border-line-strong px-2 font-mono text-source">{r.place}</span>
+                <span className="tabular grid min-h-7 min-w-9 place-items-center rounded-pill border border-line-strong px-2 font-mono text-body-sm">{r.place}</span>
                 <span className="text-ink">{nameOf(r.optionId)}</span>
-                {r.closeToNext ? <span className="text-source text-ink-muted">Very close to the next one</span> : null}
+                {r.closeToNext ? <span className="text-body-sm text-ink-muted">Very close to the next one</span> : null}
               </li>
             ))}
           </ol>
         )}
-        <p className="m-0 text-source text-ink-muted">Your priority order changes this order. The order is a guide, not a score out of 100.</p>
+        <p className="m-0 text-body-sm text-ink-muted">Your priority order changes this order. The order is a guide, not a score out of 100.</p>
         {model.sensitivity.length > 0 ? (
           <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">{model.sensitivity.map((s) => <li key={s}>{s}</li>)}</ul>
         ) : null}
@@ -466,7 +475,7 @@ function WhySection({ model }: { model: ResultsModel }) {
           return (
             <article key={o.id} aria-labelledby={`why-${o.id}`} className="flex flex-col gap-3 border-t border-line pt-4 first:border-0 first:pt-0">
               <div className="flex flex-col gap-1.5">
-                <h3 id={`why-${o.id}`} className="m-0 text-label font-semibold text-ink">{o.name}</h3>
+                <h3 id={`why-${o.id}`} className="m-0 text-body-sm font-semibold text-ink">{o.name}</h3>
                 <CropLine crops={o.crops} />
                 <p className="m-0 text-body-sm text-ink-muted">{w.rankPlace ? `Place ${w.rankPlace} for your priorities. ` : ""}{w.rankNote}</p>
               </div>
@@ -482,13 +491,13 @@ function WhySection({ model }: { model: ResultsModel }) {
               )}
               {w.risks.length > 0 ? (
                 <div className="flex flex-col gap-1">
-                  <h4 className="m-0 flex items-center gap-1.5 text-label text-ink"><Icon name="alert" size={16} aria-hidden />Risks</h4>
+                  <h4 className="m-0 flex items-center gap-1.5 text-body-sm font-medium text-ink"><Icon name="alert" size={16} aria-hidden />Risks</h4>
                   <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink">{w.risks.map((r) => <li key={r}>{r}</li>)}</ul>
                 </div>
               ) : null}
               {w.missing.length > 0 ? (
                 <div className="flex flex-col gap-1">
-                  <h4 className="m-0 flex items-center gap-1.5 text-label text-ink"><Icon name="help" size={16} aria-hidden />Still missing</h4>
+                  <h4 className="m-0 flex items-center gap-1.5 text-body-sm font-medium text-ink"><Icon name="help" size={16} aria-hidden />Still missing</h4>
                   <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">{w.missing.slice(0, 4).map((r) => <li key={r}>{r}</li>)}</ul>
                 </div>
               ) : null}
@@ -534,11 +543,11 @@ function Unknowns({ model }: { model: ResultsModel }) {
         if (items.length === 0) return null;
         return (
           <div key={k} className="flex flex-col gap-1.5">
-            <h3 className="m-0 text-label text-ink">{MISSING_WORDS[k].label} ({items.length})</h3>
+            <h3 className="m-0 text-body-sm font-medium text-ink">{MISSING_WORDS[k].label} ({items.length})</h3>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
               {items.map((u) => (
                 <li key={`${u.where}-${u.text}`} className="border-t border-line py-2 text-body-sm text-ink first:border-0">
-                  <span className="text-source font-medium text-ink-muted">{u.where}</span>
+                  <span className="text-body-sm font-medium text-ink-muted">{u.where}</span>
                   <span className="block">{u.text}</span>
                 </li>
               ))}
@@ -551,7 +560,7 @@ function Unknowns({ model }: { model: ResultsModel }) {
           <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">{model.assumptions.map((a) => <li key={a}>{a}</li>)}</ul>
         </Disclosure>
       ) : null}
-      <p className="m-0 max-w-measure text-source text-ink-muted">
+      <p className="m-0 max-w-measure text-body-sm text-ink-muted">
         Field Shift evaluates crop plans by replaying historical NASA climate observations and regional soil conditions against local agronomic thresholds. It does not forecast next season or promise fixed yields; review these insights alongside your own field experience and local agronomic advice.
       </p>
     </Section>
@@ -592,9 +601,8 @@ function SeeWhy({ children }: { children: ReactNode }) {
   }, []);
   return (
     <details id="see-why" ref={ref} className="scroll-mt-24 border-t border-line pt-1">
-      <summary className="flex min-h-tap cursor-pointer items-center gap-2 px-4 text-label text-ink">
+      <summary className="flex min-h-tap cursor-pointer items-center gap-2 px-4 text-body-sm font-medium text-ink">
         <span>Detailed comparison, methods and limits</span>
-        <span className="text-body-sm font-normal text-ink-muted">Water, soil, income, reasons and unknowns</span>
       </summary>
       <div className="flex flex-col gap-8 px-4 pb-4 pt-2">{children}</div>
     </details>

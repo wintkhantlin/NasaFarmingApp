@@ -6,7 +6,7 @@ export type ButtonVariant = "primary" | "secondary" | "quiet" | "destructive";
 export type ButtonSize = "md" | "lg";
 
 const BASE =
-  "inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-md border px-4 text-label no-underline transition-[background-color,transform,filter] " +
+  "inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-md border px-4 text-label no-underline transition-[background-color,border-color,box-shadow,transform,filter] duration-150 ease-out " +
   "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100";
 
 const SIZES: Record<ButtonSize, string> = {
@@ -16,10 +16,10 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "border-field bg-field text-on-field hover:brightness-110 active:brightness-95",
-  secondary: "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken active:bg-surface-sunken",
-  quiet: "border-transparent bg-transparent text-field hover:bg-field-soft active:bg-field-soft",
-  destructive: "border-transparent bg-transparent text-heat hover:bg-heat-soft active:bg-heat-soft",
+  primary: "border-field bg-field text-on-field shadow-xs hover:brightness-105 hover:shadow-sm active:brightness-95",
+  secondary: "border-line-strong bg-surface-raised text-ink hover:border-ink/30 hover:bg-surface-sunken active:bg-surface-sunken",
+  quiet: "border-transparent bg-transparent text-field hover:bg-field-soft/70 active:bg-field-soft",
+  destructive: "border-transparent bg-transparent text-heat hover:bg-heat-soft/80 active:bg-heat-soft",
 };
 
 /** Class names for a link that should look like a button: `<Link className={buttonClass("primary")}>`. */

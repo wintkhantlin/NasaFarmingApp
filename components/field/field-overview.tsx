@@ -13,6 +13,8 @@ import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { DryZoneRainNote } from "@/components/field/conditions-panels";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { Button, buttonClass } from "@/components/ui/button";
+import { FlowNav } from "@/components/ui/flow-nav";
+import { BandChip, bandPh, bandRain } from "@/components/field/conditions/bands";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { JudgmentNote } from "@/components/ui/judgment-note";
@@ -250,25 +252,22 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
           : regionName ?? undefined}
       />
 
-      {/* Next step, and one line on what else would sharpen the answer */}
+      {/* One plain answer, then the one next step. The step sits in the same place as on every screen. */}
       <Panel tone="field" radius="lg" className="flex flex-col gap-3 p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-source font-medium uppercase tracking-wide text-ink-muted">Next step</span>
-            <h2 className="text-headline text-ink">{next.title}</h2>
-            <p className="max-w-measure text-body text-ink-muted">{next.body}</p>
-          </div>
-          <Link href={next.href} className={buttonClass("primary", "w-full sm:w-auto justify-center")}>
-            <Icon name={next.icon} />
-            <span>{next.cta}</span>
-          </Link>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="inline-flex items-center gap-1.5 text-body-sm font-semibold uppercase tracking-wider text-field">
+            <Icon name={next.icon} size={16} />
+            Next step
+          </span>
+          <h2 className="text-title text-ink">{next.title}</h2>
+          <p className="max-w-measure text-body text-ink-muted">{next.body}</p>
         </div>
         {hasRotation ? (
           <p role="status" className="m-0 flex items-center gap-2 border-t border-line pt-3 text-body-sm text-ink-muted">
-            <Icon name={analysis.phase === "ready" ? "done" : "info"} size={15} aria-hidden className="shrink-0 text-field" />
+            <Icon name={analysis.phase === "ready" ? "success" : analysis.phase === "failed" ? "warning" : "time"} size={16} aria-hidden className="shrink-0 text-field" />
             <span>
               {analysis.phase === "ready"
-                ? `${t.path.weatherReady}${analysis.retrieving ? `. ${t.path.satelliteLater}` : ""}`
+                ? `${t.path.weatherReady}${(analysis.satelliteImageryPending ?? analysis.retrieving) ? `. ${t.path.satelliteLater}` : ""}`
                 : analysis.phase === "failed"
                   ? t.path.weatherFailed
                   : analysis.slow
@@ -281,13 +280,14 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
           <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-line pt-1 text-body-sm text-ink-muted">
             <span>{optionalLeft > 0 ? t.path.answerReadyDetails(optionalLeft) : t.path.answerReadyOnly}</span>
             {optionalLeft > 0 ? (
-              <Link href={profileHref} className="inline-flex min-h-tap items-center px-1 text-label font-medium text-field underline underline-offset-4 hover:text-ink">
+              <Link href={profileHref} className="inline-flex min-h-tap items-center px-1 text-body-sm font-medium text-field underline underline-offset-4 hover:text-ink">
                 {t.path.review}
               </Link>
             ) : null}
           </div>
         ) : null}
       </Panel>
+      <FlowNav back={{ label: "My fields", href: "/" }} next={{ label: next.cta, href: next.href, icon: "go" }} />
 
       {/* Conditions is already a field tab; keep only the separate pest outlook task here. */}
       {rotation?.slots.length ? (
@@ -313,7 +313,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
               }
             />
             {rotation ? (
-              <ol className="m-0 flex list-none flex-col divide-y divide-line p-0">
+              <ol className="m-0 flex list-none flex-col divide-y divide-line/70 p-0">
                 {rotation.slots.map((slot, index) => (
                   <li key={slot.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                     <div className="flex min-w-0 items-baseline gap-2.5">
@@ -323,13 +323,13 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                           {slotName(slot)}
                           {slot.variety ? <span className="font-normal text-ink-muted"> ({slot.variety})</span> : null}
                         </span>
-                        <span className="text-source text-ink-muted">
+                        <span className="text-body-sm text-ink-muted">
                           {formatSpan(slot.plantDate, slot.harvestDate)}
                           {slot.kind === "cover" ? " · Cover crop" : slot.residue === "retained" ? " · Residue retained" : ""}
                         </span>
                       </div>
                     </div>
-                    <RiskChip hazard={slot.irrigated ? "water" : "neutral"} className="shrink-0 text-source">
+                    <RiskChip hazard={slot.irrigated ? "water" : "neutral"} className="shrink-0 text-body-sm">
                       {slot.irrigated ? "Irrigated" : "Rainfed"}
                     </RiskChip>
                   </li>
@@ -346,6 +346,26 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
           {hasRotation ? (
             conditionsSentence || showDryZoneRain || conditionCautions.length ? (
               <section aria-label="Local conditions" className="flex flex-col gap-2">
+                {annualRainMm || soilPh ? (
+                  <ul aria-label="Conditions at a glance" className="m-0 flex list-none flex-wrap gap-2 p-0">
+                    {annualRainMm ? (
+                      <li>
+                        <span className="inline-flex items-center gap-2 text-body-sm text-ink">
+                          <Icon name="rain" size={18} className="text-water" />
+                          Rain <BandChip band={bandRain(annualRainMm)} />
+                        </span>
+                      </li>
+                    ) : null}
+                    {soilPh ? (
+                      <li>
+                        <span className="inline-flex items-center gap-2 text-body-sm text-ink">
+                          <Icon name="soil" size={18} className="text-soil" />
+                          Soil acidity <BandChip band={bandPh(Number(soilPh))} />
+                        </span>
+                      </li>
+                    ) : null}
+                  </ul>
+                ) : null}
                 {conditionsSentence ? <p className="m-0 max-w-measure text-body text-ink-muted">{conditionsSentence}</p> : null}
                 {cautions}
               </section>
@@ -363,12 +383,12 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                       {st.label}
                     </dt>
                     <dd className="m-0 font-mono text-headline text-ink">{st.value}</dd>
-                    <dd className="m-0 text-source text-ink-muted">{st.note}</dd>
+                    <dd className="m-0 text-body-sm text-ink-muted">{st.note}</dd>
                   </div>
                 ))}
               </dl>
               {cautions}
-              {analysis.showingCache ? <span className="text-source text-ink-muted">Cached data</span> : null}
+              {analysis.showingCache ? <span className="text-body-sm text-ink-muted">Cached data</span> : null}
             </Panel>
           ) : null}
         </div>
@@ -403,7 +423,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                     <dt className="shrink-0 text-body-sm text-ink-muted">{r.label}</dt>
                     <dd className="m-0 flex flex-wrap items-baseline gap-x-2 text-left sm:justify-end sm:text-right text-body-sm">
                       <span className={`first-letter:uppercase ${r.typical ? "text-ink-muted" : "font-medium text-ink"}`}>{r.value}</span>
-                      {r.typical ? <span className="text-source text-ink-muted">({t.path.typical})</span> : null}
+                      {r.typical ? <span className="text-body-sm text-ink-muted">({t.path.typical})</span> : null}
                     </dd>
                   </div>
                 ))}
@@ -411,7 +431,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
               {/* One line instead of a button on every assumed row */}
               <p className="m-0 flex flex-wrap items-center gap-x-3 border-t border-line pt-1 text-body-sm text-ink-muted">
                 {typicalCount > 0 ? <span>{t.path.typicalFor(typicalCount)}</span> : null}
-                <Link href={profileHref} className="inline-flex min-h-tap items-center px-1 text-label font-medium text-field underline underline-offset-4 hover:text-ink">
+                <Link href={profileHref} className="inline-flex min-h-tap items-center px-1 text-body-sm font-medium text-field underline underline-offset-4 hover:text-ink">
                   {typicalCount > 0 ? t.path.review : t.path.editDetails}
                 </Link>
               </p>
@@ -424,7 +444,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
       {/* Field Options Disclosure */}
       <details className="border-t border-line pt-3 print:hidden">
-        <summary className="min-h-tap cursor-pointer content-center text-label text-ink-muted hover:text-ink">
+        <summary className="min-h-tap cursor-pointer content-center text-body-sm text-ink-muted hover:text-ink">
           Field options
         </summary>
         <div className="flex flex-col gap-3 pb-3 pt-2">

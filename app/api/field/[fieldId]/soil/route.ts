@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadSoil } from "@/lib/server/soil";
+import { getOfflineSoil } from "@/lib/server/offline-dataset";
 
 /** SoilGrids can take 20+ seconds for the first read of a point; later reads come from cache. */
 export const maxDuration = 60;
@@ -15,5 +16,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
   }
   const result = await loadSoil(lat, lng);
-  return NextResponse.json({ soil: result.soil, unavailable: Boolean(result.error) });
+  let soil = result.soil;
+  if (!soil) {
+    const offline = await getOfflineSoil(lat, lng);
+    if (offline) soil = offline;
+  }
+  return NextResponse.json({ soil, unavailable: !soil });
 }

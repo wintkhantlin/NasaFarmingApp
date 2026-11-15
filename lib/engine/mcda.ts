@@ -86,13 +86,66 @@ export interface McdaResult {
   /** Final weights over used criteria, summing to 1. */
   weights: Partial<Record<CriterionId, number>>;
   note: string;
+  /** How far the best option leads the next one, and whether that is a real lead. Only when ranked. */
+  lead?: ScoreLead;
+  /** The smallest change in what you care about that would put a different option first. Null when none does. */
+  weightSwitch?: WeightSwitch | null;
+}
+
+/**
+ * Score gaps are on a 0 to 1 scale built from analyst anchors, so a gap of a few hundredths is noise, not a
+ * finding. Below TIE_MARGIN the options are "about the same". Below CLEAR_MARGIN the lead is "slight".
+ * The old rule (equal at two decimals) crowned a winner on gaps of 0.006 and called 0.0049 a tie: rounding
+ * boundaries decided it. A margin does not depend on where the digits happen to fall.
+ */
+export const TIE_MARGIN = 0.03;
+export const CLEAR_MARGIN = 0.08;
+/** A winner that flips when a priority's share of the weight moves by less than this is not a stable winner. */
+export const FRAGILE_WEIGHT_SHIFT = 0.1;
+
+export type LeadClass = "tie" | "slight" | "clear";
+
+export function classifyGap(gap: number): LeadClass {
+  const g = Math.abs(gap);
+  return g < TIE_MARGIN - 1e-12 ? "tie" : g < CLEAR_MARGIN - 1e-12 ? "slight" : "clear";
+}
+
+/** True when two scores are too close to call one better than the other. */
+export function scoresTied(a: number, b: number): boolean {
+  return classifyGap(a - b) === "tie";
+}
+
+export interface ScoreLead {
+  /** Best score minus second-best score; 0 when there is only one option. */
+  gap: number;
+  class: LeadClass;
+  /** Every option within TIE_MARGIN of the best one, best first. Has one entry when the best is not tied. */
+  tiedIds: string[];
+}
+
+export interface WeightSwitch {
+  /** The priority whose weight, if moved, changes the first place. */
+  priority: PriorityId;
+  /** Its share of the total weight now, and the share at which another option draws level. */
+  fromShare: number;
+  toShare: number;
+  direction: "more" | "less";
+  /** The option that would come first beyond that point. */
+  toRotationId: string;
+  /** Absolute change in share needed. Smaller means a more fragile first place. */
+  shift: number;
+  fragile: boolean;
 }
 
 /** Priority weights from the farmer: use given weights, else rank-order weights; normalised to sum 1. */
 export function priorityWeights(p: FarmerPriorities | undefined): Partial<Record<PriorityId, number>> | null {
   if (!p || p.order.length === 0) return null;
   const hasExplicitWeights = Object.keys(p.weights).length > 0;
-  const given = p.order.map((id) => p.weights[id] ?? 0);
+  // A negative or non-numeric weight is not a weight: it would cancel another priority out of the total.
+  const given = p.order.map((id) => {
+    const w = p.weights[id];
+    return typeof w === "number" && Number.isFinite(w) && w > 0 ? w : 0;
+  });
   const total = given.reduce((a, b) => a + b, 0);
   if (hasExplicitWeights && total <= 0) {
     // If all weights entered are zero, ask for priorities
@@ -153,7 +206,23 @@ export function relativeUtility(value: number, values: number[], direction: "hig
 
 /** Anchor utility when the criterion has anchors, relative scaling otherwise. */
 export function criterionUtility(def: CriterionDef, value: number, values: number[]): number {
-  return def.anchor ? anchorUtility(value, def.anchor.target, def.anchor.limit, def.direction) : relativeUtility(value, values, def.direction);
+  if (def.anchor) {
+    const u = anchorUtility(value, def.anchor.target, def.anchor.limit, def.direction);
+    // Saturation guard: if every option is beyond the anchor limit (e.g. severe drought in the Central Dry
+    // Zone) all would tie at 0, so the limit is stretched to the worst option actually seen. Earlier this fell
+    // back to min-max scaling, which turned a 2 mm difference between two hopeless options into 1 against 0.
+    // Stretching keeps a gap proportional to its size against the target: 410 vs 412 mm stays a 0.005 gap, while
+    // 420 vs 900 mm still separates clearly (0.53 against 0).
+    const allSaturatedZero =
+      values.length > 1 &&
+      values.every((v) => anchorUtility(v, def.anchor!.target, def.anchor!.limit, def.direction) === 0);
+    if (allSaturatedZero) {
+      const stretched = def.direction === "lower" ? Math.max(...values) : Math.min(...values);
+      return anchorUtility(value, def.anchor.target, stretched, def.direction);
+    }
+    return u;
+  }
+  return relativeUtility(value, values, def.direction);
 }
 
 /**
@@ -169,18 +238,26 @@ export function minimaxRegret(
   table: RegretResult[];
   bestCandidateId: string;
   bestByP90CandidateId: string;
+  /** Scenarios every option has a utility for. Only these count. */
+  scenariosUsed: string[];
+  /** Scenarios dropped because at least one option has no utility for them. Never filled with zero. */
+  scenariosSkipped: string[];
 } {
+  // A missing utility is not a utility of zero. Earlier it was read as 0, which made an option that simply was
+  // not evaluated in a season look maximally regretful there (or let it win by hiding the season). Seasons the
+  // options cannot all be judged on are set aside and named, in the same way the ranking drops a criterion
+  // that only some options have evidence for.
+  const has = (c: ScenarioUtility, s: string) => typeof c.utilities[s] === "number" && Number.isFinite(c.utilities[s]);
+  const used = scenarioNames.filter((s) => candidates.length > 0 && candidates.every((c) => has(c, s)));
+  const skipped = scenarioNames.filter((s) => !used.includes(s));
   const maxUtility: Record<string, number> = {};
-  for (const s of scenarioNames) {
-    maxUtility[s] = Math.max(...candidates.map((c) => c.utilities[s] ?? 0));
-  }
+  for (const s of used) maxUtility[s] = Math.max(...candidates.map((c) => c.utilities[s]));
 
   const table: RegretResult[] = candidates.map((c) => {
     const regrets: Record<string, number> = {};
     let worst = 0;
-    for (const s of scenarioNames) {
-      const u = c.utilities[s] ?? 0;
-      const reg = Math.max(0, maxUtility[s] - u);
+    for (const s of used) {
+      const reg = Math.max(0, maxUtility[s] - c.utilities[s]);
       regrets[s] = Math.round(reg * 1000) / 1000;
       if (regrets[s] > worst) worst = regrets[s];
     }
@@ -197,8 +274,10 @@ export function minimaxRegret(
   const byP90 = [...table].sort((a, b) => a.p90Regret - b.p90Regret || a.worstRegret - b.worstRegret);
   return {
     table,
-    bestCandidateId: table[0]?.candidateId ?? "",
-    bestByP90CandidateId: byP90[0]?.candidateId ?? "",
+    bestCandidateId: used.length > 0 ? (table[0]?.candidateId ?? "") : "",
+    bestByP90CandidateId: used.length > 0 ? (byP90[0]?.candidateId ?? "") : "",
+    scenariosUsed: used,
+    scenariosSkipped: skipped,
   };
 }
 
@@ -245,6 +324,57 @@ const ALL_PRIORITIES: PriorityId[] = ["water", "soil", "income", "forage", "lowe
 export interface RankOptions {
   /** Anchors that replace or add to the defaults, e.g. a regional income benchmark. */
   anchors?: Partial<Record<CriterionId, Anchor>>;
+}
+
+const priorityOfCriterion = (id: CriterionId): PriorityId => CRITERIA.find((d) => d.id === id)?.priority ?? "water";
+
+/**
+ * Finds the smallest change to one priority's share of the weight that puts a different option first.
+ * The score is linear in the weights, so this is exact, not a search: scale one priority's weight by t,
+ * renormalise, and the first place changes where the best option's lead over a rival crosses zero.
+ * Returns null when no change to a single priority can do it (the first place is robust to weights).
+ */
+export function findWeightSwitch(ranking: McdaScore[]): WeightSwitch | null {
+  if (ranking.length < 2) return null;
+  const top = ranking[0];
+  const priorities = [...new Set(top.parts.map((p) => priorityOfCriterion(p.criterion)))];
+  let best: WeightSwitch | null = null;
+  for (const rival of ranking.slice(1)) {
+    for (const priority of priorities) {
+      let wP = 0;
+      let rP = 0;
+      let total = 0;
+      for (const part of top.parts) {
+        const other = rival.parts.find((x) => x.criterion === part.criterion);
+        if (!other) continue;
+        const d = part.weight * (part.normalised - other.normalised);
+        total += d;
+        if (priorityOfCriterion(part.criterion) === priority) {
+          wP += part.weight;
+          rP += d;
+        }
+      }
+      const rO = total - rP;
+      const wO = 1 - wP;
+      if (wP <= 1e-9 || Math.abs(rP) < 1e-12) continue;
+      const t = -rO / rP;
+      if (!Number.isFinite(t) || t <= 0) continue;
+      const denom = wO + t * wP;
+      if (denom <= 1e-12) continue;
+      const toShare = (t * wP) / denom;
+      const shift = Math.abs(toShare - wP);
+      if (!best || shift < best.shift) {
+        best = { priority, fromShare: wP, toShare, direction: toShare > wP ? "more" : "less", toRotationId: rival.rotationId, shift, fragile: shift < FRAGILE_WEIGHT_SHIFT };
+      }
+    }
+  }
+  return best;
+}
+
+export function leadOf(ranking: McdaScore[]): ScoreLead {
+  if (ranking.length < 2) return { gap: 0, class: "clear", tiedIds: ranking.map((r) => r.rotationId) };
+  const gap = ranking[0].score - ranking[1].score;
+  return { gap, class: classifyGap(gap), tiedIds: ranking.filter((r) => scoresTied(ranking[0].score, r.score)).map((r) => r.rotationId) };
 }
 
 export function rankRotations(inputs: McdaInput[], farmerPriorities: FarmerPriorities | undefined, opts: RankOptions = {}): McdaResult {
@@ -368,6 +498,8 @@ export function rankRotations(inputs: McdaInput[], farmerPriorities: FarmerPrior
     used: usable.map((u) => u.def.id),
     excluded,
     weights,
+    lead: leadOf(ranking),
+    weightSwitch: findWeightSwitch(ranking),
     note:
       "Scores compare these options with each other on the criteria that could be evaluated for all of them. A higher score is a better match to your priorities, not a forecast." +
       (partial.length > 0 ? ` ${partial.length === 1 ? "One option is" : `${partial.length} options are`} not ranked because evidence is missing; see below.` : ""),

@@ -1,3 +1,4 @@
+import { StatusChip } from "@/components/field/conditions/bands";
 import { Icon } from "@/components/ui/icon";
 import { PanelHeader } from "@/components/ui/panel";
 import { IndicatorCard } from "@/components/ui/indicator-card";
@@ -46,6 +47,7 @@ export function SourceStatusPanel({ conditions, remote }: { conditions: Conditio
   const imergProgress = imerg && imerg.status !== "unconfigured" ? copy.conditions.imergProgress(imerg.covered, imerg.expected) : undefined;
   const imergFallback = "Using regional NASA weather (about 50 km) while detailed satellite rainfall is unavailable.";
   const plainRows: Array<{ title: string; status: SourceStatus | undefined; progress?: string; fallback?: string; note: string }> = [
+    { title: "Field air temperature", status: remote?.ecostressMet?.status, fallback: "Using regional air-temperature history (about 50 km).", note: "A 70 m satellite-and-model snapshot when a clear pass is available." },
     { title: copy.conditions.rainDetailTitle, status: imerg?.status, progress: imergProgress, fallback: imergFallback, note: "Rain seen from satellites, used when enough days are ready." },
     { title: copy.conditions.soilWetnessTitle, status: remote?.smap.status, note: "A wide-area view. It does not show how wet your own field is." },
     { title: copy.conditions.fieldPhotoTitle, status: remote?.hls.status, note: "Satellite photos of your field on clear days." },
@@ -57,6 +59,7 @@ export function SourceStatusPanel({ conditions, remote }: { conditions: Conditio
     { title: copy.conditions.srtmTitle, status: remote?.srtm.status, note: "Slope comes from neighbouring elevation cells. Slope is not soil loss.", evidence: "satellite", where: "Inside your field, 30 m" },
     { title: "MODIS regional vegetation", status: remote?.modis.status, note: "A 250 m, 16-day regional greenness history. Mixed land cover means it does not identify the crop in this field.", evidence: "satellite", where: "Regional, 250 m" },
     { title: "ECOSTRESS surface temperature", status: remote?.ecostressLst.status, note: "Clear, best-quality 70 m land-surface temperature. This is not air temperature.", evidence: "satellite", where: "Inside your field, 70 m" },
+    { title: "ECOSTRESS near-surface air temperature", status: remote?.ecostressMet?.status, note: "An instantaneous 70 m downscaled estimate from ECOSTRESS and GEOS-5. It supplements, but does not replace, the regional daily history.", evidence: "model", where: "Inside your field, 70 m" },
     { title: "ECOSTRESS evapotranspiration", status: remote?.ecostressEt.status, note: "Clear 70 m modeled ET in W/m². It is context, not measured crop water use or mm/day.", evidence: "model", where: "Inside your field, 70 m" },
   ];
   return (
@@ -65,7 +68,7 @@ export function SourceStatusPanel({ conditions, remote }: { conditions: Conditio
       <ul className="m-0 list-none divide-y divide-line p-0">
         {plainRows.map((r) => (
           <li key={r.title} className="grid gap-x-4 gap-y-1 py-3 first:pt-0 sm:grid-cols-[minmax(8rem,0.7fr)_minmax(0,2fr)]">
-            <p className="m-0 text-label text-ink">{r.title}</p>
+            <p className="m-0 text-body-sm font-medium text-ink">{r.title}</p>
             <div className="flex flex-col gap-1">
               <p className="m-0 text-body-sm text-ink">{plainStatus(r.status, r.progress, r.fallback)}</p>
               <p className="m-0 text-body-sm text-ink-muted">{r.note}</p>
@@ -78,9 +81,9 @@ export function SourceStatusPanel({ conditions, remote }: { conditions: Conditio
         <ul className="m-0 mt-2 list-none divide-y divide-line p-0">
           {technical.map((r) => (
             <li key={r.title} className="grid gap-x-4 gap-y-1 py-3 first:pt-2 sm:grid-cols-[minmax(8rem,0.7fr)_minmax(0,2fr)]">
-              <p className="m-0 text-label text-ink">{r.title}</p>
+              <p className="m-0 text-body-sm font-medium text-ink">{r.title}</p>
               <div className="flex flex-col gap-1">
-                <p className="m-0 text-source text-ink-muted">{sourceKindLine(r.status, r.evidence, r.where)}</p>
+                <p className="m-0 text-body-sm text-ink-muted">{sourceKindLine(r.status, r.evidence, r.where)}</p>
                 <p className="m-0 text-body-sm text-ink">{plainStatus(r.status, r.progress, r.fallback)}</p>
                 <p className="m-0 text-body-sm text-ink-muted">{r.note}</p>
               </div>
@@ -120,7 +123,7 @@ function SlotVulnerability({ e }: { e: SlotEvaluation }) {
           </li>
         ))}
       </ul>
-      <p className="tabular m-0 text-source text-ink-muted">
+      <p className="tabular m-0 text-body-sm text-ink-muted">
         Dry run in the season: median {fmt(e.rain.longestDry.p50)} days, driest tenth {fmt(e.rain.longestDry.p90)} days. Heavy-rain days: median {fmt(e.rain.heavyDays.p50)}. {" "}
         {ofSeasons(e.rain.eligible, e.rain.windows)} usable
       </p>
@@ -138,7 +141,7 @@ export function VulnerabilityPanel({ comparison }: { comparison: ComparisonResul
       <PanelHeader id="vuln" title={copy.conditions.vulnerabilityTitle} description={copy.conditions.vulnerabilityDescription} />
       {slots.map((e) => (
         <div key={e.slot.id} className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
-          <h3 className="m-0 text-label text-ink">{e.name}</h3>
+          <h3 className="m-0 text-body-sm font-medium text-ink">{e.name}</h3>
           <SlotVulnerability e={e} />
         </div>
       ))}
@@ -148,6 +151,17 @@ export function VulnerabilityPanel({ comparison }: { comparison: ComparisonResul
       {heatEvidence ? <IndicatorCard indicator={heatEvidence.indicator} claim={heatEvidence.claim} /> : null}
     </section>
   );
+}
+
+/** Rain against crop water use, as a word and an icon: Low, OK or High shortfall. */
+function ShortfallChip({ e }: { e: SlotEvaluation }) {
+  const use = e.water?.etc.p50;
+  const short = e.water?.shortfall.p50;
+  if (use == null || short == null || use <= 0) return null;
+  const ratio = short / use;
+  if (ratio < 0.15) return <StatusChip icon="success" tone="good">Rain is enough</StatusChip>;
+  if (ratio < 0.4) return <StatusChip icon="rain" tone="watch">Some water short</StatusChip>;
+  return <StatusChip icon="warning" tone="watch">Water short: plan irrigation</StatusChip>;
 }
 
 /** Feature 18: estimated crop water demand next to rain, with the assumptions stated. */
@@ -163,8 +177,11 @@ export function WaterUsePanel({ comparison }: { comparison: ComparisonResult }) 
         {slots.map((e) => (
           <li key={e.slot.id} className="flex flex-col gap-2 py-3 first:pt-0 text-body-sm">
             <span className="text-body font-semibold text-ink">
-              {e.name}{e.irrigated ? <span className="ml-1 text-source font-normal text-ink-muted">(irrigated)</span> : ""}
+              {e.name}{e.irrigated ? <span className="ml-1 text-body-sm font-normal text-ink-muted">(irrigated)</span> : ""}
             </span>
+            <div>
+              <ShortfallChip e={e} />
+            </div>
             <dl className="m-0 grid grid-cols-1 gap-1">
               <div className="flex items-baseline justify-between">
                 <dt className="text-ink-muted">Water crops use:</dt>
@@ -197,7 +214,7 @@ export function WaterUsePanel({ comparison }: { comparison: ComparisonResult }) 
           <tbody>
             {slots.map((e) => (
               <tr key={e.slot.id} className="border-t border-line align-top">
-                <th scope="row" className="py-2 pr-3 text-left font-medium text-ink">{e.name}{e.irrigated ? " (irrigated)" : ""}</th>
+                <th scope="row" className="py-2 pr-3 text-left font-medium text-ink">{e.name}{e.irrigated ? " (irrigated)" : ""}<div className="mt-1 font-normal"><ShortfallChip e={e} /></div></th>
                 <td className="tabular py-2 pr-3 font-mono">{fmt(e.water?.etc.p50 ?? null)}</td>
                 <td className="tabular py-2 pr-3 font-mono">{fmt(e.rain.total.p50)}</td>
                 <td className="tabular py-2 font-mono">{fmt(e.water?.shortfall.p50 ?? null)}</td>
