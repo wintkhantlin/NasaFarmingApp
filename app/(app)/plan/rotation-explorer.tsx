@@ -45,7 +45,6 @@ const CROP_ICONS: Record<string, IconName> = {
   sugarcane: "profile",
   cassava: "organic",
   mustard: "flower",
-  niger: "flower",
   "butter-bean": "bean",
   cabbage: "organic",
 };

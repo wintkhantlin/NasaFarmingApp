@@ -22,7 +22,7 @@ export const REGIONS: Record<RegionId, RegionInfo> = {
     candidateCropIds: [
       "rice", "black-gram", "green-gram", "sesame", "groundnut", "sunflower", "chickpea", "pigeon-pea",
       "maize", "soybean", "lablab", "sunn-hemp", "cotton", "chili", "onion", "garlic", "potato",
-      "tomato", "sugarcane", "cassava", "mustard", "niger", "butter-bean", "cabbage",
+      "tomato", "sugarcane", "cassava", "mustard", "butter-bean", "cabbage",
     ],
   },
   ayeyarwady: {
@@ -35,14 +35,14 @@ export const REGIONS: Record<RegionId, RegionInfo> = {
     id: "magway",
     name: "Magway",
     focus: "Dry-zone water limitations",
-    candidateCropIds: ["sesame", "groundnut", "sunflower", "green-gram", "chickpea", "pigeon-pea", "cotton", "onion", "chili", "butter-bean", "niger", "mustard"],
+    candidateCropIds: ["sesame", "groundnut", "sunflower", "green-gram", "chickpea", "pigeon-pea", "cotton", "onion", "chili", "butter-bean", "mustard"],
     resolvedCategories: { pulses: ["green-gram", "chickpea", "pigeon-pea", "butter-bean"] },
   },
   shan: {
     id: "shan",
     name: "Shan State",
     focus: "Highland soils, slope and erosion",
-    candidateCropIds: ["maize", "soybean", "lablab", "sunn-hemp", "potato", "garlic", "tomato", "cabbage", "mustard", "niger"],
+    candidateCropIds: ["maize", "soybean", "lablab", "sunn-hemp", "potato", "garlic", "tomato", "cabbage", "mustard"],
     resolvedCategories: { "cover crops": ["lablab", "sunn-hemp"] },
   },
   yangon: {

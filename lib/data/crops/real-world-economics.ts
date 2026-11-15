@@ -276,16 +276,6 @@ export const REAL_WORLD_CROP_ECONOMICS: Record<string, RealWorldCropEconomicProf
     source: "Shan State & Sagaing Edible Oilseed Trade Survey 2024–2026",
     traditionalUnitNote: "Mustard seed: 78,000–110,000 MMK / basket of 54 lbs (24.5 kg).",
   },
-  niger: {
-    cropId: "niger",
-    cropName: "Niger Seed (Pan-hnan)",
-    burmeseName: "ပန်းနှမ်း",
-    priceMmkPerKg: [3400, 4800],
-    yieldKgHa: [700, 1300],
-    costMmkPerHa: [400000, 680000],
-    source: "Southern & Northern Shan Highlands Oilseed Trade 2024–2026",
-    traditionalUnitNote: "Niger seed: 83,000–118,000 MMK / basket of 54 lbs (24.5 kg).",
-  },
   "butter-bean": {
     cropId: "butter-bean",
     cropName: "Butter Bean (Htaw-pat-pe)",

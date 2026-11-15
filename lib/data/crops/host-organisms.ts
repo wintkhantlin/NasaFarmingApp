@@ -47,7 +47,7 @@ export const HOST_ORGANISMS: HostOrganism[] = [
     name: "Charcoal rot / dry root rot",
     scientific: "Macrophomina phaseolina",
     carryover: "soil-borne",
-    hosts: ["sesame", "green-gram", "black-gram", "chickpea", "soybean", "groundnut", "sunflower", "pigeon-pea", "maize", "cotton", "butter-bean", "niger"],
+    hosts: ["sesame", "green-gram", "black-gram", "chickpea", "soybean", "groundnut", "sunflower", "pigeon-pea", "maize", "cotton", "butter-bean"],
     suppressedBy: ["rice"],
     advice: "Survives in soil for years and is worst in hot, dry spells. Putting two hosts back to back keeps it building up. A flooded rice season lowers it.",
     ref: "Kaur et al. (2012), Crit. Rev. Microbiol. 38:136–151, host range review; CABI Compendium datasheet",

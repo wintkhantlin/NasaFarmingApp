@@ -53,7 +53,6 @@ describe("crop library", () => {
       "lablab",
       "maize",
       "mustard",
-      "niger",
       "onion",
       "pigeon-pea",
       "potato",
