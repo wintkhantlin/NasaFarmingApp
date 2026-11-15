@@ -2,7 +2,7 @@
 
 **Report Identifier:** `FIELD-SHIFT-RESEARCH-03`  
 **Lead Specialist:** AGENT 3 — Flood Vulnerability Researcher  
-**System Evaluated:** Field Shift Decision Support Architecture  
+**System Evaluated:** Green Ally Project Decision Support Architecture  
 **Target Domain:** Lower Myanmar (Ayeyarwady Delta Townships: Mawlamyinegyun, Pyapon, Bogale, Labutta, Hinthada)  
 **Evaluation Period:** 2015–2026 Historical Climatology & Satellite Record  
 **Date of Report:** 2026-11-15  
@@ -16,13 +16,13 @@
 > **"Can the system identify historically flood-exposed agricultural locations, and at what spatial and temporal reliability?"**
 
 ### Direct Scientific Answer
-**Field Shift can identify historical surface water presence at high spatial resolution (30 m pixel scale) under cloud-free optical conditions, but it CANNOT reliably detect catastrophic flood events during active monsoon storm peaks using optical data alone, nor can it algorithmically distinguish normal agronomic rice flooding from destructive inundation without phenological or farmer input.**
+**Green Ally Project can identify historical surface water presence at high spatial resolution (30 m pixel scale) under cloud-free optical conditions, but it CANNOT reliably detect catastrophic flood events during active monsoon storm peaks using optical data alone, nor can it algorithmically distinguish normal agronomic rice flooding from destructive inundation without phenological or farmer input.**
 
 The system's capabilities, limitations, and operational boundaries are summarized across six foundational dimensions:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                              FIELD SHIFT FLOOD CAPABILITY MATRIX                                       │
+│                              Green Ally Project FLOOD CAPABILITY MATRIX                                       │
 ├───────────────────────┬──────────────────────────────┬─────────────────────────────────────────────────┤
 │ Dimension             │ System Rating                │ Physical / Algorithmic Mechanism                │
 ├───────────────────────┼──────────────────────────────┼─────────────────────────────────────────────────┤
@@ -39,7 +39,7 @@ The system's capabilities, limitations, and operational boundaries are summarize
 
 1. **The Monsoon Cloud Blind Spot:** During the Southwest Monsoon (June–August), when over 85% of catastrophic floods occur in Lower Myanmar, optical cloud cover exceeds 80–94%. The mathematical probability of obtaining a cloud-free Landsat/HLS scene during a 3-day flood peak is **under 3%**. Consequently, optical flood event detection has an operational Recall (Probability of Detection) of only **0.10–0.22**.
 2. **The Paddy Inundation Ambiguity:** Lowland monsoon rice (*Oryza sativa*) is intentionally flooded with 5–25 cm of standing water during transplanting and vegetative growth (June–September). From space, clear open water in a bunded rice paddy exhibits the identical spectral absorption characteristics (negative MNDWI, low NIR reflectance $\rho_{NIR} < 0.10$) as destructive 2-meter floodwaters. If single-date surface water detection is naively treated as an adverse flood alert, the False Alarm Ratio (FAR) in the Ayeyarwady Delta exceeds **0.75–0.88**.
-3. **Strict Epistemic Gating Verified:** The Field Shift codebase does **not** make unverified claims. In `lib/conditions/condition-evidence.ts` and `components/field/conditions/risk-panels/flood-panel.tsx`, the system explicitly designates surface water observations as `"partial"` status, labels the visual output as *"Observed surface water"* rather than *"Flood Disaster"*, and enforces mandatory truthfulness callouts disclosing that satellite sensors cannot measure flood depth, water velocity, or drainage rates.
+3. **Strict Epistemic Gating Verified:** The Green Ally Project codebase does **not** make unverified claims. In `lib/conditions/condition-evidence.ts` and `components/field/conditions/risk-panels/flood-panel.tsx`, the system explicitly designates surface water observations as `"partial"` status, labels the visual output as *"Observed surface water"* rather than *"Flood Disaster"*, and enforces mandatory truthfulness callouts disclosing that satellite sensors cannot measure flood depth, water velocity, or drainage rates.
 4. **Critical Ingestion Pipeline Bug Discovered:** In `lib/nasa/planetary-computer.ts` (`decodeLandsatQa`), the `validLand` quality mask explicitly rejects water pixels (`!water`). In `extractLandsatObservationSummary`, `validPixels` only increments for `validLand`, and scene `coverage` is computed as `validPixels / totalPixels`. Consequently, if a field parcel is >50% submerged by water, `coverage` drops below 0.50, causing `buildFloodEvidence` (`validObservations = observations.filter(o => o.coverage >= 0.5)`) to **discard the observation entirely**, erroneously returning `"No valid scene"`. A targeted remediation is detailed in Section 7.
 
 ---
@@ -144,7 +144,7 @@ In early September 2024, the remnants of Super Typhoon Yagi crossed northern Vie
 
 ## 2. Repository Flood Architecture & Code Trace
 
-The Field Shift repository addresses surface water and flood risk through an integrated chain of STAC query clients, bitmask quality decoders, evidence aggregation functions, and UI presentation components.
+The Green Ally Project repository addresses surface water and flood risk through an integrated chain of STAC query clients, bitmask quality decoders, evidence aggregation functions, and UI presentation components.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -343,7 +343,7 @@ Because single-date optical spectra cannot separate the two states, robust discr
 - In **normal rice cultivation**, water detection in June/July is followed by a steep increase in vegetative cover as the rice canopy closes. By August/September, NDVI rises from $\sim 0.15$ to $>0.75$, completely masking the underlying water column from optical view.
 - In **destructive flooding**, an established vegetative crop (NDVI 0.60–0.80) is abruptly submerged. If submergence exceeds 7 days, the crop decomposes; when waters recede, NDVI plunges to $<0.25$ (bare mud/decaying straw).
 
-**Field Shift's Current Stance:** The system avoids premature algorithmic labeling. Instead of generating false flood alarms across 100% of the delta's rice paddies, it displays the objective observation (*"Observed surface water"*) and prompts the farmer: *"Is standing water normal for this field during rice cultivation, or does unexpected flooding damage crops or delay planting?"* This design conforms strictly to the repo's simplicity and truthfulness contracts.
+**Green Ally Project's Current Stance:** The system avoids premature algorithmic labeling. Instead of generating false flood alarms across 100% of the delta's rice paddies, it displays the objective observation (*"Observed surface water"*) and prompts the farmer: *"Is standing water normal for this field during rice cultivation, or does unexpected flooding damage crops or delay planting?"* This design conforms strictly to the repo's simplicity and truthfulness contracts.
 
 ---
 
@@ -444,7 +444,7 @@ Key verification metrics:
 1. **The Recall Collapse During Flood Disasters:** During the 2015 Cyclone Komen event across Hinthada and Ayeyarwady townships, UNOSAT satellite damage maps derived from all-weather radar detected over 570,000 hectares of inundation. Over the identical 14-day disaster window, Landsat 8 captured exactly one partially usable scene (Path 133, Row 48 on August 2, 2015), which was 82% obscured by clouds. The optical flood extent covered only 74,000 hectares within the cloud-free gaps, yielding an empirical **Recall of 0.13**.
 2. **The Precision Collapse During Normal Seasons:** Conversely, when a clear optical scene was acquired over Bogale on July 14, 2022 (a completely normal, non-flood agricultural year), Landsat QA_PIXEL Bit 7 detected surface water across 68% of the township's agricultural footprint due to standard wet-season paddy transplanting. Benchmarked against disaster declarations, this yielded a **False Alarm Ratio of 0.88** and an empirical **Precision of 0.12**.
 
-**Validation Synthesis:** When evaluated as a stand-alone flood hazard detection tool, optical satellite imagery exhibits insufficient statistical skill ($F_1 < 0.30$, $\text{IoU} < 0.18$) during monsoon conditions. Field Shift's decision to treat optical water observations strictly as descriptive parcel observations rather than predictive hazard classifications is fully validated by empirical remote sensing science.
+**Validation Synthesis:** When evaluated as a stand-alone flood hazard detection tool, optical satellite imagery exhibits insufficient statistical skill ($F_1 < 0.30$, $\text{IoU} < 0.18$) during monsoon conditions. Green Ally Project's decision to treat optical water observations strictly as descriptive parcel observations rather than predictive hazard classifications is fully validated by empirical remote sensing science.
 
 ---
 
@@ -511,15 +511,15 @@ Scientific integrity requires precise taxonomy. Environmental indicators must ne
 │ Alerting           │ (Needs SAR)      │ Detection**     │ to capture active disaster in real time │
 ├────────────────────┼──────────────────┼─────────────────┼─────────────────────────────────────────┤
 │ Hydrodynamic Flood │ Absent in Repo   │ **Forecast**    │ REQUIRES 2D HYDRAULIC MODEL; ZERO CLAIM │
-│ Depth & Recurrence │ (Disclaimed)     │                 │ MADE BY FIELD SHIFT                     │
+│ Depth & Recurrence │ (Disclaimed)     │                 │ MADE BY Green Ally Project                     │
 └────────────────────┴──────────────────┴─────────────────┴─────────────────────────────────────────┘
 ```
 
 ### Detailed Epistemic Breakdown
 1. **Historical Observation:** Landsat/HLS surface water detection is an *empirical historical fact*. It establishes that at coordinates $(\text{Lon}, \text{Lat})$ on date $T_{\text{obs}}$, optical reflectance conformed to the spectral signature of open water. It makes no statement about whether the water was beneficial or harmful, or how long it persisted before or after $T_{\text{obs}}$.
 2. **Exposure Proxy:** A field with $0.1^\circ$ topographic slope in an Ayeyarwady Delta polder has high physical *exposure* to water accumulation, while an upland maize field in Shan State with an $18^\circ$ slope has high exposure to erosion. The SRTM slope parameter is a static physical vulnerability descriptor, not a dynamic flood event.
-3. **Event Detection:** Field Shift operates on retrospective archive queries. It does not ingest real-time telemetry streams or push push-alerts for active river overtopping. Event detection is opportunistic: if an unmasked satellite scene happens to capture standing water during a flood, it can be visualized, but absence of an observation does not imply absence of flooding.
-4. **Forecast:** Field Shift provides **zero flood forecasts**. It does not run rainfall-runoff models, 1-D HEC-RAS channel routing, or 2-D hydrodynamic surface flooding models. The application's UI transparently communicates this boundary to prevent farmers from relying on the tool as an early warning evacuation siren.
+3. **Event Detection:** Green Ally Project operates on retrospective archive queries. It does not ingest real-time telemetry streams or push push-alerts for active river overtopping. Event detection is opportunistic: if an unmasked satellite scene happens to capture standing water during a flood, it can be visualized, but absence of an observation does not imply absence of flooding.
+4. **Forecast:** Green Ally Project provides **zero flood forecasts**. It does not run rainfall-runoff models, 1-D HEC-RAS channel routing, or 2-D hydrodynamic surface flooding models. The application's UI transparently communicates this boundary to prevent farmers from relying on the tool as an early warning evacuation siren.
 
 ---
 
@@ -565,9 +565,9 @@ Solving these equations requires inputs that Earth observation satellites cannot
 
 ---
 
-### 5.3 Audit of Field Shift Truthfulness Gating
+### 5.3 Audit of Green Ally Project Truthfulness Gating
 
-Field Shift enforces rigorous scientific gating in both code and user interface:
+Green Ally Project enforces rigorous scientific gating in both code and user interface:
 
 ```typescript
 // Verified in lib/conditions/condition-evidence.ts (lines 288-290):
@@ -587,7 +587,7 @@ const cannotTell =
 </div>
 ```
 
-**Audit Verdict:** Field Shift complies 100% with NASA Earth Science integrity principles. It does not invent, extrapolate, or hallucinate flood depths or flow velocities.
+**Audit Verdict:** Green Ally Project complies 100% with NASA Earth Science integrity principles. It does not invent, extrapolate, or hallucinate flood depths or flow velocities.
 
 ---
 
@@ -658,7 +658,7 @@ Consider a field parcel during a flood event where 80% of the pixels are submerg
 
 ## 7. Actionable Recommendations & System Remediation Plan
 
-To transition Field Shift from an optical surface-water viewer to a robust flood vulnerability system, five concrete engineering and scientific enhancements are proposed:
+To transition Green Ally Project from an optical surface-water viewer to a robust flood vulnerability system, five concrete engineering and scientific enhancements are proposed:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -730,12 +730,12 @@ During prolonged monsoon cloud lockouts, use the predownloaded NASA GPM IMERG pr
 
 ## 8. Conclusion & Sign-Off
 
-Field Shift demonstrates exemplary scientific responsibility by refusing to overstate the capabilities of optical remote sensing. By openly admitting the physical limitations of satellite imagery—specifically the inability to measure water depth, velocity, and normal paddy impoundment—the application protects smallholder farmers in the Ayeyarwady Delta from dangerously misleading flood guidance.
+Green Ally Project demonstrates exemplary scientific responsibility by refusing to overstate the capabilities of optical remote sensing. By openly admitting the physical limitations of satellite imagery—specifically the inability to measure water depth, velocity, and normal paddy impoundment—the application protects smallholder farmers in the Ayeyarwady Delta from dangerously misleading flood guidance.
 
 Implementing the ingestion coverage fix and transitioning to multi-temporal radar (OPERA DSWx-S1) will transform the platform into a world-class, all-weather agricultural flood resilience engine.
 
 ---
 **Report Authorized by:**  
 *Lead Specialist AGENT 3 — Flood Vulnerability Researcher*  
-*Field Shift Scientific Evaluation Team*  
+*Green Ally Project Scientific Evaluation Team*  
 *NASA Space Apps Challenge 2026*

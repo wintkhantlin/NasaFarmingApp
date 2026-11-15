@@ -1,5 +1,5 @@
 # Scientific Feasibility Report: Soil Erosion & Frost Vulnerability in Myanmar Agro-Ecosystems
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Research Specialist:** Agent 5 — Erosion & Frost Feasibility  
 **Date:** 2026-11-15  
 **Target Document:** `research/05_EROSION_FROST_FEASIBILITY.md`  
@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary & Core Research Findings
 
-This investigation evaluates the scientific validity, geomorphological applicability, and meteorological realism of **soil erosion** and **frost/cold** vulnerability models within Field Shift, with specific focus on Myanmar's primary agricultural ecologies: the **Ayeyarwady Delta**, the **Central Dry Zone**, and the **Shan State Highlands**.
+This investigation evaluates the scientific validity, geomorphological applicability, and meteorological realism of **soil erosion** and **frost/cold** vulnerability models within Green Ally Project, with specific focus on Myanmar's primary agricultural ecologies: the **Ayeyarwady Delta**, the **Central Dry Zone**, and the **Shan State Highlands**.
 
 ### Core Research Questions
 > *"Are erosion and frost scientifically meaningful vulnerabilities for the intended farming locations in Myanmar?"*
@@ -18,7 +18,7 @@ This investigation evaluates the scientific validity, geomorphological applicabi
 1. **Soil Erosion:**
    - **Lowland Rice Paddies (Ayeyarwady Delta, slopes $< 1^\circ$ / 0–2%):** Hillslope sheet and rill erosion are **physically inactive** within bunded lowland rice paddies. Paddies operate as hydrologically closed sedimentation basins enclosed by earthen dykes (*kazins*) designed to impound standing water ($v_{\text{runoff}} \approx 0$). The active geomorphic hazards in the Delta are **riverbank scour/collapse** (*kankye*) along tidal distributaries, **seasonal flood siltation**, and **saline/acid-sulfate chemical degradation**, not hillslope wash.
    - **Upland Agro-ecosystems (Shan State, Chin Hills, slopes $> 15^\circ\text{–}30^\circ$):** Hillslope sheet and rill erosion are **severe and acute vulnerabilities**, where high-intensity tropical monsoon rainfall on cleared, tilled hillsides drives catastrophic topsoil loss ($20\text{–}100+\text{ t/ha/yr}$) and downstream sedimentation (e.g., Inle Lake).
-   - **RUSLE Applicability:** Attempting to calculate numerical soil loss ($A = R \times K \times LS \times C \times P$) in tonnes/hectare/year from 30 m spaceborne DEMs and gridded reanalysis is **scientifically invalid**. Crucial parameters—sub-hourly rainfall kinetic energy ($I_{30}$), field-scale aggregate stability ($K$), parcel-scale slope length truncation by bunds ($LS$), and sub-pixel conservation practices ($P$)—cannot be observed from orbit. Field Shift's architecture **correctly refrains from emitting synthetic tonnes/ha/year**, enforcing a qualitative susceptibility gate based on slope steepness and bare soil windows.
+   - **RUSLE Applicability:** Attempting to calculate numerical soil loss ($A = R \times K \times LS \times C \times P$) in tonnes/hectare/year from 30 m spaceborne DEMs and gridded reanalysis is **scientifically invalid**. Crucial parameters—sub-hourly rainfall kinetic energy ($I_{30}$), field-scale aggregate stability ($K$), parcel-scale slope length truncation by bunds ($LS$), and sub-pixel conservation practices ($P$)—cannot be observed from orbit. Green Ally Project's architecture **correctly refrains from emitting synthetic tonnes/ha/year**, enforcing a qualitative susceptibility gate based on slope steepness and bare soil windows.
 
 2. **Frost and Cold:**
    - **Ayeyarwady Delta (elevations 0–50 m, $16^\circ\text{–}18^\circ\text{N}$):** Frost ($T \le 0^\circ\text{C}$) is **physically impossible**. An empirical audit of 3,957 daily records (2016–2026) from NASA POWER across Delta cells reveals an absolute all-time minimum temperature of **$11.47^\circ\text{C}$** (Hinthada) and **$12.88^\circ\text{C}$** (Myaungmya), with typical winter minimums of $15^\circ\text{–}18^\circ\text{C}$. Zero frost days have ever been recorded.
@@ -31,7 +31,7 @@ This investigation evaluates the scientific validity, geomorphological applicabi
 
 ### 2.1 Topographic Slope Algorithm Audit (`lib/nasa/derive/slope.ts`)
 
-Field Shift calculates terrain slope from SRTM (Shuttle Radar Topography Mission) or NASADEM 1-arcsecond (~30-meter resolution) elevation grids. The implementation in `lib/nasa/derive/slope.ts` was audited against standard geodetic and digital elevation modeling standards.
+Green Ally Project calculates terrain slope from SRTM (Shuttle Radar Topography Mission) or NASADEM 1-arcsecond (~30-meter resolution) elevation grids. The implementation in `lib/nasa/derive/slope.ts` was audited against standard geodetic and digital elevation modeling standards.
 
 #### Mathematical Formulation (Horn 1981)
 The algorithm implements Horn's 3×3 weighted finite-difference convolution across a local $3 \times 3$ elevation window:
@@ -83,7 +83,7 @@ $$A = R \times K \times LS \times C \times P$$
 | **$C$** | Cover-Management<br>(Dimensionless ratio) | Ratio of soil loss relative to clean-tilled continuous bare fallow; dynamic with canopy cover, ground mulch, and root density. | Landsat/HLS 30 m NDVI, surface reflectance, crop type calendar. | Static annual $C$-factor tables fail to capture the critical 2–3 week pre-emergence window when heavy monsoon downpours strike freshly tilled, bare soil before crop canopy develops. |
 | **$P$** | Support Practice<br>(Dimensionless ratio) | Cultivation practices that reduce runoff: contour bunding, contour tillage, strip-cropping, vegetative buffer strips, terracing. | None. Sub-pixel features completely invisible to 30 m optical/radar sensors. | A farmer contour-bunding or maintaining stone walls reduces erosion by 50–90% ($P = 0.1\text{–}0.5$), but satellite models blindly assume unmanaged down-slope plowing ($P = 1.0$), generating completely spurious soil loss figures. |
 
-#### Architectural Review of Field Shift's Soil Health Engine
+#### Architectural Review of Green Ally Project's Soil Health Engine
 The repository's implementation in `lib/engine/soil-health.ts` and `lib/conditions/condition-evidence.ts` demonstrates exceptional scientific integrity:
 1. **Explicit Gate Against False Metrics:**
    - Lines 352–353 of `condition-evidence.ts`:
@@ -144,7 +144,7 @@ A critical scientific deficiency identified during our audit is the uniform appl
 - **Upland Farming Systems:** Smallholders cultivate upland maize, soybean, ginger, garlic, potatoes, and upland rice under rainfed conditions.
 - **Erosion Mechanics:** High-intensity monsoon downpours strike steep, sloping fields. When fields are ploughed down-slope or left bare during land preparation in April and May, overland flow velocities exceed critical shear thresholds, producing sheetwash, extensive rill networks, and deep gully incisions.
 - **Agronomic Consequence:** Unmitigated topsoil loss frequently exceeds $50\text{ t/ha/yr}$, stripping the humus-rich organic A-horizon, leaching applied nitrogen/phosphorus fertilizers, and causing massive downstream reservoir and lake siltation (most famously documented in the hyper-eutrophication and shallowing of Inle Lake).
-- **Verdict:** In Shan State, the slope-based qualitative erosion screening in Field Shift is **vital, agronomically actionable, and highly relevant**.
+- **Verdict:** In Shan State, the slope-based qualitative erosion screening in Green Ally Project is **vital, agronomically actionable, and highly relevant**.
 
 ---
 
@@ -274,7 +274,7 @@ However, in the user-facing UI:
 
 ## 5. Part IV: Actionable Recommendations & Architectural Road Map
 
-To align Field Shift with the physical geography of Myanmar and prevent farmer disorientation, we propose a four-point architectural enhancement plan.
+To align Green Ally Project with the physical geography of Myanmar and prevent farmer disorientation, we propose a four-point architectural enhancement plan.
 
 ### 5.1 Gating & Terminology Matrix by Agro-Ecological Region
 
@@ -332,7 +332,7 @@ if (region === "ayeyarwady" && slopeMedian !== null && slopeMedian < 2) {
 
 ```
 ===================================================================================================
-FIELD SHIFT SCIENCE SUMMARY: EROSION & FROST VULNERABILITY IN MYANMAR
+Green Ally Project SCIENCE SUMMARY: EROSION & FROST VULNERABILITY IN MYANMAR
 ===================================================================================================
 VULNERABILITY | AYEYARWADY DELTA (< 50 m)        | SHAN HIGHLANDS (> 800 m)
 ===================================================================================================

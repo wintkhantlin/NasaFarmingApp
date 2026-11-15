@@ -1,5 +1,5 @@
 # Scientific Data Provenance & Transformation Architecture
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Agent:** AGENT 2 — NASA Data Research & Download Specialist  
 **Verification Date:** 2026-11-15  
 **Geographic Domain:** Myanmar Heartland (Ayeyarwady Delta, Central Dry Zone, Shan Highlands, Bago)
@@ -10,7 +10,7 @@
 
 In agronomic decision support, data provenance is the foundation of scientific truthfulness. Farmers make capital-intensive decisions—investing in dry-season fuel for irrigation pumps, purchasing legume seed for residual moisture double-cropping, or timing fertilizer applications around monsoon breaks. Providing satellite data without clear lineage, scale boundaries, or quality flagging can lead to catastrophic crop failure.
 
-This document traces the complete scientific data lineage, mathematical transformation pipelines, scale-reconciliation contracts, quality assurance gates, and calibration biases of the Field Shift platform.
+This document traces the complete scientific data lineage, mathematical transformation pipelines, scale-reconciliation contracts, quality assurance gates, and calibration biases of the Green Ally Project platform.
 
 ---
 
@@ -79,7 +79,7 @@ This document traces the complete scientific data lineage, mathematical transfor
 
 ## 3. Scale Differences & The Three Spatial Footprints
 
-A foundational design rule in Field Shift is the **Spatial Footprint Contract**. Different Earth observation sensors capture physical phenomena at vastly different spatial scales:
+A foundational design rule in Green Ally Project is the **Spatial Footprint Contract**. Different Earth observation sensors capture physical phenomena at vastly different spatial scales:
 
 ```
 Spatial Resolution Comparison Across Sensors
@@ -115,7 +115,7 @@ Spatial Resolution Comparison Across Sensors
 ## 4. Quality Assurance, Screening & Masking Protocols
 
 ### 4.1 Landsat Collection 2 Level-2 Quality Masking
-USGS Landsat Collection 2 provides a 16-bit bitpacked `QA_PIXEL` band. Field Shift decodes this band according to the following bitfield logic:
+USGS Landsat Collection 2 provides a 16-bit bitpacked `QA_PIXEL` band. Green Ally Project decodes this band according to the following bitfield logic:
 
 ```typescript
 function decodeQaPixel(dn: number) {
@@ -137,7 +137,7 @@ function decodeQaPixel(dn: number) {
 ```
 
 **Parcel Admission Threshold ($f_{\text{valid}} \ge 0.25$):**
-In tropical monsoon regions such as the Ayeyarwady Delta, cloud cover is pervasive. If a satellite scene contains only a tiny sliver of unmasked area over a farm (e.g. 5%), that sliver is frequently an unflagged cloud edge or diffuse shadow, which severely skews the NDVI. Field Shift enforces:
+In tropical monsoon regions such as the Ayeyarwady Delta, cloud cover is pervasive. If a satellite scene contains only a tiny sliver of unmasked area over a farm (e.g. 5%), that sliver is frequently an unflagged cloud edge or diffuse shadow, which severely skews the NDVI. Green Ally Project enforces:
 $$f_{\text{valid}} = \frac{A_{\text{clear}}}{A_{\text{parcel}}} \ge 0.25$$
 Scenes with $f_{\text{valid}} < 0.25$ are rejected from vegetation index calculations. The date is still displayed in the observation ledger with an explicit label: `"Cloud-obscured"`.
 
@@ -151,7 +151,7 @@ If $\text{precipitation\_cnt} < 48$, the day is preserved, but marked as `partia
 ## 5. Physical Transformations & Pedotransfer Pipelines
 
 ### 5.1 ISRIC SoilGrids v2 Multi-Depth Thickness Weighting
-SoilGrids v2 queries return values at discrete standard depth slices: `0–5 cm`, `5–15 cm`, and `15–30 cm`. To calculate the agronomic topsoil root zone ($0–30\text{ cm}$), Field Shift applies thickness-weighted trapezoidal averaging:
+SoilGrids v2 queries return values at discrete standard depth slices: `0–5 cm`, `5–15 cm`, and `15–30 cm`. To calculate the agronomic topsoil root zone ($0–30\text{ cm}$), Green Ally Project applies thickness-weighted trapezoidal averaging:
 
 $$\bar{X}_{0-30\text{cm}} = \frac{5 \cdot X_{0-5\text{cm}} + 10 \cdot X_{5-15\text{cm}} + 15 \cdot X_{15-30\text{cm}}}{30}$$
 
@@ -205,7 +205,7 @@ The repository incorporates real ground-truth validation against NOAA GHCN-Daily
 ### 6.2 Agronomic Impact of the Central Dry Zone Rain Bias
 In the Central Dry Zone (Magway and Mandalay regions), farmers face acute drought vulnerability. Because NASA POWER reanalysis rain is ~51% lower than ground gauges:
 1. Pure satellite models would drastically overestimate drought stress and falsely declare drought-tolerant pulses infeasible.
-2. Field Shift mitigates this by injecting an explicit runtime warning via `lib/validation/source-checks.ts`:
+2. Green Ally Project mitigates this by injecting an explicit runtime warning via `lib/validation/source-checks.ts`:
    > *"In the Dry Zone, NASA POWER rain was about 51% lower than the Mandalay weather station over 2015–2024, so rain shortfall and drought stress here are probably overstated."*
 3. The MCDA engine adjusts its risk weights so that false water shortfall does not unfairly penalize viable crop rotations.
 

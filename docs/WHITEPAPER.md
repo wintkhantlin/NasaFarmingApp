@@ -1,10 +1,10 @@
-# Field Shift: Comparing Crop Rotations with NASA Earth Observations
+# Green Ally Project: Comparing Crop Rotations with NASA Earth Observations
 
 **Unified Scientific Whitepaper and Technical Specification**  
 **Research prototype:** v3.3.1 · **Compiled:** 15 November 2026  
 **Scope:** Farmer-centered crop rotation comparison; computational agroclimatology, soil hydrology, remote sensing, agronomy, economics and decision support
 
-> **Research and use statement.** Field Shift is an experimental decision-support prototype, not an official NASA product and not endorsed by NASA. Scientific methods, implementation statements, figures and empirical results below are consolidated from the two user-supplied documents (`whitepaper(5).md` and `whitepaper-technical-appendix(3).md`); the application's repository and external datasets were not independently inspected for this consolidation. Results are not a substitute for field observations, farmer knowledge or local agronomic advice.
+> **Research and use statement.** Green Ally Project is an experimental decision-support prototype, not an official NASA product and not endorsed by NASA. Scientific methods, implementation statements, figures and empirical results below are consolidated from the two user-supplied documents (`whitepaper(5).md` and `whitepaper-technical-appendix(3).md`); the application's repository and external datasets were not independently inspected for this consolidation. Results are not a substitute for field observations, farmer knowledge or local agronomic advice.
 
 ## How to Read This Paper
 
@@ -20,8 +20,8 @@ Conversely, contemporary Earth observations (EO) from spaceborne satellites, lan
 2. **The Cognitive Gap:** Space agencies publish raw physical units (Kelvin, $\text{W}\cdot\text{m}^{-2}$, $\text{DN}$ reflectance) and product codes (`MOD13Q1`, `SPL4SMGP`) that require advanced geospatial workflows before offering agronomic insight.
 3. **The Non-Imputation Problem:** Commercial farm management tools frequently default missing variables to zero or regional averages, awarding false passes to risky rotations.
 
-### The Field Shift Approach
-Field Shift is an agronomic comparison engine designed to bridge this divide without compromising epistemic honesty. The application allows a farmer or extension officer to define a parcel boundary, record their current crop sequence, and benchmark it against alternative rotation candidates across identical historical weather sequences.
+### The Green Ally Project Approach
+Green Ally Project is an agronomic comparison engine designed to bridge this divide without compromising epistemic honesty. The application allows a farmer or extension officer to define a parcel boundary, record their current crop sequence, and benchmark it against alternative rotation candidates across identical historical weather sequences.
 
 #### Governing Principles
 - **Resolution Transparency:** Coarse gridded products are strictly labeled as regional background context ("around your field") and are never artificially resampled to simulate field-gate measurements.
@@ -143,7 +143,7 @@ The following 17 methods summarize the calculation pipeline. Their full mathemat
 
 ### End-to-End Evaluation Pipeline
 
-Field Shift executes a deterministic, multi-stage calculation pipeline where physical constraints, soil hydrology, and historical climate exposure filter candidate crop rotations prior to multi-criteria ranking:
+Green Ally Project executes a deterministic, multi-stage calculation pipeline where physical constraints, soil hydrology, and historical climate exposure filter candidate crop rotations prior to multi-criteria ranking:
 
 ```mermaid
 flowchart TD
@@ -1132,7 +1132,7 @@ Evaluates risk across 4 discrete physical dimensions:
 
 ## 9. Farm Economics: Real-World Commodity Market Benchmarks and Farmer Ranges
 
-Economic margins are computed using closed interval arithmetic on yield, price and variable cost ranges. Farmer-entered numbers always supersede any default. To prevent uncalibrated dummy data when farmers have not yet recorded their exact figures, Field Shift integrates calibrated real-world market benchmarks for Myanmar (2024–2026), sourced from official agricultural records and commodity exchange bulletins:
+Economic margins are computed using closed interval arithmetic on yield, price and variable cost ranges. Farmer-entered numbers always supersede any default. To prevent uncalibrated dummy data when farmers have not yet recorded their exact figures, Green Ally Project integrates calibrated real-world market benchmarks for Myanmar (2024–2026), sourced from official agricultural records and commodity exchange bulletins:
 - **Myanmar Department of Agriculture (DOA)**, Ministry of Agriculture, Livestock and Irrigation.
 - **Bayintnaung Wholesale Commodity Exchange (Yangon)** and **War Tan Wholesale Depot** (pulses, beans and export grains).
 - **Myanmar Pulses, Beans & Sesame Seeds Merchants Association (MPBMSMA)** indicative export price circulars.
@@ -1185,7 +1185,7 @@ $$P_{\text{breakeven}} = \frac{C_{\text{cost}}}{Y_{\text{saleable}}}$$
 ### 9.6 Water-Sensitive Yield Response ($K_y$) & Anti-Imputation Doctrine (v3.2)
 While baseline comparisons use farmer-entered or benchmark empirical ranges, evaluating climate-scenario stress requires assessing yield sensitivity to seasonal evapotranspirative deficit.
 
-Field Shift incorporates the empirical FAO-33 / FAO-66 crop yield response function:
+Green Ally Project incorporates the empirical FAO-33 / FAO-66 crop yield response function:
 $$\frac{Y_{\mathrm{adj}}}{Y_{\mathrm{base}}} = \phi = \mathrm{clamp}\left(1 - K_y \cdot \left(1 - \frac{\sum ET_a}{\sum ET_m}\right), \, 0.0, \, 1.0\right)$$
 where $ET_a$ is actual evapotranspiration, $ET_m = ET_c$ is potential demand under non-limiting water conditions, and $K_y$ is the empirical yield response factor.
 
@@ -1506,7 +1506,7 @@ The design aims to keep synthetic data, smoothed interpolations and uncredited t
 
 A mathematically consistent simulation is not a validated agronomic prediction. The automated tests check that formulas are transcribed correctly, that water is conserved to $10^{-9}\text{ mm}$, and that missing inputs stay missing. They do not show that the outputs match what happens in a field.
 
-To bridge this divide, Field Shift maintains an empirical ground-truth validation suite (`research/VALIDATION_RESULTS.md`) evaluated against 18,260 station-day records from NOAA GHCN-Daily, historical disaster observations, and systematic 5-way decision engine ablation experiments.
+To bridge this divide, Green Ally Project maintains an empirical ground-truth validation suite (`research/VALIDATION_RESULTS.md`) evaluated against 18,260 station-day records from NOAA GHCN-Daily, historical disaster observations, and systematic 5-way decision engine ablation experiments.
 
 ### Interpreting the Reported Evidence
 
@@ -1557,7 +1557,7 @@ Daily NASA POWER variables (`T2M_MAX`, `T2M_MIN`, `PRECTOTCORR`) were audited ac
 3. **Evapotranspiration Discrepancy ($ET_0$):**
    - *Dry Zone Advective Season (March–April):* Hargreaves-Samani underestimates $ET_0$ by **$-24.6\%$** ($4.80\text{ mm/d}$ vs $6.37\text{ mm/d}$ Penman-Monteith) due to ignoring severe vapor pressure deficits ($\text{RH} < 25\%$) and high wind speeds ($u_2 > 3.2\text{ m/s}$).
    - *Delta Humid Monsoon (July–August):* Hargreaves-Samani overestimates $ET_0$ by **$+18.2\%$** ($4.10\text{ mm/d}$ vs $3.47\text{ mm/d}$ Penman-Monteith) due to solar attenuation under persistent cloud cover.
-   - *Architecture Decision:* Field Shift enforces FAO-56 Penman-Monteith across all primary calculations.
+   - *Architecture Decision:* Green Ally Project enforces FAO-56 Penman-Monteith across all primary calculations.
 
 ---
 
@@ -1634,7 +1634,7 @@ To prevent false precision and inappropriate parcel downscaling, all environment
 *This table presents selected entries, not all 44 claim-level records; the source documents point to `research/VALIDATION_RESULTS.md` for the complete audit.*
 
 ### 12.6 Explicitly Rejected Physical Assumptions
-Field Shift explicitly repudiates three common algorithmic modeling assumptions:
+Green Ally Project explicitly repudiates three common algorithmic modeling assumptions:
 1. **Delta Ground Frost:** Sub-zero frost has never been recorded in the coastal/deltaic agricultural zone of Myanmar (10-year minimum temperature is $11.5^\circ\text{C}$). The true lowland thermal risk is **chilling sterility** ($T_{\min} < 15^\circ\text{C}$) during rice microsporogenesis. Ground frost is physically restricted to elevations above $1{,}000\text{ m}$ on the Shan Plateau.
 2. **Delta Sheet Erosion:** Lowland paddies feature slope gradients $<0.5^\circ$ and are hydrologically enclosed by earthen bunds ($15\text{--}30\text{ cm}$), functioning as sedimentation sinks rather than erosion sources. Sheet erosion warnings are physically invalid in delta polders; the actual geomorphic threat is riverbank collapse and tidal scouring.
 3. **Anaerobic Legume Nitrogen Fixation:** Legume atmospheric biological nitrogen fixation (BNF) requires active root nodule aerobic respiration by symbiotic *Bradyrhizobium* bacteria. In waterlogged, un-drained paddy fields, root hypoxia halts nitrogen fixation ($0\text{ kg N/ha}$). Nitrogen credits are recognized only after post-paddy drainage to field capacity is achieved.

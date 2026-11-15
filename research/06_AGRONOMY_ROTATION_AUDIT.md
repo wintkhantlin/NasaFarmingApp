@@ -1,5 +1,5 @@
 # Scientific Agronomy & Rotation Audit: Myanmar Cropping Systems, Calendars, and Constraints
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Research Specialist:** Agent 6 — Agronomy & Rotation Researcher  
 **Date:** 2026-11-15  
 **Target Document:** `research/06_AGRONOMY_ROTATION_AUDIT.md`  
@@ -11,7 +11,7 @@
 
 This report provides a comprehensive agronomic audit of cropping systems, crop calendar realism, rotation dynamics, and feasibility constraints across Myanmar's primary agro-ecological zones: the **Ayeyarwady Delta (Lower Myanmar)**, the **Central Dry Zone (Magway/Mandalay/Sagaing)**, and the **Shan Highlands**.
 
-Field Shift is designed to assist smallholders and agricultural extension agents in transitioning from vulnerable monocultures (or climate-sensitive sequences) to diversified, resilient crop rotations. Because multi-criteria decision analysis (MCDA) and economic models depend strictly on the validity of underlying agronomic rules, any flaw in sowing dates, crop cycles, biological nitrogen fixation (BNF) accounting, or stress thresholds propagates into flawed decision advice.
+Green Ally Project is designed to assist smallholders and agricultural extension agents in transitioning from vulnerable monocultures (or climate-sensitive sequences) to diversified, resilient crop rotations. Because multi-criteria decision analysis (MCDA) and economic models depend strictly on the validity of underlying agronomic rules, any flaw in sowing dates, crop cycles, biological nitrogen fixation (BNF) accounting, or stress thresholds propagates into flawed decision advice.
 
 ### Key Audit Findings
 1. **Calendar Realism & Variety Duration Gap:** The codebase represents crop growth cycles predominantly at the species level using global FAO ECOCROP ranges (e.g., maize listed as 65–365 days; sesame as 40–180 days; black gram as 60–130 days). In Myanmar practice, farmers cultivate specific cultivars with tightly adapted photoperiod and thermal requirements (e.g., *Yezin-3* black gram: 80–85 days; *Sin Shwe Pyaung* sorghum: 110–120 days). Without variety-specific duration overrides, multi-crop sequence planning cannot guarantee field turnaround feasibility.
@@ -348,7 +348,7 @@ Level 1: Sesame (Sesamum indicum), Groundnut (Arachis hypogaea), Chickpea
 
 ---
 
-## 6. Agronomic Remediation Roadmap for Field Shift
+## 6. Agronomic Remediation Roadmap for Green Ally Project
 
 Based on this audit, the following concrete improvements are recommended for the codebase:
 

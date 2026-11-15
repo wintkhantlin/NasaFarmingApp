@@ -1,6 +1,6 @@
 # Comprehensive Scientific Formula Registry
 
-**Project:** Field Shift — Adapting Farms with NASA Data  
+**Project:** Green Ally Project — Adapting Farms with NASA Data  
 **Lead Scientific Auditor:** AGENT 1 — Scientific Integrity Auditor  
 **Date:** November 2026  
 **Repository Scope:** `lib/engine/*`, `lib/nasa/*`, `lib/soil/*`, `lib/data/crops/*`  
@@ -517,7 +517,7 @@
 - **Physical Quantity:** Spatial coverage fraction of QA-clear pixels and parcel area-weighted mean spectral index.
 - **Units:** Fraction $[0, 1]$.
 - **Inputs:** Pixel areas $a_i$, usable flags $q_i \in \{0, 1\}$, values $x_i$, parcel area $A_{\text{parcel}}$.
-- **Source / Citation:** Field Shift Remote Sensing Protocol v3.1.
+- **Source / Citation:** Green Ally Project Remote Sensing Protocol v3.1.
 - **Code Location:** `lib/nasa/derive/ndvi.ts:49-83`, function `areaWeightedCoverage`.
 - **Assumptions:** Scene admitted only when $f_{\text{valid}} \ge 0.25$ (`MIN_VALID_COVERAGE = 0.25`); otherwise parcel mean is set to `null` to prevent cloud-fringe contamination.
 - **Validation Status:** `VALIDATED`.
@@ -723,4 +723,4 @@
   - `UNVERIFIED`: 1 formula (2.2%)
   - `SCIENTIFICALLY_INCORRECT`: 0 formulas (0.0%)
 
-This registry confirms that Field Shift's mathematical and physical core is built upon rigorous, verifiable, peer-reviewed scientific literature.
+This registry confirms that Green Ally Project's mathematical and physical core is built upon rigorous, verifiable, peer-reviewed scientific literature.

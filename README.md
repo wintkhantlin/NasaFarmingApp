@@ -1,14 +1,14 @@
-# 🌾 Green Ally
+# 🌾 Green Ally Project
 
 ### Earth intelligence. Decisions farmers can actually use.
 
 **NASA Space Apps Challenge 2026 · [Field Shift: Adapting Farms with NASA Data](https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/)**
 
-**nField Shift** is a farmer-centered, explainable crop-rotation decision-support platform. It combines NASA Earth observations with local soil information, crop requirements, field history, and farmer priorities to help answer one practical question:
+**Green Ally Project** is a farmer-centered, explainable crop-rotation decision-support platform. It combines NASA Earth observations with local soil information, crop requirements, field history, and farmer priorities to help answer one practical question:
 
 > **After this harvest, what should I plant next—and what could go wrong?**
 
-Instead of offering an unexplained “best crop,” Field Shift compares realistic crop sequences, replays how they would have faced past weather, identifies vulnerabilities, shows water and income trade-offs, and explains **why** an option may fit a farmer's conditions.
+Instead of offering an unexplained “best crop,” Green Ally Project compares realistic crop sequences, replays how they would have faced past weather, identifies vulnerabilities, shows water and income trade-offs, and explains **why** an option may fit a farmer's conditions.
 
 **Pilot context:** Myanmar — including the Ayeyarwady Delta, Central Dry Zone, and Shan uplands. The approach is intended to be adaptable to other regions when local crops, soils, and evidence are available.
 
@@ -20,7 +20,7 @@ Instead of offering an unexplained “best crop,” Field Shift compares realist
 - 👩‍🌾 **Farmer priorities first** — water availability and financial constraints affect comparisons.
 - 🔎 **A reason for every result**, with data sources, limits, and missing evidence visible.
 
-> **Research prototype, not a forecast.** Field Shift is not an official NASA product or endorsed by NASA. Its results support farm planning and local expert discussion; they do not guarantee yields, income, or safety.
+> **Research prototype, not a forecast.** Green Ally Project is not an official NASA product or endorsed by NASA. Its results support farm planning and local expert discussion; they do not guarantee yields, income, or safety.
 
 ---
 
@@ -36,7 +36,7 @@ A farmer may know which crops traditionally grow in a region, yet still face new
 
 NASA has observations that can help investigate these questions. But raw satellite products are not crop plans. Their spatial scale, missing observations, uncertain estimates, and scientific terminology make direct use difficult.
 
-**Field Shift connects the observation to the decision, then explains the trade-off in plain language.**
+**Green Ally Project connects the observation to the decision, then explains the trade-off in plain language.**
 
 ## The farmer's journey
 
@@ -44,13 +44,13 @@ The goal is a short, usable farmer-facing journey. Detailed equations, satellite
 
 ---
 
-## ⭐ Features that make Field Shift different
+## ⭐ Features that make Green Ally Project different
 
 *The status labels reflect the supplied scientific whitepaper (research prototype v3.3.1), not an independent audit of the current application deployment.*
 
 ### 1. 🌱 Compare crop *rotations*, not just individual crops
 
-Field Shift considers multi-season crop sequences and their consequences for the entire field, rather than ranking one crop in isolation.
+Green Ally Project considers multi-season crop sequences and their consequences for the entire field, rather than ranking one crop in isolation.
 
 **Capabilities**
 
@@ -64,7 +64,7 @@ Field Shift considers multi-season crop sequences and their consequences for the
 
 ### 2. 🛰️ Replay ten historical seasons before choosing the next one
 
-Field Shift evaluates alternatives against **daily historical weather from 2016–2025** to show how each rotation would have performed under differing past conditions.
+Green Ally Project evaluates alternatives against **daily historical weather from 2016–2025** to show how each rotation would have performed under differing past conditions.
 
 **Capabilities**
 
@@ -89,7 +89,7 @@ The **Four-Pillar Risk Explorer** connects climate and land observations to prac
 | **Erosion exposure** ⛰️ | Terrain slope, rainfall season, and planned low-cover intervals | “Would leaving this slope bare be risky?” |
 | **Heat & cold** 🌡️ | High temperature at flowering, chilling during sensitive stages, and frost where geographically plausible | “Could temperature hurt flowering or establishment?” |
 
-Risk levels are **screening indicators**, not measurements of actual crop loss. When a required source is missing or too coarse, Field Shift marks the assessment as unresolved rather than inventing field-specific detail.
+Risk levels are **screening indicators**, not measurements of actual crop loss. When a required source is missing or too coarse, Green Ally Project marks the assessment as unresolved rather than inventing field-specific detail.
 
 ### 4. 🌧️ Check for surface water in clear satellite images
 
@@ -105,7 +105,7 @@ Flood screening uses open-water pixels from available Landsat/HLS or MODIS obser
 
 ### 5. 💦 Estimate water demand and the right post-paddy planting window
 
-Field Shift combines **FAO-56 Penman–Monteith evapotranspiration**, crop growth stages, and a **three-zone soil water balance** to screen water demand and possible seedbed drying.
+Green Ally Project combines **FAO-56 Penman–Monteith evapotranspiration**, crop growth stages, and a **three-zone soil water balance** to screen water demand and possible seedbed drying.
 
 **Capabilities**
 
@@ -119,7 +119,7 @@ Field Shift combines **FAO-56 Penman–Monteith evapotranspiration**, crop growt
 
 ### 6. 🧑‍🌾 Let farmers decide what “best” means
 
-Field Shift is designed to make recommendations inspectable rather than treating them as black-box predictions.
+Green Ally Project is designed to make recommendations inspectable rather than treating them as black-box predictions.
 
 **Capabilities**
 
@@ -133,7 +133,7 @@ Field Shift is designed to make recommendations inspectable rather than treating
 
 ### 8. 🪴 Bring soil health into the rotation decision
 
-Crop rotation is about more than the next harvest. Field Shift considers:
+Crop rotation is about more than the next harvest. Green Ally Project considers:
 
 - Legume nitrogen fixation potential and nitrogen removed by harvest.
 - Whether crop residues are **retained, mulched, removed, or burned**.
@@ -145,7 +145,7 @@ Crop rotation is about more than the next harvest. Field Shift considers:
 
 ### 9. 💰 Compare realistic income *ranges*, not a made-up profit number
 
-Field Shift compares estimated **gross-margin ranges** using farmer-provided prices, yields, and variable costs, with documented regional references where needed.
+Green Ally Project compares estimated **gross-margin ranges** using farmer-provided prices, yields, and variable costs, with documented regional references where needed.
 
 **Capabilities**
 
@@ -159,7 +159,7 @@ Field Shift compares estimated **gross-margin ranges** using farmer-provided pri
 
 ### 10. 🗺️ Use satellite maps without pretending coarse pixels are farm measurements
 
-Field Shift does not stretch a 9 km or 50 km data product into a fake precision map of an individual field.
+Green Ally Project does not stretch a 9 km or 50 km data product into a fake precision map of an individual field.
 
 **Four evidence scales**
 
@@ -193,7 +193,7 @@ The result should make the next useful action visible while keeping calculations
 
 ## 🚀 The innovation: NASA data must change the answer
 
-Many agricultural dashboards display satellite maps beside generic crop recommendations. Field Shift's distinctive approach is to test **whether environmental evidence changes the ranking itself**.
+Many agricultural dashboards display satellite maps beside generic crop recommendations. Green Ally Project's distinctive approach is to test **whether environmental evidence changes the ranking itself**.
 
 The research prototype reports a **five-way ablation experiment** comparing: a full system; baseline climatology; satellite climate without unequal economic margins; economics-only ranking; and unconstrained ranking.
 
@@ -241,7 +241,7 @@ According to the supplied v3.3.1 scientific documentation, the prototype include
 - A **five-way ablation design** to compare the full model against simplified alternatives.
 - A deliberate refusal to convert missing observations into favorable scores.
 
-**A meaningful negative finding:** the source documents report approximately **51% rainfall underestimation by NASA POWER in Mandalay** in one benchmark. This makes uncorrected daily POWER rain unsuitable as a plot-level irrigation instruction. Field Shift surfaces such limitations rather than concealing them.
+**A meaningful negative finding:** the source documents report approximately **51% rainfall underestimation by NASA POWER in Mandalay** in one benchmark. This makes uncorrected daily POWER rain unsuitable as a plot-level irrigation instruction. Green Ally Project surfaces such limitations rather than concealing them.
 
 **Evidence boundary:** These figures are **project-reported in [`WHITEPAPER.md`](./WHITEPAPER.md)**, not independently reproduced in this README. Automated tests and historical benchmarks do not replace farmer trials, field soil-water measurements, or multi-location crop-yield validation.
 

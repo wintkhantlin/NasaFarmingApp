@@ -1,6 +1,6 @@
 # Comprehensive Scientific Integrity Audit
 
-**Project:** Field Shift — Adapting Farms with NASA Data  
+**Project:** Green Ally Project — Adapting Farms with NASA Data  
 **Lead Scientific Auditor:** AGENT 1 — Scientific Integrity Auditor  
 **Date:** November 2026  
 **Repository Scope:** `lib/engine/*`, `lib/nasa/*`, `lib/soil/*`, `lib/data/crops/*`, `docs/*`  
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary & Audit Methodology
 
-Field Shift is an agronomic decision-support platform designed to evaluate crop rotation strategies in Myanmar (focusing on the Ayeyarwady Delta, Central Dry Zone, and Shan Plateau) using Earth observation data from NASA (POWER, GPM IMERG, SMAP, ECOSTRESS, SRTM/NASADEM), European/USGS missions (Landsat, HLS, MODIS), and global soil gridded data (ISRIC SoilGrids v2).
+Green Ally Project is an agronomic decision-support platform designed to evaluate crop rotation strategies in Myanmar (focusing on the Ayeyarwady Delta, Central Dry Zone, and Shan Plateau) using Earth observation data from NASA (POWER, GPM IMERG, SMAP, ECOSTRESS, SRTM/NASADEM), European/USGS missions (Landsat, HLS, MODIS), and global soil gridded data (ISRIC SoilGrids v2).
 
 This scientific audit conducts an exhaustive, skeptical, and independent examination of every physical formula, empirical correlation, pedotransfer equation, decision algorithm, and economic model implemented in the repository.
 
@@ -431,6 +431,6 @@ $$Y_{\text{adj}} = [Y_{\min} \cdot \phi, \, Y_{\max} \cdot \phi]$$
 
 ## 15. Conclusion & Auditor Sign-Off
 
-The scientific codebase of Field Shift demonstrates exceptional agronomic integrity, rigorous mathematical implementations, and uncompromising adherence to missing-data ethics. Crucially, the system avoids the pitfall of substituting synthetic precision for missing ground truth: coarse satellite footprints are transparently labeled, mass conservation is strictly preserved across multi-horizon soil columns, and empirical limits are candidly scoped.
+The scientific codebase of Green Ally Project demonstrates exceptional agronomic integrity, rigorous mathematical implementations, and uncompromising adherence to missing-data ethics. Crucially, the system avoids the pitfall of substituting synthetic precision for missing ground truth: coarse satellite footprints are transparently labeled, mass conservation is strictly preserved across multi-horizon soil columns, and empirical limits are candidly scoped.
 
-Field Shift is certified as scientifically sound for decision support under the documented conditions and caveats.
+Green Ally Project is certified as scientifically sound for decision support under the documented conditions and caveats.

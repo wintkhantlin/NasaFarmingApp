@@ -1,5 +1,5 @@
 /**
- * Reproducible Experiments Harness for Field Shift Scientific Audit
+ * Reproducible Experiments Harness for Green Ally Project Scientific Audit
  * Executes Experiments A through G using real observational data.
  */
 import fs from "node:fs";
@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 
-console.log("=== FIELD SHIFT SCIENTIFIC EXPERIMENTS HARNESS ===");
+console.log("=== Green Ally Project SCIENTIFIC EXPERIMENTS HARNESS ===");
 console.log(`Working Directory: ${rootDir}`);
 
 // ---------------------------------------------------------------------------

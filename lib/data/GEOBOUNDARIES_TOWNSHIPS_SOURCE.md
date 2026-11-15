@@ -19,7 +19,7 @@
 - **PCode Mapping Status**: Marked as **unavailable**. Upstream geoBoundaries features do not provide official GAD/MIMU PCodes; source-specific identifiers (`GB-MMR-{shapeID}`) are assigned without fabricating administrative codes.
 - **Myanmar Unicode Names**: Unavailable in the upstream gbOpen release. Display defaults cleanly to Romanized township names.
 
-## Usage in Field Shift
+## Usage in Green Ally Project
 
 - Supplies geographic context and camera zoom in the farmer location picker.
 - Does not replace farm-level parcel boundaries: farmers draw and confirm their own field boxes or polygons.

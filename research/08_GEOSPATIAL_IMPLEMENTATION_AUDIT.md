@@ -1,4 +1,4 @@
-# Field Shift — Geospatial Data, Coordinate Reference Systems, Native Footprints, and Implementation Audit
+# Green Ally Project — Geospatial Data, Coordinate Reference Systems, Native Footprints, and Implementation Audit
 **Document ID:** `research/08_GEOSPATIAL_IMPLEMENTATION_AUDIT.md`  
 **Author:** AGENT 8 — Geospatial & Implementation Reviewer  
 **Audited Systems:** `lib/geo/*`, `lib/nasa/*`, `lib/conditions/*`, `components/field/*`, `components/map/*`, `lib/server/*`  
@@ -11,7 +11,7 @@
 
 In Earth Observation (EO) informed precision agriculture, the fundamental physical and mathematical contract rests upon spatial integrity: ensuring that data observed at different spatial resolutions (from 50 km global reanalysis grids to 30 m satellite multispectral pixels) are correctly projected, accurately bounded, rigorously clipped, and truthfully communicated to the end user without spatial scale conflation.
 
-This audit evaluates how geospatial data, coordinate reference systems (CRS), bounding footprints, pixel containment geometries, missing data policies, and presentation layers are designed and implemented in **Field Shift** (`nasafarmingapp`).
+This audit evaluates how geospatial data, coordinate reference systems (CRS), bounding footprints, pixel containment geometries, missing data policies, and presentation layers are designed and implemented in **Green Ally Project** (`nasafarmingapp`).
 
 ### Key Findings Matrix
 
@@ -114,7 +114,7 @@ When an invalid or non-agricultural parcel is entered (e.g., in the Andaman Sea 
 3. **NASA POWER (`lib/nasa/power.ts`):** MERRA-2 is a 50 km atmospheric reanalysis model. It successfully returns rainfall, temperature, and radiation for ocean cells or urban centers, allowing the crop rotation engine to simulate maize or chickpea growth in the middle of the Irrawaddy River or the Gulf of Mottama.
 
 ### 3.4 Remediation Blueprint
-To resolve this defect, Field Shift must implement an Agricultural Land Verification gate:
+To resolve this defect, Green Ally Project must implement an Agricultural Land Verification gate:
 - **Dataset:** Integrate a raster or STAC-based 10 m / 100 m land cover mask (e.g. ESA WorldCover 2021 Class 40: Cropland, or Dynamic World 10 m cropland/flooded vegetation probability).
 - **Client Gate (`LocationPicker`):** When the farmer confirms the boundary, sample the centroid and 5 interior points against the land cover layer. If the parcel exhibits $<10\%$ cropland probability, display `copy.validation.noLand` and offer an interactive prompt to adjust the boundary.
 
@@ -165,7 +165,7 @@ When reading Cloud-Optimized GeoTIFFs (COGs) from Microsoft Planetary Computer o
 ## 5. Native Footprint Representation vs Field Parcel Audit
 
 ### 5.1 Comprehensive Footprint Inventory Matrix
-Every dataset ingested by Field Shift operates at a distinct spatial support scale:
+Every dataset ingested by Green Ally Project operates at a distinct spatial support scale:
 
 | Sensor / Dataset | Native Spatial Resolution | Footprint Area (at $20^\circ\text{N}$) | Support Geometry | Physical Quantity & Meaning | UI Scale Badge |
 |:---|:---|:---|:---|:---|:---|
@@ -382,4 +382,4 @@ flowchart TD
 
 ## 8. Audit Sign-Off & Verification
 
-This audit confirms that Field Shift adheres to rigorous spatial data handling, accurate coordinate reference system projection, and transparent, truthful communication of satellite footprints. With the remediation of the agricultural land verification gate, the geospatial architecture meets the highest open-science standards of the NASA Space Act Agreement.
+This audit confirms that Green Ally Project adheres to rigorous spatial data handling, accurate coordinate reference system projection, and transparent, truthful communication of satellite footprints. With the remediation of the agricultural land verification gate, the geospatial architecture meets the highest open-science standards of the NASA Space Act Agreement.

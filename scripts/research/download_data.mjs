@@ -1,5 +1,5 @@
 /**
- * Reproducible Data Downloader for Field Shift Research
+ * Reproducible Data Downloader for Green Ally Project Research
  * Retrieves bounded NASA POWER daily observations for target agricultural fields in Myanmar.
  */
 import fs from "node:fs";

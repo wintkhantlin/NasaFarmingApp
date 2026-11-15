@@ -1,4 +1,4 @@
-# FIELD SHIFT: FINAL SCIENTIFIC ACCEPTANCE AND VALIDATION REPORT
+# Green Ally Project: FINAL SCIENTIFIC ACCEPTANCE AND VALIDATION REPORT
 
 **Challenge:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Primary Study Region:** Myanmar (Ayeyarwady Delta, Central Dry Zone, Shan Plateau)  
@@ -10,7 +10,7 @@
 
 ## 1. Executive Summary and Verdict
 
-This independent scientific audit was commissioned to critically examine, challenge, calibrate, and validate every scientific claim, formula, remote sensing pipeline, agro-ecological assumption, and decision algorithm underpinning **Field Shift**. 
+This independent scientific audit was commissioned to critically examine, challenge, calibrate, and validate every scientific claim, formula, remote sensing pipeline, agro-ecological assumption, and decision algorithm underpinning **Green Ally Project**. 
 
 Rather than treating NASA Earth Observations as a decorative overlay or marketing feature, this investigation subjected the system to empirical validation using:
 1. **18,260 station-day records** (2014–2023) across 5 NOAA Global Historical Climatology Network (GHCN) meteorological stations in Myanmar.
@@ -21,13 +21,13 @@ Rather than treating NASA Earth Observations as a decorative overlay or marketin
 ### The Verdict: SCIENTIFICALLY SOUND AFTER REMEDIATION
 The baseline system possessed sophisticated engineering and strong architectural foundations, but contained **two critical P0 gaps** (an ingestion bug discarding clear flooded scenes, and physical conflation of managed paddy ponding with flood disasters) and **several P1 agro-climatological misnomers** (labeling 14°C tropical nights as "frost risk", calculating hillslope sheet erosion in flat, bunded coastal basins, and relying on daily reanalysis precipitation in the Central Dry Zone).
 
-With the implementation of the **P0 clear-water coverage fix** in `lib/nasa/planetary-computer.ts`, the **P1 adaptive relative-scaling saturation guard** in `lib/engine/mcda.ts`, the **geomorphological decoupling of paddy ponding from flood hazards**, and the **explicit 3-tier spatial resolution contract**, Field Shift achieves genuine scientific credibility, defensible physics, and actionable decision utility for smallholder farming communities in Myanmar.
+With the implementation of the **P0 clear-water coverage fix** in `lib/nasa/planetary-computer.ts`, the **P1 adaptive relative-scaling saturation guard** in `lib/engine/mcda.ts`, the **geomorphological decoupling of paddy ponding from flood hazards**, and the **explicit 3-tier spatial resolution contract**, Green Ally Project achieves genuine scientific credibility, defensible physics, and actionable decision utility for smallholder farming communities in Myanmar.
 
 ---
 
 ## 2. Capability Status Classification Registry
 
-Every core capability of Field Shift is categorized into one of five rigorous scientific integrity classes:
+Every core capability of Green Ally Project is categorized into one of five rigorous scientific integrity classes:
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -109,7 +109,7 @@ Every core capability of Field Shift is categorized into one of five rigorous sc
 **Yes.** The application follows the strict **simplicity contract**: **decision $\to$ action $\to$ reason $\to$ evidence $\to$ method**. NASA acronyms (IMERG, SMAP, MNDWI, L2A) are translated into clear, actionable agricultural terminology in both English and Myanmar ("Rainfall Monitor," "Soil Moisture Estimate," "Flood Exposure").
 
 ### 13. Is the project scientifically credible for the NASA Space Apps Challenge?
-**Yes.** Field Shift exemplifies the highest standards of the NASA Space Apps Challenge: it leverages authentic NASA Earth Observation datasets, acknowledges their physical bounds, remedies known ingestion and decision bugs, and delivers actionable climate adaptation tools to vulnerable smallholder communities.
+**Yes.** Green Ally Project exemplifies the highest standards of the NASA Space Apps Challenge: it leverages authentic NASA Earth Observation datasets, acknowledges their physical bounds, remedies known ingestion and decision bugs, and delivers actionable climate adaptation tools to vulnerable smallholder communities.
 
 ### 14. What claims must be retracted or narrowed?
 1. **Retracted:** "Field-level real-time daily irrigation scheduling via satellite." (Precipitation daily correlation of $r = 0.154$ cannot support daily automated valve control).
@@ -179,4 +179,4 @@ tests/lib/
 - **Codebase Integrity:** 96 of 96 test suites passing (776/776 tests green).
 - **Type Safety:** 0 TypeScript compilation errors.
 - **Reproducibility:** All downloaders and empirical validation experiments reproduce identically via `node scripts/research/reproduce_experiments.mjs`.
-- **Peer Review Conclusion:** Field Shift is scientifically validated, physically grounded, and recommended for presentation at the NASA Space Apps Challenge 2026.
+- **Peer Review Conclusion:** Green Ally Project is scientifically validated, physically grounded, and recommended for presentation at the NASA Space Apps Challenge 2026.

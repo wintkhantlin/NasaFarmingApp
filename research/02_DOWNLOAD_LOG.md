@@ -1,5 +1,5 @@
 # Research Download Operation Log
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Agent:** AGENT 2 — NASA Data Research & Download Specialist  
 **Execution Timestamp:** 2026-11-15T12:15:00Z  
 **Target Region:** Ayeyarwady Delta, Myanmar (Pathein, Mawlamyinegyun, Hinthada, Myaungmya, Pyapon)  

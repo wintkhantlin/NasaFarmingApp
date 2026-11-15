@@ -1,5 +1,5 @@
 # Empirical NASA Decision Ablation Experiment: Evaluating Earth Observation Value in Myanmar Crop Rotations
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Specialist:** Agent 6 — Agronomy & Rotation Researcher  
 **Date:** 2026-11-15  
 **Target Document:** `research/06_NASA_DECISION_ABLATION.md`  
@@ -232,7 +232,7 @@ When a farmer's decision model assigns $\ge 50\%$ weight to income, a double-cro
 ---
 
 ### Root-Cause 2: Hard Constraint Gating Precedence
-In Field Shift's architecture (`lib/engine/limits.ts`, `lib/engine/farmer-decision.ts`), biophysical feasibility gates operate **prior to and independent of** numerical MCDA scoring:
+In Green Ally Project's architecture (`lib/engine/limits.ts`, `lib/engine/farmer-decision.ts`), biophysical feasibility gates operate **prior to and independent of** numerical MCDA scoring:
 - If a farmer has no irrigation pump, `ay-rice-irrigated-rice` is vetoed immediately ($\text{Status} = \text{infeasible}$).
 - If a parcel has poorly drained soil, `sesame` is vetoed immediately due to waterlogging intolerance ($1/5$).
 - If sowing dates fall outside the regional calendar window, the sequence is vetoed.
@@ -310,7 +310,7 @@ NASA Earth Observations provide undeniable, decisive value to Myanmar crop rotat
 2. **Dynamic Yield Discounting:** Coupling IMERG rainfall and POWER $ET_0$ through the FAO-33 $K_y$ model provides an objective, physics-based yield penalty that deflates inflated baseline economic expectations.
 3. **Paddy Handover Physics:** Satellite-derived root-zone soil saturation correctly models the moisture inheritance of post-paddy pulses, preventing false drought alarms during early vegetative growth.
 
-### 7.2 Actionable Recommendations for Field Shift Engine
+### 7.2 Actionable Recommendations for Green Ally Project Engine
 1. **Calibrate Regional MCDA Anchors:**
    - In `lib/engine/mcda.ts`, replace the static $400\text{ mm}$ shortfall limit with agro-ecologically tuned anchors:
      - Delta Post-Monsoon Window: Target $0\text{ mm}$, Limit $400\text{ mm}$.

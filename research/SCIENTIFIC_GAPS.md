@@ -1,6 +1,6 @@
-# SCIENTIFIC GAPS REGISTER: FIELD SHIFT
+# SCIENTIFIC GAPS REGISTER: Green Ally Project
 
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Scientific Research Orchestrator**  
 **Date of Audit:** November 15, 2026  
 **Geographic Focus:** Myanmar (Ayeyarwady Delta, Central Dry Zone, Shan Plateau)
@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary of Scientific Integrity Audit
 
-An exhaustive, multi-disciplinary scientific audit across 8 specialist research domains evaluated 46 mathematical formulations, 7 core NASA/Copernicus satellite products, 5 ground-truth NOAA GHCN meteorological stations (18,260 station-day records), and the complete computational decision pipeline of Field Shift.
+An exhaustive, multi-disciplinary scientific audit across 8 specialist research domains evaluated 46 mathematical formulations, 7 core NASA/Copernicus satellite products, 5 ground-truth NOAA GHCN meteorological stations (18,260 station-day records), and the complete computational decision pipeline of Green Ally Project.
 
 The investigation uncovered **12 distinct scientific gaps**, categorized into four severity tiers:
 - **P0 (Critical / Fatal Scientific Flaw):** 2 gaps (1 ingestion code defect, 1 remote sensing physics failure).

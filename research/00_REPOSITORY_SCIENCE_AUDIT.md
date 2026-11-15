@@ -1,5 +1,5 @@
 # Repository Scientific Audit & Architecture Baseline
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Scientific Research Orchestrator:** Independent Science Review  
 **Date:** 2026-11-15  
 **Git Branch:** `main`  
@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary & Audit Purpose
 
-Field Shift is designed as a farmer-centered, NASA-data-informed decision support system focused on Myanmar's agricultural systems, notably the Ayeyarwady Delta, Central Dry Zone (Magway/Mandalay), and upland environments.
+Green Ally Project is designed as a farmer-centered, NASA-data-informed decision support system focused on Myanmar's agricultural systems, notably the Ayeyarwady Delta, Central Dry Zone (Magway/Mandalay), and upland environments.
 
 This baseline audit evaluates the scientific integrity, mathematical correctness, physical plausibility, data lineage, and validation status of the system prior to autonomous specialist investigations and experimental remediation.
 

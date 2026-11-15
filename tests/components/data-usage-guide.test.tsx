@@ -22,7 +22,7 @@ describe("Data Route — What Data is Used & How Data is Used", () => {
     ).toBeTruthy();
   });
 
-  it("lists all core datasets used by Field Shift", () => {
+  it("lists all core datasets used by Green Ally Project", () => {
     render(<DataUsageGuide />);
 
     expect(screen.getByText(/NASA POWER Weather & Climate/i)).toBeTruthy();

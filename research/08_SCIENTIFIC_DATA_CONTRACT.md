@@ -1,4 +1,4 @@
-# Field Shift — Formal Scientific Data Contract
+# Green Ally Project — Formal Scientific Data Contract
 **Document ID:** `research/08_SCIENTIFIC_DATA_CONTRACT.md`  
 **Author:** AGENT 8 — Geospatial & Implementation Reviewer  
 **Governing Standard:** NASA Space Apps Challenge 2026 / NASA Space Act Agreement Evidence Contract  
@@ -10,7 +10,7 @@
 
 ## 1. Purpose, Architecture & Open-Science Principles
 
-The **Field Shift Scientific Data Contract** is the authoritative specification governing every scientific quantity, observation, model calculation, and risk assessment delivered by the application. 
+The **Green Ally Project Scientific Data Contract** is the authoritative specification governing every scientific quantity, observation, model calculation, and risk assessment delivered by the application. 
 
 ### Core Architectural Contracts
 1. **The Truthfulness Contract:** Coarse satellite and reanalysis observations (e.g. 50 km POWER, 9 km SMAP) must **never** be labeled or implied as field-parcel-level measurements. The application strictly distinguishes between `field_observation`, `local_proxy`, and `regional_context`.
@@ -22,7 +22,7 @@ The **Field Shift Scientific Data Contract** is the authoritative specification 
 
 ## 2. Machine-Readable Indicator Schema
 
-Every indicator in the Field Shift engine implements the following TypeScript interface (compatible with JSON Schema Draft 2020-12):
+Every indicator in the Green Ally Project engine implements the following TypeScript interface (compatible with JSON Schema Draft 2020-12):
 
 ```typescript
 export interface ScientificDataContract {

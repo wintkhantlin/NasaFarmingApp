@@ -117,7 +117,7 @@ def main():
         print(json.dumps({
             "status": "notice",
             "message": "Python libraries pystac_client/planetary_computer/rasterio not installed.",
-            "instructions": "Install via 'pip install pystac-client planetary-computer rasterio xarray' or use Field Shift's native TypeScript adapter in lib/nasa/planetary-computer.ts"
+            "instructions": "Install via 'pip install pystac-client planetary-computer rasterio xarray' or use Green Ally Project's native TypeScript adapter in lib/nasa/planetary-computer.ts"
         }, indent=2))
         return
 

@@ -1,5 +1,5 @@
 /**
- * Reproducible Data Validation Script for Field Shift Research
+ * Reproducible Data Validation Script for Green Ally Project Research
  * Audits downloaded NASA observations against physical ranges and QA masks.
  */
 import fs from "node:fs";

@@ -1,12 +1,12 @@
-/* Hallmark · v2.0.0 · redesign: full · scope: app · shape: app screen · posture: restrained · surface: absolute · system: Field Shift locked · light only · signature: field state and next action; compare: the season replay scoreboard */
+/* Hallmark · v2.0.0 · redesign: full · scope: app · shape: app screen · posture: restrained · surface: absolute · system: Green Ally Project locked · light only · signature: field state and next action; compare: the season replay scoreboard */
 /* Critique · the field flow had complete data but weak priority; this pass makes progress and the next useful action visible before supporting records. */
-/* Hallmark · waive 7b · locked Field Shift light tokens specify a white canvas with quiet neutral raised surfaces · outdoor field screens need measured contrast and green actions */
+/* Hallmark · waive 7b · locked Green Ally Project light tokens specify a white canvas with quiet neutral raised surfaces · outdoor field screens need measured contrast and green actions */
 /* Hallmark · waive 26b · no aria-disabled control appears in the field evidence note · Check locally is static field guidance with no interactive states to style */
 /* Hallmark · dropped #h2h-title, #compare · the scoreboard replaced that heading, and the comparison sits right under the answer, so a button that only scrolled to it went */
 @import "tailwindcss";
 
 /*
- * Field Shift tokens. Source of truth: DESIGN_SYSTEM.md (light values). The repo stays
+ * Green Ally Project tokens. Source of truth: DESIGN_SYSTEM.md (light values). The repo stays
  * light only (AGENTS.md): no dark palette, no prefers-color-scheme switch, and Tailwind's
  * `dark:` variant is bound to a class that is never set.
  */

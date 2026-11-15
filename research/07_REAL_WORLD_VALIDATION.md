@@ -1,5 +1,5 @@
 # Real-World Empirical Validation & Reproducibility Treatise
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Author:** Agent 7 — Real-World Validation Specialist & Reproducibility Reviewer  
 **Audit Standard:** Strict Empirical Verification, Anti-Leakage Protocol, Independent Ground-Truth Benchmarking  
 **Date:** 2026-11-15  
@@ -10,7 +10,7 @@
 ## 1. Executive Summary & Reviewer Mandate
 
 ### 1.1 Critical Mandate & Independence Contract
-In accordance with the scientific review charter of the Field Shift initiative, this treatise conducts an unsparing, independent empirical evaluation of every scientific claim, remote sensing dataset, reanalysis parameter, pedological model, and agronomic-economic assumption embedded in the repository. 
+In accordance with the scientific review charter of the Green Ally Project initiative, this treatise conducts an unsparing, independent empirical evaluation of every scientific claim, remote sensing dataset, reanalysis parameter, pedological model, and agronomic-economic assumption embedded in the repository. 
 
 **Under this mandate, no prior agent's conclusions are assumed to be correct.** 
 
@@ -104,7 +104,7 @@ At Yangon International, rainfall is recorded on only $604$ out of $3,167$ repor
 When automated scripts treat unrecorded days as missing rather than dry, standard contingency metrics collapse:
 - If unrecorded days are dropped, sample mean rainfall on recorded days is artificially skewed ($20.22\text{ mm/day}$ in Yangon).
 - If dry days are erroneously filtered, False Alarm Ratios cannot be computed.
-Field Shift's validation suite (`lib/validation/weather.ts`) correctly diagnosed this artifact, shifting to monthly aggregated totals on months with $\ge 90\%$ reporting completeness.
+Green Ally Project's validation suite (`lib/validation/weather.ts`) correctly diagnosed this artifact, shifting to monthly aggregated totals on months with $\ge 90\%$ reporting completeness.
 
 ```
 +----------------------------------------------------------------------------------------------------+
@@ -149,7 +149,7 @@ Yet in the corresponding NASA POWER reanalysis cell (`power_20.5_96.250.json`), 
 ## 3. Hydrological & Flood Hazard Ground-Truth Audit
 
 ### 3.1 Remote Sensing Physics: Optical QA Water Bitmasks vs. Monsoon Overcast
-Field Shift utilizes Landsat Collection 2 Level-2 Surface Reflectance and Harmonized Landsat Sentinel-2 (HLS) 30 m `QA_PIXEL` water bitmasks (Bit 7: Water) to detect surface water inundation.
+Green Ally Project utilizes Landsat Collection 2 Level-2 Surface Reflectance and Harmonized Landsat Sentinel-2 (HLS) 30 m `QA_PIXEL` water bitmasks (Bit 7: Water) to detect surface water inundation.
 While a 30 m spatial resolution is theoretically sufficient to resolve individual field parcels and water bodies, optical remote sensing faces an insurmountable physical barrier in tropical monsoon climates: **persistent cloud obscuration**.
 
 ```
@@ -295,7 +295,7 @@ The conversion factors embedded in the codebase were rigorously audited against 
 - **Acre to Hectare:** $1\text{ ha} = 2.47105\text{ acres}$ ($1\text{ acre} = 0.404686\text{ ha}$). Verified exact.
 
 ### 5.3 Range-Preserving Interval Arithmetic
-Field Shift calculates gross margins using interval arithmetic:
+Green Ally Project calculates gross margins using interval arithmetic:
 $$\text{Gross Margin} = [\text{Yield}_{min}, \text{Yield}_{max}] \times [\text{Price}_{min}, \text{Price}_{max}] - [\text{Cost}_{max}, \text{Cost}_{min}]$$
 This mathematical structure guarantees that optimistic yield assumptions are bounded by upper-bound input costs, preventing false certainty. The resulting margins align closely with IFPRI MAPSA farm profitability surveys conducted after the 2022–2024 urea fertilizer price spike.
 **Verdict:** The crop economics module is **VALIDATED** and represents an exemplary implementation of real-world empirical grounding.
@@ -316,7 +316,7 @@ $$\text{Slope} = \arctan\left(\sqrt{\left(\frac{\partial z}{\partial x}\right)^2
 ### 6.2 The Scientific Prohibition of Quantitative RUSLE ($A = RKLSCP$)
 In agronomic remote sensing, a common malpractice is calculating quantitative soil loss in tonnes per hectare using the Revised Universal Soil Loss Equation:
 $$A = R \times K \times LS \times C \times P$$
-Field Shift's architecture explicitly **prohibits** emitting soil loss in tonnes/ha.
+Green Ally Project's architecture explicitly **prohibits** emitting soil loss in tonnes/ha.
 **Forensic Defense of This Prohibition:**
 - While the rainfall erosivity factor ($R$) and topographic slope-length factor ($LS$) can be approximated from satellite grids, the soil erodibility factor ($K$) is inaccurate due to SoilGrids homogenization.
 - Crucially, the cropping cover factor ($C$) and conservation practice factor ($P$)—which account for whether a farmer has constructed stone bunds, vetiver grass strips, contour terraces, or practiced reduced tillage—**cannot be observed or verified from space**.
@@ -330,7 +330,7 @@ Field Shift's architecture explicitly **prohibits** emitting soil loss in tonnes
 ### 7.1 The Circularity Trap (Landsat-on-Landsat Leakage)
 Validation leakage occurs when an algorithm is evaluated against the same data source (or derivative) from which it was generated:
 - **Identified Risk:** Evaluating a Landsat QA_PIXEL water classification against an NDVI or NDWI raster computed from that exact same Landsat scene is circular self-verification, not ground-truth validation.
-- **Audit Verification:** Field Shift's validation framework avoids this trap. The flood evidence engine is explicitly benchmarked against independent UNOSAT Sentinel-1 SAR flood vectors and MIMU disaster damage reports.
+- **Audit Verification:** Green Ally Project's validation framework avoids this trap. The flood evidence engine is explicitly benchmarked against independent UNOSAT Sentinel-1 SAR flood vectors and MIMU disaster damage reports.
 
 ### 7.2 Atmospheric Reanalysis GTS Assimilation Leakage
 - **Identified Risk:** NASA POWER is derived from the MERRA-2 assimilation system. If MERRA-2 assimilates surface station observations from Yangon and Mandalay via the WMO Global Telecommunication System (GTS), comparing POWER against those stations could suffer from assimilation leakage.
@@ -368,7 +368,7 @@ The 44 scientific claims evaluated in `research/07_VALIDATION_MATRIX.csv` are su
 ## 9. Farmer Safety & Decision-Making Recommendations
 
 ### 9.1 Mandatory Scientific Caveats in User Interface
-To ensure farmer safety, the Field Shift frontend must strictly maintain the following disclosures:
+To ensure farmer safety, the Green Ally Project frontend must strictly maintain the following disclosures:
 1. **Rainfall Disclaimer:** *"Rainfall is regional gridded reanalysis for an area about 50 km across, not a rain gauge on this field. It cannot be used for daily irrigation timing."*
 2. **Deficit Disclaimer:** *"Screening deficit ($ET_c - P$) represents the atmospheric water gap, not the required field irrigation volume. Actual irrigation depends on your soil's starting water storage, water table depth, and canal access."*
 3. **Flood Disclaimer:** *"NASA satellites detect standing open water on clear days, but cannot measure flood depth, drainage speed, or crop destruction. Deliberately flooded rice fields appear identical to flood water from space."*
@@ -376,6 +376,6 @@ To ensure farmer safety, the Field Shift frontend must strictly maintain the fol
 5. **Erosion Disclaimer:** *"Topographic slope indicates runoff susceptibility based on satellite elevation data. Actual soil loss depends on farm bund maintenance, terracing, and tillage practices that cannot be seen from space."*
 
 ### 9.2 Independent Scientific Verdict
-Field Shift's underlying architecture is characterized by remarkable scientific maturity. Where global datasets fail (e.g. SoilGrids texture homogenization, NASA POWER precipitation undercatch, optical flood cloud blindness), the system's software architecture enforces defensive truthfulness gates, refuses to fabricate deterministic numbers (such as tonnes/ha of erosion or daily irrigation millimeters), and elevates the farmer's local knowledge as the ultimate validation authority.
+Green Ally Project's underlying architecture is characterized by remarkable scientific maturity. Where global datasets fail (e.g. SoilGrids texture homogenization, NASA POWER precipitation undercatch, optical flood cloud blindness), the system's software architecture enforces defensive truthfulness gates, refuses to fabricate deterministic numbers (such as tonnes/ha of erosion or daily irrigation millimeters), and elevates the farmer's local knowledge as the ultimate validation authority.
 
 The system is scientifically certified for screening-level decision support, subject to the transparent disclosures outlined in this treatise.

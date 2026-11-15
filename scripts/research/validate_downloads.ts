@@ -1,5 +1,5 @@
 /**
- * Field Shift - NASA Earth Observation Data Validation Script
+ * Green Ally Project - NASA Earth Observation Data Validation Script
  *
  * Verifies downloaded & predownloaded scientific datasets across:
  * 1. NASA POWER Daily Meteorology (integrity, bounds, continuity, fill values)
@@ -32,7 +32,7 @@ function sha256(buf: Buffer | string): string {
 
 export async function validateAllDatasets(): Promise<ValidationSummary> {
   console.log("===============================================================================");
-  console.log("       FIELD SHIFT: SCIENTIFIC DATASET INTEGRITY & VALIDATION SUITE            ");
+  console.log("       Green Ally Project: SCIENTIFIC DATASET INTEGRITY & VALIDATION SUITE            ");
   console.log("===============================================================================\n");
 
   const summary: ValidationSummary = {

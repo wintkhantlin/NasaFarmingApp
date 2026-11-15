@@ -1,5 +1,5 @@
 # NASA Earth Observation & Environmental Data Inventory
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Agent:** AGENT 2 — NASA Data Research & Download Specialist  
 **Verification Date:** 2026-11-15  
 **Geographic Domain:** Myanmar Heartland (Ayeyarwady Delta priority hubs, Central Dry Zone, Shan Highlands, Bago)  
@@ -67,7 +67,7 @@
 - **Scale Factor & Fill Value:** Direct float values; Fill value `-999.0`.
 - **Quality Assurance & Ground-Truth Calibration:**
   - Validated against NOAA GHCN-Daily Myanmar stations (`data/validation/power-vs-ghcn.json`).
-  - In the Central Dry Zone (Mandalay station `BMM00048042`), NASA POWER `PRECTOTCORR` exhibits a severe relative bias of **-50.9%** (underestimating convective monsoonal showers). Field Shift applies an explicit farmer-facing caveat for Dry Zone parcels.
+  - In the Central Dry Zone (Mandalay station `BMM00048042`), NASA POWER `PRECTOTCORR` exhibits a severe relative bias of **-50.9%** (underestimating convective monsoonal showers). Green Ally Project applies an explicit farmer-facing caveat for Dry Zone parcels.
   - Days with $T_{\max} \ge 36^\circ\text{C}$ have rough correspondence with ground thermometers and trigger cautionary notices.
 
 ---
@@ -121,7 +121,7 @@
   - Bits 10–11: Cloud Shadow Confidence
   - Bits 12–13: Snow/Ice Confidence
   - Bits 14–15: Cirrus Confidence
-- **Field Shift Screening Policy:**
+- **Green Ally Project Screening Policy:**
   - Reject all pixels with Bit 0 (fill), Bit 1 (dilated cloud), Bit 2 (cirrus), Bit 3 (cloud), Bit 4 (shadow), Bit 5 (snow), or Bit 7 (water).
   - Require parcel valid area fraction $f_{\text{valid}} \ge 0.25$ (`MIN_VALID_COVERAGE`). Scenes with $< 25\%$ clear pixels are dropped to avoid boundary cloud fringe contamination.
 

@@ -1,6 +1,6 @@
 # SCIENTIFIC CORRECTIONS AND CODE REMEDIATIONS
 
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Scientific Research Orchestrator**  
 **Date:** November 15, 2026  
 **Scope:** Applied production code corrections, algorithmic fixes, and verification test proofs.

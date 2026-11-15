@@ -1,5 +1,5 @@
 # Evidence Register: Ground-Truth Datasets, Benchmarks & Validation Repositories
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Author:** Agent 7 — Real-World Validation Specialist & Reproducibility Auditor  
 **Date:** 2026-11-15  
 **Audit Standard:** Independent Empirical Verification & Anti-Leakage Protocol  
@@ -134,4 +134,4 @@
 
 ## 6. Audit Sign-Off
 
-The evidence registered above constitutes the sole independent basis against which all scientific claims, satellite datasets, reanalysis engines, and economic models within Field Shift are evaluated. No synthetic data, unverified model outputs, or self-referential satellite products are admitted as ground truth.
+The evidence registered above constitutes the sole independent basis against which all scientific claims, satellite datasets, reanalysis engines, and economic models within Green Ally Project are evaluated. No synthetic data, unverified model outputs, or self-referential satellite products are admitted as ground truth.

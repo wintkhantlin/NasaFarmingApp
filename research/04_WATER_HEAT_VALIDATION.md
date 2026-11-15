@@ -1,5 +1,5 @@
 # Scientific Validation Report: Water Stress, Thermal Dynamics & Decision-Changing Capacity of NASA Earth Observations
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Author:** Agent 4 — Water Stress & Heat Specialist  
 **Deliverable ID:** `04_WATER_HEAT_VALIDATION.md`  
 **Date:** November 2026  
@@ -50,13 +50,13 @@ NASA observations provide an indispensable, objective macro-lens that can fundam
    The $50\text{ km}$ POWER meteorological grid and $9\text{ km}$ SMAP L4 soil moisture grid detect regional agricultural drought with high utility in the Central Dry Zone, where drought is driven by synoptic monsoon breaks. Conversely, in the Ayeyarwady Delta, agricultural hydrology is governed by sub-kilometer micro-topography, tidal sluice gates, and polder embankments. SMAP's $9\text{ km}$ footprint cannot resolve whether a specific field is flooded, drained, or saline-intruded.
 
 5. **The "Low NDVI" Fallacy:**  
-   A drop in NDVI **does not equal agricultural drought**. In tropical monsoonal cropping, low NDVI is frequently triggered by cloud shadow artifacts, post-harvest bare soil, or—most crucially—**field flooding and rice puddling** (where standing water absorbs near-infrared radiation, driving NDVI toward negative values). Field Shift correctly protects against this by combining Fmask/QA pixel decoding, separate inland water masking, and multi-index cross-checks (NDMI).
+   A drop in NDVI **does not equal agricultural drought**. In tropical monsoonal cropping, low NDVI is frequently triggered by cloud shadow artifacts, post-harvest bare soil, or—most crucially—**field flooding and rice puddling** (where standing water absorbs near-infrared radiation, driving NDVI toward negative values). Green Ally Project correctly protects against this by combining Fmask/QA pixel decoding, separate inland water masking, and multi-index cross-checks (NDMI).
 
 ---
 
 ## 2. Mathematical & Thermodynamic Formulations of Water Stress
 
-The Field Shift hydrologic engine (`lib/engine/et0.ts`, `lib/engine/water.ts`) implements a layered hierarchy of reference evapotranspiration ($ET_0$), potential crop demand ($ET_c$), dynamic depletion thresholds ($p$), and soil water balance compartments.
+The Green Ally Project hydrologic engine (`lib/engine/et0.ts`, `lib/engine/water.ts`) implements a layered hierarchy of reference evapotranspiration ($ET_0$), potential crop demand ($ET_c$), dynamic depletion thresholds ($p$), and soil water balance compartments.
 
 ```
                ┌──────────────────────────────────────────────────┐
@@ -181,7 +181,7 @@ export const methodNote =
 3. Capillary rise from shallow groundwater tables in the Delta.
 4. Transmission losses and application efficiency in irrigation delivery.
 
-Calling $ET_c - P$ an "irrigation instruction" would lead to severe under-irrigation (neglecting delivery inefficiency) or unnecessary pumping (neglecting residual soil water). Field Shift correctly restricts its presentation to an atmospheric deficit indicator.
+Calling $ET_c - P$ an "irrigation instruction" would lead to severe under-irrigation (neglecting delivery inefficiency) or unnecessary pumping (neglecting residual soil water). Green Ally Project correctly restricts its presentation to an atmospheric deficit indicator.
 
 ---
 
@@ -205,7 +205,7 @@ $$p = \text{clamp}\Big( p_{\text{base}} + 0.04 \times (5 - ET_c), \, 0.1, \, 0.8
 
 ### 2.4 Multi-Zone Mass-Conserving Hydrologic Columns
 
-Field Shift models soil hydrology across three architectural tiers:
+Green Ally Project models soil hydrology across three architectural tiers:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -242,11 +242,11 @@ Field Shift models soil hydrology across three architectural tiers:
 ## 3. Thermal Dynamics: Heat, Cold, GDD, and Canopy Microclimate
 
 ### 3.1 Growing Degree Days (GDD) Formulation
-Growing Degree Days quantify phenological development. In `lib/engine/climate.ts`, Field Shift implements the **McMaster and Wilhelm (1997) two-sided clamping convention**:
+Growing Degree Days quantify phenological development. In `lib/engine/climate.ts`, Green Ally Project implements the **McMaster and Wilhelm (1997) two-sided clamping convention**:
 
 $$\text{GDD} = \max\left(0, \, \frac{\min(T_{\text{upper}}, \max(T_{\text{base}}, T_{max})) + \min(T_{\text{upper}}, \max(T_{\text{base}}, T_{min}))}{2} - T_{\text{base}}\right)$$
 
-*Physical Justification:* Simple formulas that clamp only $T_{max}$ or apply a single ceiling allow warm night temperatures ($T_{min} > T_{\text{upper}}$) to cause asymmetrical overshoot, artificially accelerating simulated phenology. Field Shift clamps both extrema into $[T_{\text{base}}, T_{\text{upper}}]$.
+*Physical Justification:* Simple formulas that clamp only $T_{max}$ or apply a single ceiling allow warm night temperatures ($T_{min} > T_{\text{upper}}$) to cause asymmetrical overshoot, artificially accelerating simulated phenology. Green Ally Project clamps both extrema into $[T_{\text{base}}, T_{\text{upper}}]$.
 
 ```typescript
 // Sourced parameters from lib/data/crops/myanmar.ts:
@@ -341,7 +341,7 @@ $$T_c - T_a = \frac{r_a}{\rho c_p} \Big( R_n - G - \lambda E \Big)$$
 *The Critical Danger of 2 m Reanalysis Data:*  
 A farmer inspecting NASA POWER data in early May might observe a maximum 2 m air temperature of $34\text{ }^\circ\text{C}$, below the critical $35\text{ }^\circ\text{C}$ rice flowering threshold. However, if the field is experiencing moisture depletion, **the canopy temperature reaches $37\text{ to }39\text{ }^\circ\text{C}$**, inducing total floret sterility while the remote-sensing screen indicates safe conditions.
 
-Field Shift mitigates this by embedding explicit physical education in `components/field/conditions/risk-panels/heat-cold-panel.tsx`:
+Green Ally Project mitigates this by embedding explicit physical education in `components/field/conditions/risk-panels/heat-cold-panel.tsx`:
 > *"Dry soils and water-stressed plants can experience canopy temperatures 2–5 °C higher than air temperature, while irrigated crops transpire to cool the canopy."*
 
 ---
@@ -461,8 +461,8 @@ A widespread error in remote-sensing agriculture is assuming that a decline in t
 Pure water has near-zero reflectance in the near-infrared ($\rho_{NIR} < 0.02$) and low reflectance in the red ($\rho_{RED} \approx 0.05$). Consequently, **a flooded paddy field prior to rice transplanting produces an NDVI between $-0.1$ and $+0.1$**.  
 If an uncalibrated algorithm treats low NDVI as drought, it flags the wettest, most well-watered field in the region as suffering catastrophic drought.
 
-### 6.2 Architectural Safeguards in Field Shift
-Field Shift implements multi-layered radiometric defenses (`lib/nasa/derive/ndvi.ts`, `lib/nasa/qa/hls-fmask.ts`, `lib/nasa/qa/modis-vi.ts`):
+### 6.2 Architectural Safeguards in Green Ally Project
+Green Ally Project implements multi-layered radiometric defenses (`lib/nasa/derive/ndvi.ts`, `lib/nasa/qa/hls-fmask.ts`, `lib/nasa/qa/modis-vi.ts`):
 1. **Fmask & QA Pixel Decoding:** Cloud (bit 1), adjacent cloud/shadow (bit 2), cloud shadow (bit 3), and high aerosols (bits 6-7) are strictly dropped before vegetation analysis.
 2. **Dedicated Water Classification:** Water pixels (Fmask bit 5, MODIS land/water mask values 3, 4, 5) are segregated into an independent water counter (`waterPixels`). Flooded rice fields are tracked as surface water, never lumped into bare soil or vegetation stress.
 3. **Parcel Area Coverage Threshold (`MIN_VALID_COVERAGE = 0.25`):**  
@@ -500,7 +500,7 @@ To determine whether NASA data can alter real-world farming outcomes, we evaluat
 ### 7.1 Decision 1: Strategic Crop Rotation (Dry Zone Farmer)
 - **The Farmer's Dilemma:** A farmer in Myingyan is considering planting commercial hybrid maize versus drought-tolerant sesame/pigeon pea on rainfed upland.
 - **NASA Data Impact:** Long-term POWER reanalysis reveals that Myingyan receives only $498\text{ mm}$ mean annual rainfall, with monthly demand ($ET_0$) exceeding rainfall in 10 out of 12 months, and an average of 191 days/year exceeding $35\text{ }^\circ\text{C}$.
-- **Decision Outcome:** Field Shift's MCDA engine scores maize as agronomically non-viable due to severe seasonal water deficit ($ET_c \approx 650\text{ mm}$ vs. $P \approx 380\text{ mm}$ in season) and flowering heat sensitivity ($35\text{ }^\circ\text{C}$). The farmer selects a sesame-pigeon pea intercrop, avoiding total capital loss of seed and fertilizer inputs.
+- **Decision Outcome:** Green Ally Project's MCDA engine scores maize as agronomically non-viable due to severe seasonal water deficit ($ET_c \approx 650\text{ mm}$ vs. $P \approx 380\text{ mm}$ in season) and flowering heat sensitivity ($35\text{ }^\circ\text{C}$). The farmer selects a sesame-pigeon pea intercrop, avoiding total capital loss of seed and fertilizer inputs.
 
 ### 7.2 Decision 2: Thermal Evasion Sowing Window (Dry Zone Summer Rice / Pulse)
 - **The Farmer's Dilemma:** When to sow irrigated summer rice or pre-monsoon green gram in Magway.
@@ -514,13 +514,13 @@ To determine whether NASA data can alter real-world farming outcomes, we evaluat
 
 ### 7.4 Decision 4: Daily Irrigation Scheduling
 - **The Farmer's Dilemma:** "Should I run my diesel pump for 4 hours today?"
-- **NASA Data Impact:** **ZERO.** NASA POWER rainfall has a daily correlation of only $0.16$ with ground station precipitation in Mandalay. A thunderstorm may have dumped $40\text{ mm}$ on the field while the $50\text{ km}$ NASA grid cell reports $2\text{ mm}$. Relying on satellite reanalysis to turn on a pump would waste costly diesel fuel or desiccate crops. Field Shift strictly blocks this use case.
+- **NASA Data Impact:** **ZERO.** NASA POWER rainfall has a daily correlation of only $0.16$ with ground station precipitation in Mandalay. A thunderstorm may have dumped $40\text{ mm}$ on the field while the $50\text{ km}$ NASA grid cell reports $2\text{ mm}$. Relying on satellite reanalysis to turn on a pump would waste costly diesel fuel or desiccate crops. Green Ally Project strictly blocks this use case.
 
 ---
 
 ## 8. Alignment with Design Principles & The Simplicity Contract
 
-Field Shift adheres to the design contract established in `DESIGN_SYSTEM.md` and `AGENTS.md`:
+Green Ally Project adheres to the design contract established in `DESIGN_SYSTEM.md` and `AGENTS.md`:
 
 $$\mathbf{\text{Decision} \longrightarrow \text{Action} \longrightarrow \text{Reason} \longrightarrow \text{Evidence} \longrightarrow \text{Method}}$$
 
@@ -528,7 +528,7 @@ $$\mathbf{\text{Decision} \longrightarrow \text{Action} \longrightarrow \text{Re
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                        FARMER-FACING SIMPLICITY CONTRACT AUDIT                         │
 ├─────────────────┬──────────────────────────────────────────────────────────────────────┤
-│ Contract Tier   │ Implementation in Field Shift UI                                     │
+│ Contract Tier   │ Implementation in Green Ally Project UI                                     │
 ├─────────────────┼──────────────────────────────────────────────────────────────────────┤
 │ 1. Decision     │ Plain-language status chip ("2 dry months", "70 days >= 35 °C").     │
 ├─────────────────┼──────────────────────────────────────────────────────────────────────┤
@@ -566,4 +566,4 @@ $$\mathbf{\text{Decision} \longrightarrow \text{Action} \longrightarrow \text{Re
 
 NASA Earth observations possess immense, transformative value for smallholder agriculture in developing nations like Myanmar—**provided they are treated as macro-scale climatic intelligence rather than micro-scale automated controllers**.
 
-By grounding Penman-Monteith thermodynamics in rigorous physics, building multi-compartment mass-conserving soil models, disclosing canopy microclimate divergence, and enforcing strict human-in-the-loop validation for daily actions, Field Shift bridges the gap between petabytes of NASA space data and the hands of a farmer standing in a tropical field.
+By grounding Penman-Monteith thermodynamics in rigorous physics, building multi-compartment mass-conserving soil models, disclosing canopy microclimate divergence, and enforcing strict human-in-the-loop validation for daily actions, Green Ally Project bridges the gap between petabytes of NASA space data and the hands of a farmer standing in a tropical field.

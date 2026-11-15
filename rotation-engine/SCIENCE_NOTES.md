@@ -1,6 +1,6 @@
 # FieldShift — Crop-Rotation Scientific Notes & Model Architecture
 
-> **Decision Support Notice:** Field Shift is an agronomic decision support engine developed with open NASA Earth Observation data and regional agricultural statistics. It models physical and economic dynamics of crop sequences, but does not offer an agronomic yield or financial guarantee. Farmer field checks always take precedence.
+> **Decision Support Notice:** Green Ally Project is an agronomic decision support engine developed with open NASA Earth Observation data and regional agricultural statistics. It models physical and economic dynamics of crop sequences, but does not offer an agronomic yield or financial guarantee. Farmer field checks always take precedence.
 
 ---
 

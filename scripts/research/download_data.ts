@@ -1,5 +1,5 @@
 /**
- * Field Shift - NASA Data Research & Download Script
+ * Green Ally Project - NASA Data Research & Download Script
  *
  * Downloads and archives real Earth observation datasets for Ayeyarwady Delta agricultural hubs:
  * - NASA POWER daily point meteorology (v2.10.3 API)
@@ -162,7 +162,7 @@ function computeSha256(content: string): string {
 }
 
 async function main() {
-  console.log("=== FIELD SHIFT: NASA EARTH OBSERVATION DATA DOWNLOADER ===");
+  console.log("=== Green Ally Project: NASA EARTH OBSERVATION DATA DOWNLOADER ===");
   console.log(`Focus Area: Ayeyarwady Delta (${TARGET_SITES.length} target sites)`);
 
   const dataDir = join(process.cwd(), "research", "data");

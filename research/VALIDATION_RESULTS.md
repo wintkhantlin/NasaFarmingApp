@@ -1,6 +1,6 @@
-# SCIENTIFIC VALIDATION RESULTS: FIELD SHIFT
+# SCIENTIFIC VALIDATION RESULTS: Green Ally Project
 
-**Project:** Field Shift — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
+**Project:** Green Ally Project — Adapting Farms with NASA Data (NASA Space Apps Challenge 2026)  
 **Lead Scientific Research Orchestrator**  
 **Date:** November 15, 2026  
 **Empirical Basis:** 5 NOAA GHCN weather stations (18,260 station-day records, 2014–2023), 7 NASA/Copernicus products, Cyclone Komen 2015 historical disaster data, and 5-way decision engine ablation tests.
@@ -77,7 +77,7 @@ Validation Status Breakdown (44 Evaluated Claims):
 - **Results:**
   - *Dry Zone Advective Season (March–April):* Hargreaves-Samani underestimates ET0 by **24.6%** (4.8 mm/day vs 6.37 mm/day Penman-Monteith). Root cause: Hargreaves ignores severe vapor pressure deficits (RH < 25%) and high wind speeds ($u_2 > 3.2\text{ m/s}$).
   - *Delta Humid Monsoon (July–August):* Hargreaves-Samani overestimates ET0 by **18.2%** (4.1 mm/day vs 3.47 mm/day Penman-Monteith) due to high diffuse solar radiation attenuation by persistent monsoon cloud layers.
-- **Remediation Outcome:** Field Shift standardizes on FAO-56 Penman-Monteith using NASA POWER's full radiation, humidity, and wind vector suite.
+- **Remediation Outcome:** Green Ally Project standardizes on FAO-56 Penman-Monteith using NASA POWER's full radiation, humidity, and wind vector suite.
 
 ---
 
