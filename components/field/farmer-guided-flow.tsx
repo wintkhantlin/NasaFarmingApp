@@ -709,8 +709,8 @@ export function FarmerGuidedFlow({
             })}
           </div>
 
-          <div className="flex justify-between gap-3 border-t border-line pt-4">
-            <Button variant="secondary" onClick={() => setStep(1)} className="min-h-tap">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 border-t border-line pt-4">
+            <Button variant="secondary" onClick={() => setStep(1)} className="min-h-tap w-full sm:w-auto">
               Back
             </Button>
             <Button
@@ -719,7 +719,7 @@ export function FarmerGuidedFlow({
               iconEnd="next"
               disabled={selectedCandidate.feasibility.status === "infeasible"}
               onClick={() => setStep(3)}
-              className="min-h-tap"
+              className="min-h-tap w-full sm:w-auto"
             >
               Continue with {selectedCandidate.title}
             </Button>
@@ -781,8 +781,8 @@ export function FarmerGuidedFlow({
             </ul>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-            <Button variant="secondary" onClick={() => setStep(2)} className="min-h-tap">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-line pt-4">
+            <Button variant="secondary" onClick={() => setStep(2)} className="min-h-tap w-full sm:w-auto">
               Back to options
             </Button>
             <Button
@@ -803,7 +803,7 @@ export function FarmerGuidedFlow({
                   setSavingPlan(false);
                 }
               }}
-              className="min-h-tap"
+              className="min-h-tap w-full sm:w-auto"
             >
               {savingPlan ? "Saving plan…" : "Save this plan"}
             </Button>

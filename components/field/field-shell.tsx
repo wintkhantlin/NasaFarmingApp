@@ -65,7 +65,7 @@ export function FieldShell({ children }: { children: ReactNode }) {
       {field ? (
         <nav
           aria-label={`Pages for ${field.name}`}
-          className="sticky top-14 z-20 -mx-4 border-y border-line bg-surface px-4 sm:top-16 sm:-mx-6 sm:px-6 print:hidden"
+          className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 border-y border-line bg-surface px-4 sm:top-[calc(4rem+env(safe-area-inset-top))] sm:-mx-6 sm:px-6 print:hidden"
         >
           <ul className="m-0 grid grid-cols-4 list-none gap-0 p-0 sm:flex sm:gap-1">
             {TABS.map((tab) => {

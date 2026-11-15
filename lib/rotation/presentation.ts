@@ -1,4 +1,4 @@
-import { en } from "@/app/(app)/plan/messages";
+import { en } from "@/lib/rotation/plan-messages";
 
 export type Scenario = {
   proposed_crops: string[];

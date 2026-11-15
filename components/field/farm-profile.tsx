@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FieldPageHeader } from "@/components/field/field-page-header";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Message } from "@/components/ui/message";
+import { Disclosure } from "@/components/ui/disclosure";
+import { clearDraft, readDraft, writeDraft } from "@/lib/store/form-drafts";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -20,6 +22,7 @@ import { copy } from "@/lib/copy/en";
 import { getCropById, strategyCrops, getRealWorldCropEconomics } from "@/lib/data/crops";
 import type { SoilProfile } from "@/lib/soil/soilgrids";
 import { SUB_CRITERION } from "@/lib/engine/mcda";
+import { PriorityOrder } from "@/components/field/priority-order";
 import { constraintsSchema, economicsSchema, prioritiesSchema, soilObservationSchema } from "@/lib/schemas/field";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
 import { ValidationError } from "@/lib/store/repository";
@@ -115,7 +118,120 @@ interface EconDraft {
   source: string;
 }
 
-const blankSoil = () => ({ property: "ph" as SoilProperty, value: "", depthFrom: "0", depthTo: "20", date: new Date().toISOString().slice(0, 10), method: "laboratory" as SoilObservation["method"], source: "" });
+interface SoilDraftState {
+  property: SoilProperty;
+  value: string;
+  depthFrom: string;
+  depthTo: string;
+  /** Left blank on purpose: the date and method belong to the test, so the farmer picks them. */
+  date: string;
+  method: SoilObservation["method"] | "";
+  source: string;
+}
+
+/** Everything the profile form holds, so unsaved answers can be carried across a remount. */
+interface ProfileDraft {
+  order: PriorityId[];
+  included: PriorityId[];
+  soilSub: SoilSub[];
+  incomeSub: IncomeSub[];
+  irrigation: Irrigation;
+  irrigationMm: string;
+  depletionMm: string;
+  pumpRate: string;
+  pumpEff: string;
+  pumpHours: string;
+  bundMm: string;
+  seepage: string;
+  equipment: string[];
+  labour: "low" | "medium" | "high" | "";
+  market: "poor" | "fair" | "good" | "";
+  preferred: string[];
+  excluded: string[];
+  winFrom: string;
+  winTo: string;
+  asked: { market: boolean; household: boolean; labour: boolean; land: boolean };
+  canSell: string[];
+  mustGrow: string[];
+  peak: number[];
+  tenure: "owned" | "leased";
+  leaseYears: string;
+  soil: SoilObservation[];
+  soilPh: string;
+  soilTexture: string;
+  soilSalinity: string;
+  auto: { ph: boolean; texture: boolean };
+  soilDraft: SoilDraftState;
+  econ: EconDraft[];
+}
+
+/** The top 20 cm is the usual topsoil test depth, so it is the one default kept here. */
+const blankSoil = (): SoilDraftState => ({ property: "ph", value: "", depthFrom: "0", depthTo: "20", date: "", method: "", source: "" });
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/**
+ * A month and day, stored as "MM-DD" (the same value the planning engine has always read).
+ * Partial entries stay in the box; the stored value is only set once the day fits the month.
+ */
+function MonthDayField({ label, value, onChange }: { label: string; value: string; onChange: (next: string) => void }) {
+  const [parts, setParts] = useState(() => {
+    const m = /^(\d{2})-(\d{2})$/.exec(value);
+    return { mm: m ? m[1] : "", dd: m ? String(Number(m[2])) : "" };
+  });
+  const maxDay = parts.mm ? DAYS_IN_MONTH[Number(parts.mm) - 1] : 31;
+  const day = Number(parts.dd);
+  const dayFits = parts.dd === "" || (Number.isInteger(day) && day >= 1 && day <= maxDay);
+  const dayError = !dayFits
+    ? parts.mm
+      ? `${MONTHS[Number(parts.mm) - 1]} has ${maxDay} days at most.`
+      : "Enter a day from 1 to 31."
+    : null;
+
+  const update = (next: { mm: string; dd: string }) => {
+    setParts(next);
+    const d = Number(next.dd);
+    const limit = next.mm ? DAYS_IN_MONTH[Number(next.mm) - 1] : 31;
+    const complete = next.mm !== "" && next.dd !== "" && Number.isInteger(d) && d >= 1 && d <= limit;
+    onChange(complete ? `${next.mm}-${String(d).padStart(2, "0")}` : "");
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-label text-ink">{label}</span>
+      <div className="grid grid-cols-2 gap-2">
+        <TextField
+          select
+          size="small"
+          label="Month"
+          value={parts.mm}
+          onChange={(e) => update({ ...parts, mm: e.target.value })}
+          slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
+        >
+          <option value="" disabled>
+            Choose
+          </option>
+          {MONTHS.map((m, i) => (
+            <option key={m} value={String(i + 1).padStart(2, "0")}>
+              {m}
+            </option>
+          ))}
+        </TextField>
+        <TextField
+          size="small"
+          label="Day"
+          type="number"
+          value={parts.dd}
+          onChange={(e) => update({ ...parts, dd: e.target.value })}
+          error={!dayFits}
+          helperText={dayError ?? (parts.mm && !parts.dd ? "Add the day too." : undefined)}
+          slotProps={{ htmlInput: { min: 1, max: maxDay, inputMode: "numeric" } }}
+        />
+      </div>
+    </div>
+  );
+}
 
 /**
  * "Your farm": priorities, constraints, soil measurements and local price/yield/cost ranges.
@@ -163,56 +279,63 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
   const [soilMap, setSoilMap] = useState<SoilProfile | null>(null);
   const [soilMapStatus, setSoilMapStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const p = field.priorities;
-  const [order, setOrder] = useState<PriorityId[]>(() => [...(p?.order ?? []), ...PRIORITY_IDS.filter((x) => !p?.order.includes(x))]);
-  const [included, setIncluded] = useState<Set<PriorityId>>(() => new Set(p?.order ?? []));
-  const [soilSub, setSoilSub] = useState<Set<SoilSub>>(() => new Set(p?.soil ?? []));
-  const [incomeSub, setIncomeSub] = useState<Set<IncomeSub>>(() => new Set(p?.income ?? []));
-  const [irrigation, setIrrigation] = useState<Irrigation>(field.constraints?.irrigation?.access ?? field.irrigation);
-  const [irrigationMm, setIrrigationMm] = useState(field.constraints?.irrigation?.amountMm?.toString() ?? "");
-  const [depletionMm, setDepletionMm] = useState(field.constraints?.soilDepletionAtPlantingMm?.toString() ?? "");
-  const [pumpRate, setPumpRate] = useState(field.constraints?.irrigation?.pump?.rateM3H?.toString() ?? "");
-  const [pumpEff, setPumpEff] = useState(field.constraints?.irrigation?.pump?.efficiency?.toString() ?? "");
-  const [pumpHours, setPumpHours] = useState(field.constraints?.irrigation?.pump?.hoursAvailable?.toString() ?? "");
-  const [bundMm, setBundMm] = useState(field.constraints?.paddy?.bundMm?.toString() ?? "");
-  const [seepage, setSeepage] = useState(field.constraints?.paddy?.seepagePercolationMmDay?.toString() ?? "");
-  const [equipment, setEquipment] = useState<Set<string>>(() => new Set(field.constraints?.equipment ?? []));
-  const [labour, setLabour] = useState<"low" | "medium" | "high" | "">(field.constraints?.labour ?? "");
-  const [market, setMarket] = useState<"poor" | "fair" | "good" | "">(field.constraints?.marketAccess ?? "");
-  const [preferred, setPreferred] = useState<string[]>(field.constraints?.preferredCropIds ?? []);
-  const [excluded, setExcluded] = useState<string[]>(field.constraints?.excludedCropIds ?? []);
-  const [winFrom, setWinFrom] = useState(field.constraints?.plantingWindow?.from ?? "");
-  const [winTo, setWinTo] = useState(field.constraints?.plantingWindow?.to ?? "");
-  const [asked, setAsked] = useState(() => ({
+  // Answers typed on an earlier visit in this session (for example before going back to the previous step) win over the saved values.
+  const draftKey = `profile:${field.id}`;
+  const draft = readDraft<ProfileDraft>(draftKey);
+  const [order, setOrder] = useState<PriorityId[]>(() => draft?.order ?? [...(p?.order ?? []), ...PRIORITY_IDS.filter((x) => !p?.order.includes(x))]);
+  const [included, setIncluded] = useState<Set<PriorityId>>(() => new Set(draft ? draft.included : (p?.order ?? [])));
+  const [soilSub, setSoilSub] = useState<Set<SoilSub>>(() => new Set(draft ? draft.soilSub : (p?.soil ?? [])));
+  const [incomeSub, setIncomeSub] = useState<Set<IncomeSub>>(() => new Set(draft ? draft.incomeSub : (p?.income ?? [])));
+  const [irrigation, setIrrigation] = useState<Irrigation>(draft?.irrigation ?? field.constraints?.irrigation?.access ?? field.irrigation);
+  const [irrigationMm, setIrrigationMm] = useState(draft?.irrigationMm ?? field.constraints?.irrigation?.amountMm?.toString() ?? "");
+  const [depletionMm, setDepletionMm] = useState(draft?.depletionMm ?? field.constraints?.soilDepletionAtPlantingMm?.toString() ?? "");
+  const [pumpRate, setPumpRate] = useState(draft?.pumpRate ?? field.constraints?.irrigation?.pump?.rateM3H?.toString() ?? "");
+  const [pumpEff, setPumpEff] = useState(draft?.pumpEff ?? field.constraints?.irrigation?.pump?.efficiency?.toString() ?? "");
+  const [pumpHours, setPumpHours] = useState(draft?.pumpHours ?? field.constraints?.irrigation?.pump?.hoursAvailable?.toString() ?? "");
+  const [bundMm, setBundMm] = useState(draft?.bundMm ?? field.constraints?.paddy?.bundMm?.toString() ?? "");
+  const [seepage, setSeepage] = useState(draft?.seepage ?? field.constraints?.paddy?.seepagePercolationMmDay?.toString() ?? "");
+  const [equipment, setEquipment] = useState<Set<string>>(() => new Set(draft ? draft.equipment : (field.constraints?.equipment ?? [])));
+  const [labour, setLabour] = useState<"low" | "medium" | "high" | "">(draft?.labour ?? field.constraints?.labour ?? "");
+  const [market, setMarket] = useState<"poor" | "fair" | "good" | "">(draft?.market ?? field.constraints?.marketAccess ?? "");
+  const [preferred, setPreferred] = useState<string[]>(draft?.preferred ?? field.constraints?.preferredCropIds ?? []);
+  const [excluded, setExcluded] = useState<string[]>(draft?.excluded ?? field.constraints?.excludedCropIds ?? []);
+  const [winFrom, setWinFrom] = useState(draft?.winFrom ?? field.constraints?.plantingWindow?.from ?? "");
+  const [winTo, setWinTo] = useState(draft?.winTo ?? field.constraints?.plantingWindow?.to ?? "");
+  const [asked, setAsked] = useState(() => draft?.asked ?? {
     market: field.constraints?.canSell !== undefined,
     household: field.constraints?.mustGrow !== undefined,
     labour: field.constraints?.peakMonths !== undefined,
     land: field.constraints?.land !== undefined,
-  }));
-  const [canSell, setCanSell] = useState<string[]>(field.constraints?.canSell ?? []);
-  const [mustGrow, setMustGrow] = useState<string[]>(field.constraints?.mustGrow ?? []);
-  const [peak, setPeak] = useState<Set<number>>(() => new Set(field.constraints?.peakMonths ?? []));
-  const [tenure, setTenure] = useState<"owned" | "leased">(field.constraints?.land?.tenure ?? "owned");
-  const [leaseYears, setLeaseYears] = useState(field.constraints?.land?.leaseYears?.toString() ?? "");
-  const [soil, setSoil] = useState<SoilObservation[]>(field.soilObservations ?? []);
+  });
+  const [canSell, setCanSell] = useState<string[]>(draft?.canSell ?? field.constraints?.canSell ?? []);
+  const [mustGrow, setMustGrow] = useState<string[]>(draft?.mustGrow ?? field.constraints?.mustGrow ?? []);
+  const [peak, setPeak] = useState<Set<number>>(() => new Set(draft ? draft.peak : (field.constraints?.peakMonths ?? [])));
+  const [tenure, setTenure] = useState<"owned" | "leased">(draft?.tenure ?? field.constraints?.land?.tenure ?? "owned");
+  const [leaseYears, setLeaseYears] = useState(draft?.leaseYears ?? field.constraints?.land?.leaseYears?.toString() ?? "");
+  const [soil, setSoil] = useState<SoilObservation[]>(draft?.soil ?? field.soilObservations ?? []);
   const [soilPh, setSoilPh] = useState(() => {
+    if (draft) return draft.soilPh;
     if (field.soilOverride?.ph !== undefined) return field.soilOverride.ph.toString();
     const obs = field.soilObservations?.find((o) => o.property === "ph");
     return obs && typeof obs.value === "number" ? obs.value.toString() : "";
   });
   const [soilTexture, setSoilTexture] = useState<string>(() => {
+    if (draft) return draft.soilTexture;
     if (field.soilOverride?.texture) return field.soilOverride.texture;
     const obs = field.soilObservations?.find((o) => o.property === "texture");
     return obs && typeof obs.value === "string" ? obs.value : "";
   });
   const [soilSalinity, setSoilSalinity] = useState(() => {
+    if (draft) return draft.soilSalinity;
     if (field.soilOverride?.salinityDsM !== undefined) return field.soilOverride.salinityDsM.toString();
     const obs = field.soilObservations?.find((o) => o.property === "salinity");
     return obs && typeof obs.value === "number" ? obs.value.toString() : "";
   });
   // true while the value in the box is the map estimate we filled in, not something the farmer entered
-  const [auto, setAuto] = useState({ ph: false, texture: false });
-  const [soilDraft, setSoilDraft] = useState(blankSoil);
+  const [auto, setAuto] = useState(draft?.auto ?? { ph: false, texture: false });
+  const [soilDraft, setSoilDraft] = useState<SoilDraftState>(() => draft?.soilDraft ?? blankSoil());
   const [econ, setEcon] = useState<EconDraft[]>(() =>
+    draft?.econ ??
     (field.economics ?? []).map((e) => ({
       cropId: e.cropId,
       yieldLo: e.yieldKgHa?.[0]?.toString() ?? "",
@@ -227,6 +350,25 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Unsaved edits are kept in memory when this form unmounts (for example going back a step), so nothing typed is lost.
+  const unsavedRef = useRef(false);
+  const snapshot: ProfileDraft = {
+    order, included: [...included], soilSub: [...soilSub], incomeSub: [...incomeSub], irrigation, irrigationMm, depletionMm,
+    pumpRate, pumpEff, pumpHours, bundMm, seepage, equipment: [...equipment], labour, market, preferred, excluded,
+    winFrom, winTo, asked, canSell, mustGrow, peak: [...peak], tenure, leaseYears, soil, soilPh, soilTexture, soilSalinity,
+    auto, soilDraft, econ,
+  };
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  });
+  useEffect(
+    () => () => {
+      if (unsavedRef.current) writeDraft(draftKey, snapshotRef.current);
+    },
+    [draftKey],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -264,15 +406,9 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
     return [...crops.values()];
   }, [region, rotations]);
 
-  const touch = () => setSaved(false);
-  const move = (id: PriorityId, dir: -1 | 1) => {
-    touch();
-    const i = order.indexOf(id);
-    const j = i + dir;
-    if (j < 0 || j >= order.length) return;
-    const next = [...order];
-    [next[i], next[j]] = [next[j], next[i]];
-    setOrder(next);
+  const touch = () => {
+    unsavedRef.current = true;
+    setSaved(false);
   };
   const toggle = <T,>(set: Set<T>, v: T, apply: (s: Set<T>) => void) => {
     touch();
@@ -286,10 +422,27 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
     const d = soilDraft;
     const isText = d.property === "texture" || d.property === "drainage";
     const value = isText ? d.value.trim() : num(d.value);
+    // Ask for each missing part by name rather than letting the schema report the first problem it finds.
+    if (value === undefined || value === "") {
+      setError(`Enter the ${copy.profile.soilProperty[d.property].toLowerCase()} you measured.`);
+      return;
+    }
+    if (!d.date) {
+      setError("Pick the date the soil was measured.");
+      return;
+    }
+    if (!d.method) {
+      setError("Choose how it was measured: lab, field kit, map or your own estimate.");
+      return;
+    }
+    if (!d.source.trim()) {
+      setError("Say where this value came from, such as the lab name or “my own test”.");
+      return;
+    }
     const candidate = {
       id: crypto.randomUUID(),
       property: d.property,
-      value: value ?? "",
+      value,
       units: SOIL_UNITS[d.property],
       depthCm: [num(d.depthFrom) ?? 0, num(d.depthTo) ?? 0] as [number, number],
       date: d.date,
@@ -297,8 +450,8 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
       source: d.source,
     };
     const parsed = soilObservationSchema.safeParse(candidate);
-    if (!parsed.success || value === undefined || value === "") {
-      setError(parsed.success ? "Enter a value." : (parsed.error.issues[0]?.message ?? "Check the measurement."));
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Check the measurement.");
       return;
     }
     setError(null);
@@ -472,6 +625,8 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
         economics.push(economicsSchema.parse(row));
       }
       await update(field.id, { priorities, constraints, irrigation, soilOverride, soilObservations: updatedSoil, economics });
+      unsavedRef.current = false;
+      clearDraft(draftKey);
       setSoil(updatedSoil);
       setSaved(true);
       if (openConditions) router.push(`/fields/${field.id}/compare`);
@@ -502,24 +657,16 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
       </nav>
 
       <Panel as="section" aria-labelledby="priorities" className="flex flex-col gap-3 p-4 sm:p-6">
-        <PanelHeader id="priorities" title={<span className="inline-flex items-center gap-2"><Icon name="priorities" />{copy.profile.prioritiesTitle}</span>} description="Choose what matters. Move the most important item to the top." />
-        <ol className="m-0 flex list-none flex-col gap-2 p-0">
-          {order.map((id, i) => (
-            <li key={id} className="flex min-h-tap flex-wrap items-center gap-2 rounded-md border border-line bg-surface px-3">
-              <span className="tabular font-mono text-source text-ink-muted">{i + 1}</span>
-              <Icon name={PRIORITY_ICON[id]} className="text-ink-muted" />
-              <FormControlLabel
-                className="min-w-0 flex-1"
-                control={<Checkbox checked={included.has(id)} onChange={() => toggle(included, id, setIncluded)} />}
-                label={copy.profile.priority[id]}
-              />
-              <Button variant="quiet" aria-label={`${copy.profile.moveUp}: ${copy.profile.priority[id]}`} onClick={() => move(id, -1)} disabled={i === 0}>
-                ↑
-              </Button>
-              <Button variant="quiet" aria-label={`${copy.profile.moveDown}: ${copy.profile.priority[id]}`} onClick={() => move(id, 1)} disabled={i === order.length - 1}>
-                ↓
-              </Button>
-              {included.has(id) && (id === "soil" || id === "income") ? (
+        <PanelHeader id="priorities" title={<span className="inline-flex items-center gap-2"><Icon name="priorities" />{copy.profile.prioritiesTitle}</span>} description="Choose what matters and put it in order. The first one counts most." />
+        <PriorityOrder
+          value={order.filter((x) => included.has(x))}
+          onChange={(next) => {
+            touch();
+            setOrder([...next, ...PRIORITY_IDS.filter((x) => !next.includes(x))]);
+            setIncluded(new Set(next));
+          }}
+          renderDetail={(id) =>
+        (id === "soil" || id === "income") ? (
                 <fieldset className="m-0 flex w-full basis-full flex-col gap-0 border-0 p-0 pb-2 pl-6">
                   <legend className="sr-only">{copy.profile.priority[id]}: {copy.profile.subHelp}</legend>
                   <p className="m-0 text-body-sm text-ink-muted">{copy.profile.subHelp}</p>
@@ -538,26 +685,17 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
                     </div>
                   ))}
                 </fieldset>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+              ) : null
+          }
+        />
       </Panel>
 
       <Panel as="section" aria-labelledby="constraints" className="flex flex-col gap-4 p-4 sm:p-6">
         <PanelHeader id="constraints" title={<span className="inline-flex items-center gap-2"><Icon name="water" />Water and work</span>} />
         <Segmented legend={copy.profile.irrigationLabel} value={irrigation} onChange={(v) => { touch(); setIrrigation(v); }} options={IRRIGATION_OPTIONS} />
         {irrigation !== "none" ? (
-          <>
-            <TextField label={copy.profile.irrigationAmountLabel} value={irrigationMm} onChange={(e) => { touch(); setIrrigationMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-            <TextField label={copy.profile.pumpRateLabel} value={pumpRate} onChange={(e) => { touch(); setPumpRate(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-            <TextField label={copy.profile.pumpEfficiencyLabel} value={pumpEff} onChange={(e) => { touch(); setPumpEff(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, max: 1, step: 0.05 } }} />
-            <TextField label={copy.profile.pumpHoursLabel} value={pumpHours} onChange={(e) => { touch(); setPumpHours(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-          </>
+          <TextField label={copy.profile.irrigationAmountLabel} value={irrigationMm} onChange={(e) => { touch(); setIrrigationMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText="Optional. A rough figure is fine." />
         ) : null}
-        <TextField label={copy.profile.soilDepletionLabel} value={depletionMm} onChange={(e) => { touch(); setDepletionMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-        <TextField label={copy.profile.paddyBundLabel} value={bundMm} onChange={(e) => { touch(); setBundMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
-        <TextField label={copy.profile.paddySeepageLabel} value={seepage} onChange={(e) => { touch(); setSeepage(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} />
         <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
           <legend className="mb-1 inline-flex items-center gap-2 text-label text-ink"><Icon name="equipment" />{copy.profile.equipmentLabel}</legend>
           <div className="flex flex-wrap gap-x-4">
@@ -586,10 +724,31 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
             ))}
           </TextField>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label={copy.profile.windowFrom} value={winFrom} onChange={(e) => { touch(); setWinFrom(e.target.value); }} size="small" placeholder="05-15" />
-          <TextField label={copy.profile.windowTo} value={winTo} onChange={(e) => { touch(); setWinTo(e.target.value); }} size="small" placeholder="07-31" />
+        <div className="flex flex-col gap-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MonthDayField label={copy.profile.windowFrom} value={winFrom} onChange={(v) => { touch(); setWinFrom(v); }} />
+            <MonthDayField label={copy.profile.windowTo} value={winTo} onChange={(v) => { touch(); setWinTo(v); }} />
+          </div>
+          <p className="m-0 text-body-sm text-ink-muted">Optional. Only if you have a usual planting time. Both ends are needed to keep it.</p>
         </div>
+        <Disclosure
+          title="Advanced water and paddy settings"
+          hint="Optional"
+          defaultOpen={[pumpRate, pumpEff, pumpHours, depletionMm, bundMm, seepage].some((v) => v !== "")}
+        >
+          {irrigation !== "none" ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label={copy.profile.pumpRateLabel} value={pumpRate} onChange={(e) => { touch(); setPumpRate(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText="Water your pump moves per hour." />
+              <TextField label={copy.profile.pumpHoursLabel} value={pumpHours} onChange={(e) => { touch(); setPumpHours(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText="Hours per season the pump can run." />
+              <TextField label={copy.profile.pumpEfficiencyLabel} value={pumpEff} onChange={(e) => { touch(); setPumpEff(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0, max: 100, step: "any" } }} helperText="Type 60 or 0.6. Fill all three pump boxes or none." />
+            </div>
+          ) : null}
+          <TextField label={copy.profile.soilDepletionLabel} value={depletionMm} onChange={(e) => { touch(); setDepletionMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText="Leave blank if you do not know. The app will estimate it or say what is missing." />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField label={copy.profile.paddyBundLabel} value={bundMm} onChange={(e) => { touch(); setBundMm(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText="Paddy only. Fill both paddy boxes or neither." />
+            <TextField label={copy.profile.paddySeepageLabel} value={seepage} onChange={(e) => { touch(); setSeepage(e.target.value); }} size="small" type="number" slotProps={{ htmlInput: { min: 0 } }} helperText="Paddy only. Water lost through the soil each day." />
+          </div>
+        </Disclosure>
       </Panel>
 
       <Panel as="details" id="limits" className="p-4 sm:p-6">
@@ -764,18 +923,21 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
               </MenuItem>
             ))}
           </TextField>
-          <TextField label={`Value${SOIL_UNITS[soilDraft.property] ? ` (${SOIL_UNITS[soilDraft.property]})` : ""}`} value={soilDraft.value} onChange={(e) => setSoilDraft({ ...soilDraft, value: e.target.value })} size="small" />
-          <TextField label="Depth from (cm)" value={soilDraft.depthFrom} onChange={(e) => setSoilDraft({ ...soilDraft, depthFrom: e.target.value })} size="small" type="number" />
-          <TextField label="Depth to (cm)" value={soilDraft.depthTo} onChange={(e) => setSoilDraft({ ...soilDraft, depthTo: e.target.value })} size="small" type="number" />
-          <TextField label="Date" value={soilDraft.date} onChange={(e) => setSoilDraft({ ...soilDraft, date: e.target.value })} size="small" type="date" slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField select label="How it was measured" value={soilDraft.method} onChange={(e) => setSoilDraft({ ...soilDraft, method: e.target.value as SoilObservation["method"] })} size="small">
+          <TextField label={`Value${SOIL_UNITS[soilDraft.property] ? ` (${SOIL_UNITS[soilDraft.property]})` : ""}`} value={soilDraft.value} onChange={(e) => setSoilDraft({ ...soilDraft, value: e.target.value })} size="small" required helperText="Required. The number on the test." />
+          <TextField label="Depth from (cm)" value={soilDraft.depthFrom} onChange={(e) => setSoilDraft({ ...soilDraft, depthFrom: e.target.value })} size="small" type="number" helperText="Top layer starts at 0." />
+          <TextField label="Depth to (cm)" value={soilDraft.depthTo} onChange={(e) => setSoilDraft({ ...soilDraft, depthTo: e.target.value })} size="small" type="number" helperText="20 is the usual topsoil depth." />
+          <TextField label="Date measured" value={soilDraft.date} onChange={(e) => setSoilDraft({ ...soilDraft, date: e.target.value })} size="small" type="date" required slotProps={{ inputLabel: { shrink: true } }} helperText="The day of the test, not today." />
+          <TextField select label="How it was measured" value={soilDraft.method} onChange={(e) => setSoilDraft({ ...soilDraft, method: e.target.value as SoilDraftState["method"] })} size="small" required>
+            <MenuItem value="" disabled>
+              Choose one
+            </MenuItem>
             {(Object.keys(copy.profile.soilMethod) as Array<SoilObservation["method"]>).map((m) => (
               <MenuItem key={m} value={m}>
                 {copy.profile.soilMethod[m]}
               </MenuItem>
             ))}
           </TextField>
-          <TextField label="Where it came from" value={soilDraft.source} onChange={(e) => setSoilDraft({ ...soilDraft, source: e.target.value })} size="small" className="sm:col-span-2" />
+          <TextField label="Where it came from" value={soilDraft.source} onChange={(e) => setSoilDraft({ ...soilDraft, source: e.target.value })} size="small" required className="sm:col-span-2" helperText="Required. For example the lab name, or “my own test”." />
         </div>
         <div>
           <Button variant="secondary" onClick={addSoil}>
@@ -800,7 +962,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
                 Bayintnaung Wholesale, MPBMSMA, and Department of Agriculture indicative farm-gate prices.
               </span>
             </div>
-            <Button variant="secondary" size="md" onClick={loadRealWorldPrices}>
+            <Button variant="secondary" size="md" onClick={loadRealWorldPrices} className="w-full sm:w-auto justify-center">
               <Icon name="estimate" size={16} />Fill with market estimates
             </Button>
           </div>

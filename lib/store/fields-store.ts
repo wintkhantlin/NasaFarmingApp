@@ -1,5 +1,6 @@
 "use client";
 
+import { currentRotation } from "@/lib/rotation-format";
 import { create } from "zustand";
 import { createRepository, ValidationError, type NewField, type Repository } from "./repository";
 import { indexedDbStorage } from "./storage";
@@ -121,6 +122,7 @@ export const useFieldsStore = create<FieldsState>()((set, get) => ({
 
 export const EMPTY_ROTATIONS: Rotation[] = [];
 
+
 /** Safe hook to access rotations for a field with cached snapshot equality */
 export function useFieldRotations(fieldId: string): Rotation[] {
   const rotations = useFieldsStore((s) => s.rotations[fieldId]);
@@ -136,7 +138,7 @@ export function deriveStepStates(field: Field | undefined, fieldRotations: Rotat
     return { location: "not-started", rotation: "not-started", profile: "not-started", conditions: "not-started", compare: "not-started" };
   }
 
-  const hasRotation = Boolean(fieldRotations && fieldRotations.length > 0 && fieldRotations[0].slots.length > 0);
+  const hasRotation = Boolean(currentRotation(fieldRotations));
   const hasPriorities = (field.priorities?.order.length ?? 0) > 0;
 
   return {

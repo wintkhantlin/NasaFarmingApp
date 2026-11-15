@@ -3,7 +3,8 @@ import TextField from "@mui/material/TextField";
 import { CropCalendar } from "@/components/field/crop-calendar";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Provenance, ScopeBadge } from "@/components/ui/provenance";
+import { IndicatorCard } from "@/components/ui/indicator-card";
+import { ScopeBadge } from "@/components/ui/provenance";
 import { Message } from "@/components/ui/message";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { copy } from "@/lib/copy/en";
@@ -25,14 +26,6 @@ const LEVEL: Record<FitLevel, { hazard: Hazard; word: string }> = {
   tolerated: { hazard: "drought", word: "Tolerated" },
   outside: { hazard: "heat", word: "Outside range" },
   unknown: { hazard: "drought", word: "Unknown" },
-};
-
-const KIND_TAGS: Record<string, string> = {
-  observation: "Satellite",
-  "model-estimate": "Weather model",
-  "farmer-report": "You told us",
-  "soil-test": "Soil test",
-  scenario: "What-if",
 };
 
 export function YourCallMarker({
@@ -89,41 +82,22 @@ export function YourCallMarker({
           <p className="text-source text-ink font-medium">
             Add what you see on your land (saved to your adviser report):
           </p>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             <TextField
               slotProps={{ htmlInput: { "aria-label": "Local field observation for adviser report" } }}
               value={disagreeText}
               onChange={(e) => setDisagreeText(e.target.value)}
               placeholder="e.g. Canal water is available here until February"
               size="small"
-              className="flex-1"
+              className="w-full sm:flex-1"
             />
-            <Button variant="primary" onClick={handleSaveDisagreement} disabled={!disagreeText.trim()}>
+            <Button variant="primary" onClick={handleSaveDisagreement} disabled={!disagreeText.trim()} className="w-full sm:w-auto">
               {saved ? "Saved" : "Save note"}
             </Button>
           </div>
         </div>
       ) : null}
     </div>
-  );
-}
-
-function UnitExplanation({ units }: { units?: string }) {
-  if (!units) return null;
-  const clean = units.trim().toLowerCase();
-  let explanation = "";
-  if (clean.includes("mm")) {
-    explanation = "1 mm of rain is about 1 litre of water on each square metre of soil.";
-  } else if (clean.includes("kg n/ha") || clean.includes("kg/ha")) {
-    explanation = "Kilograms per hectare. 100 kg/ha is about 40 kg per acre.";
-  } else if (clean.includes("mmk")) {
-    explanation = "Myanmar Kyat.";
-  }
-  if (!explanation) return null;
-  return (
-    <p className="m-0 text-source text-ink-muted italic">
-      What this means: {explanation}
-    </p>
   );
 }
 
@@ -498,25 +472,11 @@ export function OptionDetail({
       <div className="grid gap-4 lg:grid-cols-2">
         <Section id={`${o.id}-evidence`} title={copy.compare.evidenceTitle}>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {o.evidence.map((ev) => {
-              const kindTag = KIND_TAGS[ev.indicator.kind] ?? ev.indicator.kind;
-              return (
-                <li key={ev.id} className="flex flex-col gap-1.5 border-b border-line pb-3.5 last:border-0 last:pb-0">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="m-0 text-label text-ink">{ev.claim}</p>
-                    <span className="inline-flex items-center rounded-pill border border-line-strong bg-surface px-2.5 py-0.5 text-source font-medium text-ink-muted">
-                      {kindTag}
-                    </span>
-                  </div>
-                  <p className="tabular m-0 font-mono text-data text-ink">
-                    {ev.indicator.value === null ? copy.provenance.unknown : `${ev.indicator.value} ${ev.indicator.units}`}
-                  </p>
-                  <UnitExplanation units={ev.indicator.units} />
-                  {ev.comparedTo ? <p className="m-0 text-body-sm text-ink-muted">{ev.comparedTo}</p> : null}
-                  <Provenance indicator={ev.indicator} />
-                </li>
-              );
-            })}
+            {o.evidence.map((ev) => (
+              <li key={ev.id} className="border-b border-line pb-3.5 last:border-0 last:pb-0">
+                <IndicatorCard indicator={ev.indicator} claim={ev.claim} comparedTo={ev.comparedTo} />
+              </li>
+            ))}
           </ul>
         </Section>
 

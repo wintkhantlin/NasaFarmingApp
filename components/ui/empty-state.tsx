@@ -19,7 +19,11 @@ export function EmptyState({ title, body, children, className }: EmptyStateProps
     >
       <h2 className="text-balance text-title text-ink">{title}</h2>
       <p className="m-0 max-w-measure text-body text-ink-muted">{body}</p>
-      {children ? <div className="flex flex-wrap gap-2 pt-2">{children}</div> : null}
+      {children ? (
+        <div className="flex w-full flex-col flex-wrap gap-2 pt-2 sm:w-auto sm:flex-row [&>a]:w-full sm:[&>a]:w-auto [&>button]:w-full sm:[&>button]:w-auto">
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }

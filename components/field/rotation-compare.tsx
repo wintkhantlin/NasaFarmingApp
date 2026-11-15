@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Icon, type IconName } from "@/components/ui/icon";
+import { Icon } from "@/components/ui/icon";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { FIT_HAZARD, OptionDetail } from "@/components/field/option-detail";
 import { StatusTag } from "@/components/ui/status";
 import { LimitSummary } from "@/components/field/limit-checks";
 import { CheckLocally } from "@/components/field/check-locally";
-import { SeasonStrip } from "@/components/field/season-strip";
 import { WhatIf, WhatIfBanner } from "@/components/field/what-if";
 import { applyScenario, NO_SCENARIO, isNeutral, type Scenario } from "@/lib/engine/scenario";
 import { whatIfResult } from "@/lib/engine/what-if";
-import { knownCount, seasonStrip, stressedCount } from "@/lib/engine/strip";
 import { checkLimits, type LimitCheck } from "@/lib/engine/limits";
 import { buttonClass } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -27,11 +25,13 @@ import { getCropById } from "@/lib/data/crops";
 import { monthlyNormals } from "@/lib/engine/climate";
 import { compareRotations, type EvaluatedOption } from "@/lib/engine/compare";
 import { BASELINE } from "@/lib/engine/data";
-import { adaptComparison, type DisplayOption } from "@/lib/plan/engine-display";
+import { ComparisonResults } from "@/components/field/results/comparison-results";
+import { buildResultsModel } from "@/lib/plan/results-model";
+import { adaptComparison } from "@/lib/plan/engine-display";
 import { CRITERIA } from "@/lib/engine/mcda";
-import { formatSpan, slotName } from "@/lib/rotation-format";
+import { slotName } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
-import type { Field, Rotation } from "@/lib/types";
+import type { Rotation } from "@/lib/types";
 
 const unknown = "Not known";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -61,94 +61,6 @@ function placeName(region: string) {
   return "this place";
 }
 
-/** How an option differs from the farmer's rotation, in words. Only differences both sides have evidence for. */
-function differences(opt: EvaluatedOption, now: EvaluatedOption): string[] {
-  const out: string[] = [];
-  const a = opt.metrics["water-shortfall"] ?? null;
-  const b = now.metrics["water-shortfall"] ?? null;
-  if (a !== null && b !== null) {
-    const d = Math.round(Math.abs(a - b));
-    if (d < 5) out.push(copy.compare.diffWaterSame);
-    else out.push(a < b ? copy.compare.diffWaterLess(d) : copy.compare.diffWaterMore(d));
-  }
-  if (opt.dryYear.evaluated > 0 && opt.dryYear.evaluated === now.dryYear.evaluated) {
-    const d = opt.dryYear.passes - now.dryYear.passes;
-    if (d > 0) out.push(copy.compare.diffDryMore(d));
-    if (d < 0) out.push(copy.compare.diffDryFewer(-d));
-  }
-  const cover = Math.round((opt.structure.coveredShare - now.structure.coveredShare) * 100);
-  if (Math.abs(cover) >= 5) out.push(cover > 0 ? copy.compare.diffCoverMore(cover) : copy.compare.diffCoverLess(-cover));
-  if (opt.structure.cropSlots > 0 && now.structure.cropSlots > 0 && opt.structure.legumeSlots !== now.structure.legumeSlots) {
-    out.push(copy.compare.diffLegumes(opt.structure.legumeSlots, opt.structure.cropSlots, now.structure.legumeSlots, now.structure.cropSlots));
-  }
-  const m = opt.economics.cycleMarginMmkHa;
-  const n = now.economics.cycleMarginMmkHa;
-  if (m && n) {
-    const d = Math.round((m[0] + m[1]) / 2 - (n[0] + n[1]) / 2);
-    if (Math.abs(d) >= 1000) out.push(d > 0 ? copy.compare.diffMarginMore(mmk(d)) : copy.compare.diffMarginLess(mmk(-d)));
-  }
-  if (opt.forage.forageSlots !== now.forage.forageSlots) {
-    const d = opt.forage.forageSlots - now.forage.forageSlots;
-    out.push(d > 0 ? copy.compare.diffFodderMore(d) : copy.compare.diffFodderFewer(-d));
-  }
-  return out.length > 0 ? out : [copy.compare.diffNone];
-}
-
-interface Figure {
-  label: string;
-  value: string;
-}
-
-function keyFigures(o: EvaluatedOption, strip: ReturnType<typeof seasonStrip>): Figure[] {
-  const out: Figure[] = [
-    { label: copy.compare.numbersRain, value: o.metrics["water-shortfall"] == null ? unknown : `${fmt(o.metrics["water-shortfall"])} mm` },
-    { label: copy.compare.numbersDry, value: o.dryYear.evaluated === 0 ? unknown : `${o.dryYear.passes} of ${o.dryYear.evaluated}` },
-    { label: copy.compare.numbersSeasons, value: keySeasonCount(strip) },
-    { label: copy.compare.numbersCover, value: pct(o.structure.coveredShare) },
-  ];
-  if (o.structure.cropSlots > 0) {
-    out.push({ label: copy.compare.numbersLegumes, value: `${o.structure.legumeSlots} of ${o.structure.cropSlots}` });
-  }
-  const m = o.economics.cycleMarginMmkHa;
-  if (m) out.push({ label: "Estimated return after listed costs", value: `${mmk(m[0])}–${mmk(m[1])} MMK/ha` });
-  if (o.forage.forageSlots > 0) out.push({ label: copy.compare.numbersFodder, value: String(o.forage.forageSlots) });
-  return out;
-}
-
-interface SimpleFact {
-  icon: IconName;
-  label: string;
-  text: string;
-  tone: string;
-}
-
-/** Two to four short facts per choice, each with an icon, so the card can be read at a glance. */
-function simpleFacts(
-  o: EvaluatedOption,
-  now: EvaluatedOption | null,
-  isYours: boolean,
-  comparable: boolean,
-  item: DisplayOption | undefined,
-): SimpleFact[] {
-  const out: SimpleFact[] = [];
-  if (comparable && now && !isYours) {
-    const diff = differences(o, now)[0];
-    if (diff && diff !== copy.compare.diffNone) out.push({ icon: "compare", label: "Compared with now", text: diff, tone: "bg-field-soft text-field" });
-  }
-  const m = o.economics.cycleMarginMmkHa;
-  if (comparable && m) {
-    out.push({
-      icon: "cost",
-      label: "Estimated return after listed costs",
-      text: `${mmk(m[0])} to ${mmk(m[1])} MMK per hectare, using benchmark prices and costs.`,
-      tone: "bg-surface-sunken text-ink",
-    });
-  }
-  if (item?.tradeOff) out.push({ icon: "conditions", label: "Watch out for", text: item.tradeOff, tone: "bg-drought-soft text-drought" });
-  if (item?.localCheck) out.push({ icon: "done", label: "Check before choosing", text: item.localCheck, tone: "bg-surface-sunken text-ink" });
-  return out;
-}
-
 /** The crop sequence as large pills joined by arrows: readable without parsing a sentence. */
 function CropPills({ names }: { names: string[] }) {
   if (names.length === 0) return <p className="m-0 text-body text-ink-muted">No crops recorded</p>;
@@ -170,11 +82,6 @@ function CropPills({ names }: { names: string[] }) {
       })}
     </ol>
   );
-}
-
-function keySeasonCount(strip: ReturnType<typeof seasonStrip>) {
-  const known = knownCount(strip);
-  return known === 0 ? unknown : `${stressedCount(strip)} of ${known}`;
 }
 
 export function RotationCompare({ fieldId }: { fieldId: string }) {
@@ -319,7 +226,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           <Link href={`/fields/${field.id}/location`} className={buttonClass("secondary")}>Check field location</Link>
           <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Review crops and dates</Link>
           <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Review water and field details</Link>
-          <Link href="/plan" className={buttonClass("secondary")}>See regional examples</Link>
         </> : null}
         {display.state === "field-incomplete" ? (
           <Link href={needsLocation ? `/fields/${field.id}/location` : `/fields/${field.id}/rotation`} className={buttonClass("primary")}>
@@ -333,7 +239,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     );
   }
 
-  const now = hasOwnRotation ? comparison.current : null;
   const alternatives = display.options.filter((o) => o.kind === "alternative").map((o) => o.engine);
   const bestId: string | undefined = undefined;
   const rankOrder = new Map(comparison.mcda.ranking.map((r, i) => [r.rotationId, i]));
@@ -349,9 +254,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const limitsById = new Map<string, LimitCheck[]>(
     displayOptions.map((o) => [o.id, checkLimits(o.rotation, field.constraints, field.irrigation, (id) => getCropById(id)?.names.common ?? id)]),
   );
-  const yearsOf = (o: EvaluatedOption) => [...new Set(o.slots.flatMap((e) => e.water?.seasons.map((x) => x.year) ?? []))].sort();
-  const stripOf = (o: EvaluatedOption) => seasonStrip(o, yearsOf(o));
-  const rankedById = new Map(comparison.mcda.ranking.map((r, i) => [r.rotationId, { ...r, place: i + 1 }]));
 
   const pastSeasons = comparison.baseline.completeYears;
   const summary =
@@ -442,6 +344,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const alternativeNumber = new Map(orderedAlternatives.map((o, i) => [o.id, i + 1]));
   const optionName = (o: EvaluatedOption) =>
     o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : `Choice ${alternativeNumber.get(o.id) ?? ""}`.trim();
+  const resultsModel = buildResultsModel({ field, comparison, display, options: displayOptions });
   const visibleOptions = displayOptions.filter((o) => hasOwnRotation || o.id !== comparison.current.id || !hasAlternatives);
 
   return (
@@ -538,82 +441,13 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </Message>
       ) : null}
 
-      {/* 2. Each choice as one open card: crops, one status, a few facts with icons */}
-      {visibleOptions.length > 0 ? (
-        <section aria-labelledby="options-title" className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 id="options-title" className="m-0 text-headline text-ink">
-              {hasAlternatives ? copy.compare.optionsTitle : copy.compare.optionsTitleYours}
-            </h2>
-            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-              {!hasAlternatives ? copy.compare.optionsDescriptionYours : hasOwnRotation ? copy.compare.optionsDescription : copy.compare.optionsDescriptionSolo}
-            </p>
-          </div>
-          <ol className="m-0 flex list-none flex-col gap-4 p-0">
-            {visibleOptions.map((o) => {
-              const isYours = o.id === comparison.current.id && hasOwnRotation;
-              const item = display.options.find((d) => d.id === o.id);
-              const limits = limitsById.get(o.id) ?? [];
-              const facts = simpleFacts(o, now, isYours, display.state === "comparable", item);
-              return (
-                <li key={o.id}>
-                  <article
-                    aria-labelledby={`choice-${o.id}`}
-                    className={"flex flex-col gap-4 rounded-lg border bg-surface-raised p-4 sm:p-5 " + (isYours ? "border-line-strong" : "border-line")}
-                  >
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 id={`choice-${o.id}`} className="m-0 text-label font-semibold text-ink-muted">
-                          {optionName(o)}
-                        </h3>
-                        <RiskChip hazard={FIT_HAZARD[o.fit]}>{copy.compare.fitLabel[o.fit]}</RiskChip>
-                      </div>
-                      <CropPills names={o.rotation.slots.map((sl) => slotName(sl))} />
-                      {limits.some((c) => c.result === "fail") ? <Message tone="problem" compact title="Breaks one of the limits you set" /> : null}
-                      {o.fit === "does-not-fit" && o.noFitReason ? <p className="m-0 text-body-sm text-ink">{o.noFitReason}</p> : null}
-                    </div>
-
-                    {facts.length > 0 ? (
-                      <ul className="m-0 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
-                        {facts.map((f) => (
-                          <li key={f.text} className="flex items-start gap-3">
-                            <span className={"grid size-9 shrink-0 place-items-center rounded-pill " + f.tone}>
-                              <Icon name={f.icon} size={18} />
-                            </span>
-                            <span className="flex min-w-0 flex-col pt-0.5">
-                              <span className="text-source font-medium text-ink-muted">{f.label}</span>
-                              <span className="text-body text-ink">{f.text}</span>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-
-                    <details className="group border-t border-line pt-1">
-                      <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-label font-medium text-field [&::-webkit-details-marker]:hidden">
-                        <Icon name="next" size={18} className="transition-transform group-open:rotate-90" />
-                        More details
-                      </summary>
-                      <OptionRow
-                        option={o}
-                        now={now}
-                        limits={limits}
-                        strip={stripOf(o)}
-                        depth="reasons"
-                        best={o.id === bestId}
-                        isYours={isYours}
-                        place={display.state === "comparable" ? rankedById.get(o.id)?.place : undefined}
-                        field={field}
-                        display={item}
-                        showComparativeMetrics={display.state === "comparable"}
-                        hideSummary
-                      />
-                    </details>
-                  </article>
-                </li>
-              );
-            })}
-          </ol>
+      {/* 2. Full results: overview, comparison, water, soil, money, reasons, unknowns */}
+      {resultsModel && hasAlternatives ? <ComparisonResults field={field} model={resultsModel} /> : null}
+      {!hasAlternatives && visibleOptions.length > 0 ? (
+        <section aria-labelledby="options-title" className="flex flex-col gap-2">
+          <h2 id="options-title" className="m-0 text-headline text-ink">{copy.compare.optionsTitleYours}</h2>
+          <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.compare.optionsDescriptionYours}</p>
+          {visibleOptions.map((o) => <CropPills key={o.id} names={o.rotation.slots.map((sl) => slotName(sl))} />)}
         </section>
       ) : null}
 
@@ -683,7 +517,37 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       {hasAlternatives && display.state === "comparable" ? (
         <details className="rounded-md border border-line bg-surface">
           <summary className="min-h-tap cursor-pointer p-4 text-label text-ink">{copy.compare.measures}</summary>
-          <div className="overflow-x-auto border-t border-line">
+          {/* Mobile: vertically organized comparison without wide tables */}
+          <div className="flex flex-col divide-y divide-line border-t border-line md:hidden">
+            {tableRows.map((g) => (
+              <div key={g.group} className="flex flex-col gap-3 p-4">
+                <h4 className="m-0 text-source font-semibold uppercase tracking-wider text-ink-muted">{g.group}</h4>
+                <div className="flex flex-col gap-3">
+                  {g.items.map((it) => (
+                    <div key={it.label} className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
+                      <span className="text-body-sm font-semibold text-ink">{it.label}</span>
+                      <div className="flex flex-col gap-2">
+                        {displayOptions.map((o) => (
+                          <div key={o.id} className="flex flex-col gap-1 border-t border-line/60 pt-2 first:border-0 first:pt-0">
+                            <div className="flex items-center gap-1.5 text-source font-medium text-ink-muted">
+                              <span>{optionName(o)}</span>
+                              {o.id === comparison.current.id && hasOwnRotation ? <StatusTag tag="yours" /> : null}
+                              {o.id === bestId ? <StatusTag tag="best-match" /> : null}
+                              {(limitsById.get(o.id) ?? []).some((c) => c.result === "fail") ? <StatusTag tag="limit-fail" /> : null}
+                            </div>
+                            <div className="text-body-sm text-ink">{it.cell(o)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: side-by-side comparison table */}
+          <div className="hidden overflow-x-auto border-t border-line md:block">
             <table className="w-full min-w-[44rem] border-collapse text-left">
               <caption className="sr-only">{copy.compare.tableLabel}</caption>
               <thead>
@@ -864,153 +728,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
 
       </section>
     </>
-  );
-}
-
-function OptionRow({
-  option: o,
-  now,
-  limits,
-  strip,
-  depth,
-  best,
-  isYours,
-  place,
-  field,
-  display,
-  showComparativeMetrics,
-  hideSummary = false,
-}: {
-  option: EvaluatedOption;
-  now: EvaluatedOption | null;
-  limits: LimitCheck[];
-  strip: ReturnType<typeof seasonStrip>;
-  depth: "answer" | "reasons" | "evidence";
-  best: boolean;
-  isYours: boolean;
-  place?: number;
-  field: Field;
-  display?: DisplayOption;
-  showComparativeMetrics: boolean;
-  /** Inside a choice card the name, status, caution and check are already shown above. */
-  hideSummary?: boolean;
-}) {
-  const diffs = now && !isYours ? differences(o, now) : [];
-  const figures = keyFigures(o, strip);
-  const fail = limits.some((c) => c.result === "fail");
-
-  return (
-    <article
-      aria-labelledby={hideSummary ? undefined : `option-${o.id}`}
-      aria-label={hideSummary ? "More details" : undefined}
-      className={
-        "relative flex min-w-0 flex-col gap-4 border-t bg-surface-raised p-4 sm:p-5 " +
-        (best ? "border-2 border-field bg-field-soft/40 pt-6" : "border-line")
-      }
-    >
-      {best ? (
-        <span className="absolute -top-3 left-4 inline-flex min-h-6 items-center gap-1 rounded-pill bg-field px-3 text-source font-medium text-on-field">
-          <span aria-hidden>✓</span>
-          Best match for what matters to you
-        </span>
-      ) : null}
-      {!hideSummary ? <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 id={`option-${o.id}`} className="m-0 min-w-0 text-headline text-ink">
-            {isYours ? "What you grow now" : o.label}
-          </h3>
-          {isYours ? <StatusTag tag="yours" /> : null}
-          {fail ? <StatusTag tag="limit-fail" /> : null}
-          {place && !best ? <span className="text-source text-ink-muted">{copy.compare.rankPlace(place)} for what matters to you</span> : null}
-        </div>
-        <p className="m-0 max-w-measure text-body text-ink-muted">{isYours ? copy.compare.yoursNote : o.reason}</p>
-        <div className="flex flex-wrap gap-2">
-          <RiskChip hazard={FIT_HAZARD[o.fit]}>{copy.compare.fitLabel[o.fit]}</RiskChip>
-          {o.badges.map((b) => (
-            <RiskChip key={b} hazard="healthy">
-              {farmerBadge(b)}
-            </RiskChip>
-          ))}
-        </div>
-        {o.fit === "does-not-fit" && o.noFitReason ? <p className="m-0 max-w-measure text-body-sm text-ink">{o.noFitReason}</p> : null}
-      </div> : <p className="m-0 max-w-measure text-body-sm text-ink-muted">{isYours ? copy.compare.yoursNote : o.reason}</p>}
-
-      {display ? (
-        <dl className="m-0 flex flex-col gap-2 border-t border-line pt-3 text-body-sm">
-          {!hideSummary ? <>
-            <div><dt className="font-medium text-ink">Main caution</dt><dd className="m-0 text-ink-muted">{display.tradeOff}</dd></div>
-            <div><dt className="font-medium text-ink">Check before choosing</dt><dd className="m-0 text-ink-muted">{display.localCheck}</dd></div>
-          </> : null}
-          {depth !== "answer" ? <>
-            <div><dt className="font-medium text-ink">What we assumed</dt><dd className="m-0 text-ink-muted">{display.assumption}</dd></div>
-            <div><dt className="font-medium text-ink">What we still do not know</dt><dd className="m-0 text-ink-muted">{display.unknown}</dd></div>
-          </> : null}
-          {depth === "evidence" ? <div><dt className="font-medium text-ink">Information used</dt><dd className="m-0 text-ink-muted">{display.sources.length ? `${display.sources[0].product}: ${plainSourceStatus(display.sources[0].status)}` : "No source is attached to this choice."}</dd></div> : null}
-        </dl>
-      ) : null}
-
-      {depth === "evidence" && display?.sources.length ? (
-        <details className="text-body-sm text-ink-muted">
-          <summary className="min-h-tap cursor-pointer text-label text-field">See all information sources ({display.sources.length})</summary>
-          <ul className="m-0 flex list-disc flex-col gap-2 pl-5">
-            {display.sources.map((s, i) => <li key={`${s.product}-${i}`}>{s.claim}: {s.lineage}. Status: {s.status}{s.missingReason ? `; missing: ${s.missingReason}` : ""}{s.sourceUrl ? <> · <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-field underline">Source</a></> : null}</li>)}
-          </ul>
-        </details>
-      ) : null}
-
-      {showComparativeMetrics && now && !isYours && diffs.length > 0 ? (
-        <ul className="m-0 flex max-w-measure list-disc flex-col gap-1 pl-5 text-body text-ink">
-          {diffs.slice(0, depth === "answer" ? 2 : diffs.length).map((d) => (
-            <li key={d}>{d}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      {showComparativeMetrics ? <dl className="m-0 grid grid-cols-2 gap-2">
-        {figures.slice(0, depth === "answer" ? 2 : figures.length).map((f) => (
-          <div key={f.label} className="flex min-w-0 flex-col gap-0.5 rounded-md bg-surface p-3">
-            <dt className="text-body-sm text-ink-muted">{f.label}</dt>
-            <dd className="tabular m-0 text-label text-ink">{f.value}</dd>
-          </div>
-        ))}
-      </dl> : null}
-
-      {depth !== "answer" ? (
-        <>
-          {strip.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <SeasonStrip strip={strip} field={field} />
-            </div>
-          ) : null}
-          <div className="flex flex-col gap-2">
-            <h4 className="m-0 text-label text-ink">{copy.compare.cropsInOrder}</h4>
-            <ol className="m-0 flex list-none flex-col gap-1 p-0">
-              {o.rotation.slots.map((s, i) => (
-                <li key={s.id} className="flex flex-wrap items-baseline gap-2 text-body-sm text-ink">
-                  <span className="tabular font-mono text-source text-ink-muted">{i + 1}</span>
-                  <span>{slotName(s)}</span>
-                  <span className="text-ink-muted">{formatSpan(s.plantDate, s.harvestDate)}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div className="flex flex-col gap-2">
-            <h4 className="m-0 text-label text-ink">{copy.compare.againstLimits}</h4>
-            <LimitSummary checks={limits} fieldId={field.id} />
-          </div>
-          {o.unknowns.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              <h4 className="m-0 text-label text-ink">{copy.compare.notKnownYet}</h4>
-              <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5 text-body-sm text-ink-muted">
-                {o.unknowns.slice(0, 3).map((u) => (
-                  <li key={u}>{u}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </article>
   );
 }
 

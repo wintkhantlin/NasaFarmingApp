@@ -6,7 +6,49 @@
 export const copy = {
   app: {
     name: "Rotation planner",
-    tagline: "Compare your crop rotation with other options, using NASA data.",
+    tagline: "Compare what you grow now with other crop plans for your land.",
+  },
+
+  path: {
+    job: "Compare what you grow now with other crop plans for your land.",
+    assumed: "Assumed",
+    assumedChange: "Assumed · Change",
+    addCrops: "Add crops",
+    seeAnswer: "See my answer",
+    addCropsStatus: "Add crops",
+    seeAnswerStatus: "See my answer",
+    answerReady: "Answer ready · farm details optional",
+    cropsSaved: "Crops and farm details saved",
+    confirmField: "Confirm this field to continue",
+    optional: "optional",
+    moreAboutField: "More about this field",
+    farmLead: "Everything here is optional. Typical values are already used and marked Assumed.",
+    farmWhy: "Water, what matters most, and labour change the comparison. The rest can wait.",
+    cropsLead: "Tap the crops you grow. Usual dates are filled in.",
+    cropsWhy: "Then see how other plans compare for this field.",
+    helpChoose: "Help me choose a plan",
+    tapCrops: "Tap crops",
+    planPreview: "This is a regional preview. Save a field to get an answer for your land.",
+    firstStep1: "Mark the field",
+    firstStep2: "Add crops",
+    firstStep3: "See how other plans compare",
+    nextAddCrops: "Record what you grow now",
+    nextAddCropsBody: "Tap the crops you grow.",
+    nextAnswerReady: "Your answer is ready",
+    nextAnswerBody: (seq: string) => `See how ${seq} compares with other plans for this field.`,
+  },
+
+  welcome: {
+    language: "Language",
+    staysTitle: "What stays on this phone",
+    staysFields: "Your fields, crops and soil tests",
+    staysPriorities: "Your priorities and limits",
+    leavesTitle: "What may leave the phone",
+    leavesLocation: "Field location, to NASA, ISRIC and Microsoft data services",
+    learnData: "Learn about data",
+    continue: "Continue",
+    offline: "You are offline. Data will load when you connect.",
+    zawgyi: "If Myanmar text looks wrong, your phone may use an older Myanmar font. Switch to Unicode for correct text.",
   },
 
   judgment: {
@@ -33,7 +75,7 @@ export const copy = {
     title: "Your fields",
     emptyTitle: "Draw your first field",
     emptyBody:
-      "Choose where your field is, tell us what you grow now, and see how it compares with other rotations.",
+      "Mark the field, add the crops you grow, then see how other plans compare.",
     addField: "Add a field",
     exploreRotations: "Explore next crops",
     loading: "Loading your fields",
@@ -78,7 +120,7 @@ export const copy = {
 
   profile: {
     title: "All farm details",
-    lead: "Everything is optional. What you enter here replaces a map or model value.",
+    lead: "Everything here is optional. Typical values are already used and marked Assumed.",
     prioritiesTitle: "What matters most",
     prioritiesHelp: "Put them in order. If something is missing from the data, it is shown as unknown. It is never counted as zero.",
     priority: {
@@ -205,8 +247,8 @@ export const copy = {
   rotation: {
     title: "Your rotation",
     context: (fieldName: string) => `${fieldName} · crop history`,
-    headline: "Record what you've grown here",
-    lead: "Tap the crops you grow here. We place each one in its usual season, then you can fix the dates.",
+    headline: "Tap the crops you grow",
+    lead: "Usual dates are filled in. Change dates if yours are different, then see your answer.",
     quickTitle: "What do you grow here?",
     quickHelp: "Each crop goes in its usual season for your area. Tap again to remove it.",
     changeDates: "Change dates",
@@ -276,7 +318,8 @@ export const copy = {
   conditions: {
     title: "Field conditions",
     context: (fieldName: string) => `${fieldName} · climate and soil evidence`,
-    summaryHeadline: "Climate & soil conditions around your field",
+    summaryHeadline: "Rain, heat and soil around this field",
+    pageLead: "A plain reading of the weather and soil around your field, then the charts.",
     rainTitle: "Rain and dry spells",
     rainDescription: "Monthly rainfall compared with typical crop water demand from NASA POWER.",
     heatFrostTitle: "Heat and frost risks",
@@ -322,7 +365,8 @@ export const copy = {
     title: "Compare crop plans",
     context: (fieldName: string) => `${fieldName} · rotation comparison`,
     headline: "Compare with two alternative rotations",
-    lead: "Review how your current rotation compares with drought-resilient and soil-building alternatives tested against your local climate record.",
+    lead: "Your plan first, then other options. Suggestions to discuss, not instructions.",
+    moreDetail: "More detail",
     summaryWith: (place: string, alternatives: number, years: number) =>
       `Your crops and ${alternatives} ${alternatives === 1 ? "alternative" : "alternatives"} for ${place}, from the last ${years} seasons.`,
     summaryUnsupported: "Rotation comparison is not available for this place.",

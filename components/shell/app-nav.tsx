@@ -2,26 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { useLocaleStore } from "@/lib/store/locale-store";
+import { useFieldsStore } from "@/lib/store/fields-store";
+import { openQuickQuestions } from "@/lib/engine/questions";
 
-const LINKS: { href: string; label: string; icon: IconName; match: (p: string) => boolean }[] = [
-  { href: "/", label: "My fields", icon: "fields", match: (p) => p === "/" || p.startsWith("/fields") },
-  { href: "/plan", label: "Explore", icon: "rotation", match: (p) => p.startsWith("/plan") },
-  { href: "/learn", label: "Learn", icon: "learn", match: (p) => p.startsWith("/learn") || p.startsWith("/about") },
+const LINKS: { href: string; label: string; labelMy: string; icon: IconName; match: (p: string) => boolean }[] = [
+  { href: "/", label: "My fields", labelMy: "စိုက်ခင်းများ", icon: "fields", match: (p) => p === "/" || (Boolean(p) && p.startsWith("/fields")) },
+  { href: "/data", label: "Data", labelMy: "ဒေတာ", icon: "learn", match: (p) => Boolean(p) && (p.startsWith("/data") || p.startsWith("/about") || p.startsWith("/learn")) },
 ];
 
-/** Phone: the three destinations as a tab bar fixed to the bottom, above the safe area. */
+/** Phone: the two primary tab destinations fixed to the bottom, above the safe area. */
 export function TabBar() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const locale = useLocaleStore((s) => s.locale);
+  const fields = useFieldsStore((s) => s.fields);
+  const openQuestionsCount = useMemo(() => {
+    return fields.reduce((acc, f) => {
+      if (f.archivedAt) return acc;
+      return acc + (openQuickQuestions(f)?.length ?? 0);
+    }, 0);
+  }, [fields]);
+
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-3">
+      <ul className="mx-auto grid max-w-md grid-cols-2">
         {LINKS.map((l) => {
           const active = l.match(pathname);
           return (
@@ -30,19 +40,31 @@ export function TabBar() {
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex h-14 flex-col items-center justify-center gap-0.5 text-source font-medium no-underline transition-colors active:bg-surface-sunken",
+                  "relative flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-1 text-center text-source font-medium no-underline transition-colors active:bg-surface-sunken",
                   active ? "text-field" : "text-ink-muted",
                 )}
               >
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute inset-x-5 top-0 h-0.5 rounded-b-pill bg-field transition-opacity",
+                    "absolute inset-x-6 top-0 h-0.5 rounded-b-pill bg-field transition-opacity",
                     active ? "opacity-100" : "opacity-0",
                   )}
                 />
-                <Icon name={l.icon} size={22} strokeWidth={active ? 2.3 : 1.8} />
-                {l.label}
+                <span className="relative inline-flex items-center justify-center">
+                  <Icon name={l.icon} size={22} strokeWidth={active ? 2.3 : 1.8} />
+                  {l.href === "/" && openQuestionsCount > 0 ? (
+                    <span
+                      aria-label={`${openQuestionsCount} open questions`}
+                      className="absolute -top-1 -right-2.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-unknown-border px-1 font-mono text-[9px] font-bold text-white leading-none shadow-xs"
+                    >
+                      {openQuestionsCount > 9 ? "9+" : openQuestionsCount}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="max-w-full truncate">
+                  {locale === "my" ? l.labelMy : l.label}
+                </span>
               </Link>
             </li>
           );
@@ -55,6 +77,7 @@ export function TabBar() {
 /** From lg: the same destinations as icon links in the header. */
 export function HeaderNav() {
   const pathname = usePathname();
+  const locale = useLocaleStore((s) => s.locale);
   return (
     <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
       {LINKS.map((l) => {
@@ -70,7 +93,7 @@ export function HeaderNav() {
             )}
           >
             <Icon name={l.icon} />
-            {l.label}
+            {locale === "my" ? l.labelMy : l.label}
           </Link>
         );
       })}

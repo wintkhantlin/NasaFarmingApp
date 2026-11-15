@@ -40,9 +40,9 @@
 | **S10** | Compare Rotations | `/fields/:id/compare` | `components/field/rotation-compare.tsx`, `compare-entry.tsx` |
 | **S11** | Option Detail | `/fields/:id/compare` | `components/field/option-detail.tsx`, `season-strip.tsx` |
 | **S12** | Finding Detail | Modal / Drawer | `components/ui/provenance.tsx` |
-| **S13** | Explain a Term | `/learn#terms` | `components/learn/learn-list.tsx` |
+| **S13** | Explain a Term | `/learn/:topicId` | `components/learn/learn-topic.tsx` (definitions from `lib/copy/en.ts` glossary) |
 | **S14** | Answer an Unknown | `/fields/:id/questions/:qId`| `components/field/question-form.tsx` |
-| **S15** | Learn & Library | `/learn` | `components/learn/learn-list.tsx` |
+| **S15** | Learn (farmer questions in five themes) | `/learn`, `/learn/:topicId` | `components/learn/learn-hub.tsx`, `components/learn/learn-topic.tsx`; topic data in `lib/learn/topics.ts` |
 | **S16** | Share & Print Report | `/fields/:id/report` | `components/field/report-view.tsx`, `share-report.tsx` |
 | **S17** | Long-Term Trends | `/fields/:id/trends` | `components/field/trends-view.tsx` |
 | **S18** | What-If Simulator | Modal | `components/field/what-if.tsx` |

@@ -10,6 +10,7 @@ import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InfoGlyph, ThermometerGlyph } from "@/components/ui/icons";
 import { Panel, PanelHeader } from "@/components/ui/panel";
+import { TermNote } from "@/components/ui/indicator-card";
 import { Reading } from "@/components/ui/reading";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Segmented } from "@/components/ui/segmented";
@@ -250,6 +251,10 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             ) : (
               <p className="text-body text-ink-muted">NASA POWER didn&apos;t answer, so there is no rainfall chart yet.</p>
             )}
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+              Both lines are monthly totals in mm, averaged over past years. Rain is a model estimate for a grid cell about 50 km wide, and crop water use is estimated reference water demand (ET₀) from the same weather. This is the usual pattern, not a forecast.
+            </p>
+            <TermNote term="ET0" kind="model" where="Calculated from NASA POWER weather for a regional grid cell, not measured on your field." />
             <Disclosure title="About this rainfall" className="border-0 bg-surface-sunken">
               <p className="m-0 text-body-sm text-ink">
                 Satellite rainfall:{" "}
@@ -382,6 +387,9 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
               </Panel>
             ) : null}
 
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+              Map values (SoilGrids) are model estimates for a 250 m area and are not a soil test. {data.rootWetnessPct !== undefined ? "Root-zone wetness is a long-term average from NASA POWER, a model for a regional cell, not a reading of your field. " : ""}Soil changes slowly, so these are not forecasts.
+            </p>
             <p className="m-0 max-w-measure text-body-sm text-ink-muted">
               {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : copy.data.sourceSoilGrids + "."}
             </p>

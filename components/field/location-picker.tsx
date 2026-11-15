@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import type { DrawTool, MapFocus } from "@/components/map/field-map";
+import type { DrawTool, MapCommand, MapFocus } from "@/components/map/field-map";
 import { MAPBOX_TOKEN, MAPBOX_TOKEN_PROBLEM } from "@/components/map/mapbox-config";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { parseCoordinate } from "@/lib/geo/format";
 import { searchPlaces, type Place } from "@/lib/geo/geocode";
 import { acresFromHa, areaHa, isSelfIntersecting } from "@/lib/geo/shapes";
 import { useFieldsStore } from "@/lib/store/fields-store";
+import { readPlanDraft, type PlanDraft } from "@/lib/store/plan-draft";
 import { LARGE_FIELD_HA, ValidationError } from "@/lib/store/repository";
 import type { Field, FieldGeometry } from "@/lib/types";
 
@@ -22,40 +23,59 @@ const FieldMap = dynamic(() => import("@/components/map/field-map").then((m) => 
   loading: () => <Skeleton className="size-full rounded-none" />,
 });
 
-const TOOLS: Array<{ id: DrawTool; label: string; hint: string }> = [
-  { id: "box", label: "Draw a box", hint: "Drag from one corner of the field to the opposite corner." },
-  { id: "outline", label: "Trace outline", hint: "Tap each corner of the field, then tap the first corner to finish." },
+type Method = "approx" | "exact";
+type Shape = "box" | "outline";
+
+const SHAPES: Array<{ id: Shape; label: string; hint: string }> = [
+  { id: "box", label: "Box", hint: "Tap one corner of the field, then tap the opposite corner. Zoom in first for a closer fit." },
+  { id: "outline", label: "Trace outline", hint: "Tap each corner of the field in turn, then tap the first corner again to finish." },
 ];
+
+const APPROX_HINT = "Tap the map on or near your field. Zoom in first if you can.";
+const APPROX_LIMITS =
+  "A pin only says roughly where your field is. Weather and satellite results are then regional estimates, based on pixels about 250 m to 9 km wide, not your field's own area. Draw the boundary for results sized to your field.";
 
 const inputClass =
   "min-h-tap w-full rounded-sm border border-line-strong bg-surface-sunken px-3 text-body text-ink placeholder:text-ink-muted";
 
-function ToolTile({
+function MethodCard({
   icon,
-  label,
-  selected,
+  title,
+  body,
   onClick,
-  disabled,
 }: {
   icon: IconName;
-  label: string;
-  selected?: boolean;
+  title: string;
+  body: string;
   onClick: () => void;
-  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-pressed={selected === undefined ? undefined : selected}
+      onClick={onClick}
+      className="flex min-h-tap w-full items-start gap-3 rounded-md border border-line-strong bg-surface-raised p-3 text-left transition-[background-color,transform] hover:bg-surface-sunken active:scale-[0.99]"
+    >
+      <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-field-soft text-field">
+        <Icon name={icon} size={22} />
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-headline text-ink">{title}</span>
+        <span className="text-body-sm text-ink-muted">{body}</span>
+      </span>
+    </button>
+  );
+}
+
+function ToolButton({ icon, label, onClick, disabled }: { icon: IconName; label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        "flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-md text-source font-medium transition-[background-color,transform] active:scale-95 disabled:opacity-50",
-        selected ? "bg-field text-on-field" : "text-ink hover:bg-surface-sunken active:bg-surface-sunken",
-      )}
+      className="flex min-h-tap flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-source font-medium text-ink transition-[background-color,transform] hover:bg-surface-sunken active:scale-95 active:bg-surface-sunken disabled:opacity-40 disabled:active:scale-100"
     >
-      <Icon name={icon} size={22} />
-      {label}
+      <Icon name={icon} size={20} />
+      <span className="max-w-full truncate text-[11px] leading-tight sm:text-source">{label}</span>
     </button>
   );
 }
@@ -65,11 +85,13 @@ const card = "pointer-events-auto rounded-lg border border-line bg-surface-raise
 const fmtHa = (ha: number) => (ha < 10 ? ha.toFixed(2) : ha < 100 ? ha.toFixed(1) : String(Math.round(ha)));
 
 /**
- * Step 1 of a field: where it is. A full-screen satellite map with the
- * controls floating on top: search, a box or an outline, then a short
- * second step to name the field. Two corner coordinates work without a map.
+ * Step 1 of a field: where it is. A full-screen satellite map with the controls
+ * floating on top. The farmer first picks one of two ways to mark the field:
+ * an approximate pin, or an exact boundary (a box or a traced outline). Then
+ * they check a short summary and name the field. Two corner coordinates work
+ * without a map. Geometry is still saved as a GeoJSON Point or Polygon in WGS84.
  */
-export function LocationPicker({ field }: { field?: Field }) {
+export function LocationPicker({ field, fromPlan = false }: { field?: Field; fromPlan?: boolean }) {
   const router = useRouter();
   const add = useFieldsStore((s) => s.add);
   const update = useFieldsStore((s) => s.update);
@@ -80,11 +102,22 @@ export function LocationPicker({ field }: { field?: Field }) {
 
   const fieldCount = useFieldsStore((s) => s.fields.length);
   const [name, setName] = useState(field?.name ?? "");
-  const [geometry, setGeometry] = useState<FieldGeometry | null>(field?.geometry.type === "Polygon" ? field.geometry : null);
-  const [tool, setTool] = useState<DrawTool | null>(field?.geometry.type === "Polygon" || !hasMap ? null : "box");
+  const [geometry, setGeometry] = useState<FieldGeometry | null>(field?.geometry ?? null);
+  const [method, setMethod] = useState<Method | null>(
+    field?.geometry ? (field.geometry.type === "Point" ? "approx" : "exact") : fromPlan && hasMap ? "approx" : null,
+  );
+  const [shape, setShape] = useState<Shape>("box");
+  const [tool, setTool] = useState<DrawTool | null>(!field?.geometry && fromPlan && hasMap ? "point" : null);
   const [toolNonce, setToolNonce] = useState(0);
+  const [command, setCommand] = useState<MapCommand | null>(null);
+  const [canUndoCorner, setCanUndoCorner] = useState(false);
   const [focus, setFocus] = useState<MapFocus | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
+
+  // Shape history, so a slip never costs the farmer their work.
+  const [past, setPast] = useState<Array<FieldGeometry | null>>([]);
+  const [future, setFuture] = useState<Array<FieldGeometry | null>>([]);
 
   const [coordsOpen, setCoordsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -92,9 +125,12 @@ export function LocationPicker({ field }: { field?: Field }) {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchAbort = useRef<AbortController | null>(null);
+  const skipAutoSearch = useRef(false);
 
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
+  const [gps, setGps] = useState<{ lon: number; lat: number; accuracy: number } | null>(null);
+  const [placeNote, setPlaceNote] = useState<string | null>(null);
 
   const [south, setSouth] = useState("");
   const [west, setWest] = useState("");
@@ -108,8 +144,22 @@ export function LocationPicker({ field }: { field?: Field }) {
   const ring = geometry?.type === "Polygon" ? geometry.coordinates[0] : null;
   const crosses = ring ? isSelfIntersecting(ring) : false;
   const ha = geometry ? areaHa(geometry) : null;
-  const activeHint = TOOLS.find((t) => t.id === tool)?.hint;
-  const canContinue = geometry?.type === "Polygon" && !crosses && ha !== null && ha > 0;
+  const drawing = tool !== null;
+  const canContinue = geometry?.type === "Point" || (geometry?.type === "Polygon" && !crosses && ha !== null && ha > 0);
+  const isApprox = geometry?.type === "Point";
+  const shapeHint = SHAPES.find((x) => x.id === shape)?.hint;
+
+  useEffect(() => {
+    if (!fromPlan || field) return;
+    const saved = readPlanDraft();
+    if (!saved?.place) return;
+    skipAutoSearch.current = true;
+    setPlanDraft(saved);
+    setQuery(saved.place.name);
+    if (saved.place.lon !== undefined && saved.place.lat !== undefined) {
+      setFocus({ center: [saved.place.lon, saved.place.lat], zoom: 13, nonce: 1 });
+    }
+  }, [field, fromPlan]);
 
   // On a phone the bottom bar sits over the map. Publish its height so the Mapbox
   // logo, attribution and zoom buttons stay visible just above it (see globals.css).
@@ -122,35 +172,123 @@ export function LocationPicker({ field }: { field?: Field }) {
     return () => observer.disconnect();
   }, []);
 
+  // Suggest places as the farmer types, after a short pause.
+  useEffect(() => {
+    if (skipAutoSearch.current) {
+      skipAutoSearch.current = false;
+      return;
+    }
+    if (query.trim().length < 3) return;
+    const timer = setTimeout(() => void runSearch(query), 450);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   function flyTo(center: [number, number], zoom = 15, bbox?: [number, number, number, number]) {
     setFocus((prev) => ({ center, zoom, bbox, nonce: (prev?.nonce ?? 0) + 1 }));
   }
 
-  function chooseTool(next: DrawTool) {
+  function send(kind: MapCommand["kind"]) {
+    setCommand((prev) => ({ kind, nonce: (prev?.nonce ?? 0) + 1 }));
+  }
+
+  function startDrawing(next: DrawTool) {
     setTool(next);
     setToolNonce((n) => n + 1);
+    setCanUndoCorner(false);
     setLocateError(null);
+    setSaveError(null);
+  }
+
+  function chooseMethod(next: Method, nextShape: Shape = shape) {
+    setMethod(next);
+    setShape(nextShape);
+    setPlaceNote(null);
+    startDrawing(next === "approx" ? "point" : nextShape);
+  }
+
+  /** Every change to the shape goes through here so it can be undone. */
+  function commit(next: FieldGeometry | null) {
+    if (JSON.stringify(next) === JSON.stringify(geometry)) return;
+    setPast((p) => [...p.slice(-49), geometry]);
+    setFuture([]);
+    setGeometry(next);
+    setSaveError(null);
   }
 
   function onGeometry(g: FieldGeometry | null) {
-    setGeometry(g);
+    commit(g);
     setTool(null);
+    setCanUndoCorner(false);
+    if (g) setMethod(g.type === "Point" ? "approx" : "exact");
+  }
+
+  function restore(next: FieldGeometry | null) {
+    setGeometry(next);
     setSaveError(null);
+    if (next) {
+      setMethod(next.type === "Point" ? "approx" : "exact");
+      setTool(null);
+    } else if (method) {
+      startDrawing(method === "approx" ? "point" : shape);
+    }
+  }
+
+  function undo() {
+    if (!past.length) return;
+    setFuture((f) => [geometry, ...f]);
+    setPast(past.slice(0, -1));
+    restore(past[past.length - 1]);
+  }
+
+  function redo() {
+    if (!future.length) return;
+    setPast((p) => [...p, geometry]);
+    setFuture(future.slice(1));
+    restore(future[0]);
+  }
+
+  function editShape() {
+    setTool(null);
+    send("edit");
+  }
+
+  function cancelDrawing() {
+    setTool(null);
+    setCanUndoCorner(false);
+    if (!geometry) setMethod(null);
+    else setMethod(geometry.type === "Point" ? "approx" : "exact");
+    send("edit");
+  }
+
+  /** Remove the shape and go back to the two choices. */
+  function clearShape() {
+    commit(null);
+    setSheetOpen(false);
+    setMethod(null);
+    setTool(null);
+    send("edit");
+  }
+
+  /** Remove the shape and start drawing it again straight away. */
+  function redraw() {
+    commit(null);
+    setSheetOpen(false);
+    chooseMethod(method ?? "exact");
   }
 
   function goBack() {
     router.push(field ? `/fields/${field.id}` : "/");
   }
 
-  async function onSearch() {
-    if (query.trim().length < 2) return;
+  async function runSearch(q: string) {
+    if (q.trim().length < 2) return;
     searchAbort.current?.abort();
     const ctrl = new AbortController();
     searchAbort.current = ctrl;
     setSearching(true);
     setSearchError(null);
     try {
-      setResults(await searchPlaces(query, MAPBOX_TOKEN, ctrl.signal));
+      setResults(await searchPlaces(q, MAPBOX_TOKEN, ctrl.signal));
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setResults(null);
@@ -161,8 +299,10 @@ export function LocationPicker({ field }: { field?: Field }) {
   }
 
   function pickPlace(p: Place) {
+    skipAutoSearch.current = true;
     setResults(null);
     setQuery(p.name);
+    setPlaceNote(`Showing ${p.name}. Zoom in and mark your own field; a town centre is not your field.`);
     flyTo(p.center, 14, p.bbox ?? undefined);
   }
 
@@ -176,14 +316,23 @@ export function LocationPicker({ field }: { field?: Field }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
+        setGps({ lon: pos.coords.longitude, lat: pos.coords.latitude, accuracy: pos.coords.accuracy });
         flyTo([pos.coords.longitude, pos.coords.latitude], 16);
       },
       () => {
         setLocating(false);
-        setLocateError("We couldn't get your location. Search for your place, or enter coordinates.");
+        setLocateError("We couldn't get your location. You can search for your place instead; sharing location is optional.");
       },
       { enableHighAccuracy: true, timeout: 15_000 },
     );
+  }
+
+  function pinAtGps() {
+    if (!gps) return;
+    commit({ type: "Point", coordinates: [gps.lon, gps.lat] });
+    setMethod("approx");
+    setTool(null);
+    setGps(null);
   }
 
   function placeFromCoordinates(e: FormEvent) {
@@ -197,33 +346,32 @@ export function LocationPicker({ field }: { field?: Field }) {
       return;
     }
     setCoordError(null);
-    setSaveError(null);
-    setGeometry({ type: "Polygon", coordinates: [[
+    commit({ type: "Polygon", coordinates: [[
       [westLng, southLat], [eastLng, southLat], [eastLng, northLat], [westLng, northLat], [westLng, southLat],
     ]] });
+    setMethod("exact");
     setCoordsOpen(false);
     setTool(null);
     flyTo([(westLng + eastLng) / 2, (southLat + northLat) / 2], 15, [westLng, southLat, eastLng, northLat]);
   }
 
-  function clearShape() {
-    setGeometry(null);
-    setSheetOpen(false);
-    if (hasMap) chooseTool("box");
-  }
-
   async function onSave(e: FormEvent) {
     e.preventDefault();
     const finalName = name.trim() || `Field ${fieldCount + 1}`;
-    if (!geometry || geometry.type !== "Polygon" || !canContinue) return setSaveError("Draw a box or trace the field outline before saving.");
+    if (!geometry || !canContinue) return setSaveError("Mark your field with a pin, a box or an outline before saving.");
     if (crosses) return setSaveError(copy.validation.outlineCrosses);
     setSaving(true);
     setSaveError(null);
     try {
+      const water = planDraft?.refinements.water.value;
+      const irrigation = water === "occasional" ? "supplemental" : water === "reliable" ? "full" : "none";
+      const context = planDraft?.place
+        ? `[Explore context]: region ${planDraft.place.region}; place ${planDraft.place.name}; crop ${planDraft.mainCropId}; water ${water}; planting ${planDraft.nextPlantingPeriod}; priorities ${planDraft.priorityOrder.join(",") || "not-set"}. Regional answers, not verified field measurements.`
+        : undefined;
       const saved = field
         ? await update(field.id, { name: finalName, geometry, locationConfirmed: true })
-        : await add({ name: finalName, geometry, irrigation: "none", locationConfirmed: true });
-      router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/profile`);
+        : await add({ name: finalName, geometry, irrigation, locationConfirmed: true, ...(water && water !== "unknown" ? { constraints: { irrigation: { access: irrigation } } } : {}), ...(planDraft?.priorityOrder.length ? { priorities: { order: planDraft.priorityOrder, weights: {} } } : {}), ...(context ? { localNotes: context } : {}) });
+      router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/rotation`);
     } catch (err) {
       setSaving(false);
       setSaveError(
@@ -233,16 +381,8 @@ export function LocationPicker({ field }: { field?: Field }) {
   }
 
   const startCenter = field?.centroid ?? ([95.5, 20.5] as [number, number]);
-
-  const status = locateError
-    ? locateError
-    : activeHint
-      ? activeHint
-      : geometry
-        ? "Drag the shape or its corners to adjust it."
-        : hasMap
-          ? "Draw a box around your field, or trace its edges."
-          : "Enter two opposite corners to make a field box.";
+  const corners = ring ? Math.max(0, ring.length - 1) : 0;
+  const summaryKind = isApprox ? "Approximate location" : "Exact boundary";
 
   return (
     <div ref={rootRef} className="relative size-full bg-surface-sunken">
@@ -256,10 +396,12 @@ export function LocationPicker({ field }: { field?: Field }) {
             tool={tool}
             toolNonce={toolNonce}
             focus={focus}
+            command={command}
             showFootprints={false}
             initialCenter={startCenter}
             initialZoom={field ? 15 : 5.5}
             onGeometryChange={onGeometry}
+            onDrawingChange={(d) => setCanUndoCorner(d.canUndoCorner)}
           />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-2 p-6 text-center lg:pl-[28rem]">
@@ -275,7 +417,7 @@ export function LocationPicker({ field }: { field?: Field }) {
 
       {/* Controls float over the map: along the top on a phone, down the left side on a desktop. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex max-h-full flex-col gap-2 overflow-y-auto p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] lg:bottom-0 lg:right-auto lg:w-[26rem] lg:gap-3 lg:p-4">
-        {/* Back and search */}
+        {/* Back, search and the optional "use my location" */}
         <section aria-label="Find your field" className={card}>
           <div className="flex items-center gap-1 p-1.5">
             <button
@@ -295,11 +437,14 @@ export function LocationPicker({ field }: { field?: Field }) {
                   id={`${id}-search`}
                   type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    if (e.target.value.trim().length < 3) setResults(null);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      void onSearch();
+                      void runSearch(query);
                     }
                   }}
                   autoComplete="off"
@@ -314,6 +459,7 @@ export function LocationPicker({ field }: { field?: Field }) {
                     onClick={() => {
                       setQuery("");
                       setResults(null);
+                      setPlaceNote(null);
                     }}
                     className="grid size-tap shrink-0 place-items-center rounded-md text-ink-muted hover:bg-surface-sunken"
                   >
@@ -323,11 +469,21 @@ export function LocationPicker({ field }: { field?: Field }) {
                 <button
                   type="button"
                   aria-label={searching ? "Searching" : "Search"}
-                  onClick={() => void onSearch()}
+                  onClick={() => void runSearch(query)}
                   disabled={searching || query.trim().length < 2}
                   className="grid size-tap shrink-0 place-items-center rounded-md text-field hover:bg-field-soft disabled:opacity-40"
                 >
                   <Icon name="search" size={22} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={locating ? "Finding your location" : "Use my location (optional)"}
+                  title="Use my location (optional)"
+                  onClick={locateMe}
+                  disabled={locating}
+                  className="grid size-tap shrink-0 place-items-center rounded-md text-field hover:bg-field-soft disabled:opacity-40"
+                >
+                  <Icon name="locate" size={22} />
                 </button>
               </>
             ) : (
@@ -338,6 +494,24 @@ export function LocationPicker({ field }: { field?: Field }) {
             <p role="alert" className="border-t border-line px-3 py-2 text-body-sm text-heat">
               {searchError}
             </p>
+          ) : null}
+          {locateError ? (
+            <p role="alert" className="border-t border-line px-3 py-2 text-body-sm text-heat">
+              {locateError}
+            </p>
+          ) : null}
+          {gps ? (
+            <div role="status" className="flex flex-col gap-1.5 border-t border-line px-3 py-2">
+              <p className="text-body-sm text-ink-muted">
+                Map moved to where you are, within about {Math.max(1, Math.round(gps.accuracy))} m.
+                {gps.accuracy > 100 ? " That is rough, so check the pin sits on your field before you use it." : ""}
+              </p>
+              {method === "approx" && !geometry ? (
+                <Button type="button" variant="secondary" icon="pin" onClick={pinAtGps}>
+                  Place the pin here
+                </Button>
+              ) : null}
+            </div>
           ) : null}
           {results ? (
             results.length === 0 ? (
@@ -361,88 +535,14 @@ export function LocationPicker({ field }: { field?: Field }) {
               </ul>
             )
           ) : null}
-        </section>
-
-        {/* Two ways to draw an area, with coordinate entry as an alternative. */}
-        <section aria-label="Mark your field" className={cn(card, "flex flex-col gap-2 p-1.5")}>
-          {hasMap ? (
-            <div className="flex flex-col gap-1">
-              <div className="grid grid-cols-2 gap-1" role="group" aria-label="Draw a field area">
-                {TOOLS.map((t) => (
-                  <ToolTile
-                    key={t.id}
-                    icon={t.id}
-                    label={t.label}
-                    selected={tool === t.id}
-                    onClick={() => chooseTool(t.id)}
-                  />
-                ))}
-              </div>
-              <div className="flex gap-2 border-t border-line px-1 pt-1">
-                <Button type="button" variant="quiet" icon="locate" onClick={locateMe} disabled={locating}>{locating ? "Finding location" : "Find my area"}</Button>
-                <Button type="button" variant="quiet" icon="coordinates" aria-expanded={coordsOpen} onClick={() => setCoordsOpen((v) => !v)}>Use coordinates</Button>
-              </div>
-            </div>
-          ) : null}
-
-          {coordsOpen || !hasMap ? (
-            <div className="flex flex-col gap-2 p-1.5">
-              <p className="m-0 text-body-sm text-ink-muted">Enter the south-west and north-east corners of the field.</p>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  id={`${id}-south`}
-                  aria-label="South latitude"
-                  value={south}
-                  onChange={(e) => setSouth(e.target.value)}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="South latitude"
-                  className={`${inputClass} min-w-0 w-full tabular font-mono`}
-                />
-                <input
-                  id={`${id}-west`}
-                  aria-label="West longitude"
-                  value={west}
-                  onChange={(e) => setWest(e.target.value)}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="West longitude"
-                  className={`${inputClass} min-w-0 w-full tabular font-mono`}
-                />
-                <input
-                  id={`${id}-north`}
-                  aria-label="North latitude"
-                  value={north}
-                  onChange={(e) => setNorth(e.target.value)}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="North latitude"
-                  className={`${inputClass} min-w-0 w-full tabular font-mono`}
-                />
-                <input
-                  id={`${id}-east`}
-                  aria-label="East longitude"
-                  value={east}
-                  onChange={(e) => setEast(e.target.value)}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="East longitude"
-                  className={`${inputClass} min-w-0 w-full tabular font-mono`}
-                />
-              </div>
-              {coordError ? (
-                <p role="alert" className="text-body-sm text-heat">
-                  {coordError}
-                </p>
-              ) : null}
-              <Button type="button" icon="box" onClick={placeFromCoordinates}>
-                Draw box from coordinates
-              </Button>
-            </div>
+          {placeNote ? (
+            <p role="status" className="border-t border-line px-3 py-2 text-body-sm text-ink-muted">
+              {placeNote}
+            </p>
           ) : null}
         </section>
 
-        {/* The next step: a bar along the bottom on a phone, the last card in the column on a desktop. */}
+        {/* The step panel: a bar along the bottom on a phone, the next card in the column on a desktop. */}
         <section
           ref={barRef}
           aria-label="Your field"
@@ -453,38 +553,7 @@ export function LocationPicker({ field }: { field?: Field }) {
             "lg:static lg:z-auto lg:max-h-none lg:rounded-b-lg lg:p-3",
           )}
         >
-          {!sheetOpen ? (
-            <>
-              <p role="status" className="text-body-sm text-ink-muted">
-                {status}
-              </p>
-
-              {geometry?.type === "Polygon" ? (
-                <p className="flex flex-wrap items-baseline gap-x-4 text-body text-ink">
-                  <span>Field area selected</span>
-                  <span className="tabular font-mono text-data">
-                    {ha === null ? "" : `${fmtHa(ha)} ha · ${fmtHa(acresFromHa(ha))} acres`}
-                  </span>
-                </p>
-              ) : null}
-
-              {ha !== null && ha > LARGE_FIELD_HA ? <p className="text-body-sm text-drought">{copy.validation.fieldTooLarge}</p> : null}
-              {crosses ? (
-                <p role="alert" className="text-body-sm text-heat">
-                  {copy.validation.outlineCrosses}
-                </p>
-              ) : null}
-
-              <div className="flex items-center gap-2">
-                {geometry ? (
-                  <Button type="button" variant="secondary" size="lg" onClick={clearShape}>Clear</Button>
-                ) : null}
-                <Button type="button" variant="primary" size="lg" iconEnd="next" disabled={!canContinue} onClick={() => setSheetOpen(true)} className="flex-1">
-                  Continue
-                </Button>
-              </div>
-            </>
-          ) : (
+          {sheetOpen ? (
             <form onSubmit={onSave} noValidate className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-headline text-ink">Name your field</h2>
@@ -497,6 +566,10 @@ export function LocationPicker({ field }: { field?: Field }) {
                   <Icon name="close" size={22} />
                 </button>
               </div>
+              <p className="rounded-md bg-surface-sunken px-3 py-2 text-body-sm text-ink">
+                <span className="font-medium">{summaryKind}</span>
+                {ha !== null ? ` · ${fmtHa(ha)} ha (${fmtHa(acresFromHa(ha))} acres)` : " · no area measured"}
+              </p>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor={`${id}-name`} className="text-label text-ink">Field name</label>
                 <input
@@ -517,6 +590,156 @@ export function LocationPicker({ field }: { field?: Field }) {
                 {saving ? "Saving" : field ? "Save changes" : "Save field"}
               </Button>
             </form>
+          ) : drawing ? (
+            /* Drawing now: one short instruction and the way out. */
+            <>
+              {method === "exact" ? (
+                <div className="grid grid-cols-2 gap-1" role="group" aria-label="Exact boundary shape">
+                  {SHAPES.map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      aria-pressed={shape === x.id}
+                      onClick={() => chooseMethod("exact", x.id)}
+                      className={cn(
+                        "flex min-h-tap items-center justify-center gap-2 rounded-md text-label transition-colors",
+                        shape === x.id ? "bg-field text-on-field" : "text-ink hover:bg-surface-sunken",
+                      )}
+                    >
+                      <Icon name={x.id} size={18} />
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <p role="status" className="text-body text-ink">
+                {method === "approx" ? APPROX_HINT : shapeHint}
+              </p>
+              {method === "approx" ? <p className="text-body-sm text-ink-muted">{APPROX_LIMITS}</p> : null}
+              <div className="flex flex-wrap items-center gap-2 [&>button]:flex-1 sm:[&>button]:flex-initial">
+                {method === "exact" && shape === "outline" ? (
+                  <Button type="button" variant="secondary" icon="undo" onClick={() => send("undo-corner")} disabled={!canUndoCorner}>
+                    Undo last corner
+                  </Button>
+                ) : null}
+                <Button type="button" variant="quiet" onClick={cancelDrawing}>
+                  {geometry ? "Keep current shape" : "Back"}
+                </Button>
+              </div>
+            </>
+          ) : geometry ? (
+            /* Boundary confirmation summary, with ways to correct it. */
+            <>
+              <div className="flex flex-col gap-1.5 rounded-md border border-line bg-surface-sunken p-3">
+                <p className="flex items-center gap-2 text-label text-ink">
+                  <Icon name={isApprox ? "pin" : "outline"} size={18} />
+                  {summaryKind}
+                </p>
+                {isApprox ? (
+                  <>
+                    <p className="tabular font-mono text-data text-ink">
+                      {geometry.coordinates[1].toFixed(4)}, {geometry.coordinates[0].toFixed(4)}
+                    </p>
+                    <p className="text-body-sm text-ink-muted">{APPROX_LIMITS}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="tabular font-mono text-data text-ink">
+                      {ha === null ? "Area not available" : `${fmtHa(ha)} ha · ${fmtHa(acresFromHa(ha))} acres`}
+                    </p>
+                    <p className="text-body-sm text-ink-muted">
+                      {corners} corners. Results will use this shape. Drag a corner or the whole shape to adjust it.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {ha !== null && ha > LARGE_FIELD_HA ? <p className="text-body-sm text-drought">{copy.validation.fieldTooLarge}</p> : null}
+              {crosses ? (
+                <p role="alert" className="text-body-sm text-heat">
+                  {copy.validation.outlineCrosses}
+                </p>
+              ) : null}
+
+              {isApprox ? (
+                <Button type="button" variant="secondary" icon="outline" onClick={() => chooseMethod("exact")}>
+                  Draw the exact boundary instead
+                </Button>
+              ) : null}
+
+              <div className="grid grid-cols-5 gap-1 border-y border-line py-1" role="group" aria-label="Correct your selection">
+                <ToolButton icon="undo" label="Undo" onClick={undo} disabled={!past.length} />
+                <ToolButton icon="redo" label="Redo" onClick={redo} disabled={!future.length} />
+                <ToolButton icon="edit" label="Edit" onClick={editShape} />
+                <ToolButton icon="reset" label="Redraw" onClick={redraw} />
+                <ToolButton icon="remove" label="Clear" onClick={clearShape} />
+              </div>
+
+              <Button type="button" variant="primary" size="lg" iconEnd="next" disabled={!canContinue} onClick={() => setSheetOpen(true)} block>
+                {isApprox ? "Use this approximate location" : "Confirm boundary"}
+              </Button>
+            </>
+          ) : (
+            /* Nothing marked yet: the two ways in. */
+            <>
+              {hasMap ? (
+                <>
+                  <h2 className="text-headline text-ink">How do you want to mark your field?</h2>
+                  <div className="flex flex-col gap-2">
+                    <MethodCard
+                      icon="pin"
+                      title="Select approximate location"
+                      body="Tap one spot on or near your field. Quick, but results are regional."
+                      onClick={() => chooseMethod("approx")}
+                    />
+                    <MethodCard
+                      icon="outline"
+                      title="Draw exact boundary"
+                      body="Mark the field's corners. We measure the area and use your field's own shape."
+                      onClick={() => chooseMethod("exact")}
+                    />
+                  </div>
+                </>
+              ) : null}
+              {hasMap ? (
+                <Button type="button" variant="quiet" icon="coordinates" aria-expanded={coordsOpen} onClick={() => setCoordsOpen((v) => !v)}>
+                  Enter corner coordinates instead
+                </Button>
+              ) : null}
+              {coordsOpen || !hasMap ? (
+                <div className="flex flex-col gap-2">
+                  <p className="m-0 text-body-sm text-ink-muted">Enter the south-west and north-east corners of the field. This draws an exact box.</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {[
+                      ["South latitude", south, setSouth, "south"],
+                      ["West longitude", west, setWest, "west"],
+                      ["North latitude", north, setNorth, "north"],
+                      ["East longitude", east, setEast, "east"],
+                    ].map(([label, value, set, key]) => (
+                      <input
+                        key={key as string}
+                        id={`${id}-${key as string}`}
+                        aria-label={label as string}
+                        value={value as string}
+                        onChange={(e) => (set as (v: string) => void)(e.target.value)}
+                        inputMode="decimal"
+                        autoComplete="off"
+                        placeholder={label as string}
+                        className={`${inputClass} min-w-0 w-full tabular font-mono`}
+                      />
+                    ))}
+                  </div>
+                  {coordError ? (
+                    <p role="alert" className="text-body-sm text-heat">
+                      {coordError}
+                    </p>
+                  ) : null}
+                  <Button type="button" icon="box" onClick={placeFromCoordinates}>
+                    Draw box from coordinates
+                  </Button>
+                </div>
+              ) : null}
+            </>
           )}
         </section>
       </div>

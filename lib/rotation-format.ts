@@ -154,3 +154,11 @@ export function yearFraction(iso: string): number {
   const end = Date.UTC(y + 1, 0, 1);
   return (Date.UTC(y, m - 1, d) - start) / (end - start);
 }
+
+/**
+ * The crops the farmer says grow on the field now. A saved plan (source "strategy")
+ * is a suggestion, not field history, so it never counts here.
+ */
+export function currentRotation(rotations: Rotation[] | undefined): Rotation | undefined {
+  return rotations?.find((r) => r.source === "farmer" && r.slots.length > 0);
+}

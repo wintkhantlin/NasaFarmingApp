@@ -30,6 +30,7 @@ import {
   segmentYear,
   shortSlotName,
   slotName,
+  currentRotation,
 } from "@/lib/rotation-format";
 import { rotationSchema, rotationSlotSchema } from "@/lib/schemas/rotation";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
@@ -276,11 +277,13 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
   const loadRotations = useFieldsStore((s) => s.loadRotations);
   const saveRotation = useFieldsStore((s) => s.saveRotation);
 
-  const [cycleYears, setCycleYears] = useState<1 | 2 | 3 | 4>(() => rotations[0]?.cycleYears ?? 1);
-  const [slots, setSlots] = useState<RotationSlot[]>(() => rotations[0]?.slots ?? []);
-  const [viewMode, setViewMode] = useState<"guided" | "advanced">(() => {
-    return rotations[0]?.slots?.length ? "advanced" : "guided";
-  });
+  // Edit the farmer's own crops only; a saved plan is kept separately and never overwritten here.
+  const ownRotation = currentRotation(rotations);
+  const hasSavedPlan = rotations.some((r) => r.source === "strategy" && r.slots.length > 0);
+  const [cycleYears, setCycleYears] = useState<1 | 2 | 3 | 4>(() => ownRotation?.cycleYears ?? 1);
+  const [slots, setSlots] = useState<RotationSlot[]>(() => ownRotation?.slots ?? []);
+  // Once a plan is saved, the next step is recording current crops, so open the crop list, not the planner again.
+  const [viewMode, setViewMode] = useState<"guided" | "advanced">(() => (ownRotation || hasSavedPlan ? "advanced" : "guided"));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -290,14 +293,23 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
   }, [status, load]);
 
   useEffect(() => {
-    if (!fieldId) return;
+    if (!fieldId || !field) return;
     void loadRotations(fieldId).then((loaded) => {
-      if (loaded && loaded.length > 0) {
-        setCycleYears(loaded[0].cycleYears);
-        setSlots(loaded[0].slots);
+      const own = currentRotation(loaded);
+      if (own) {
+        setCycleYears(own.cycleYears);
+        setSlots(own.slots);
+      } else {
+        const cropId = field.localNotes?.match(/\[Explore context\]:[^\n]*; crop ([^;]+);/)?.[1];
+        if (cropId && getCropById(cropId)) {
+          const dates = getDefaultTypicalDates(cropId, new Date().getFullYear(), field.region && field.region !== "unsupported" ? field.region : undefined);
+          setSlots([{ id: crypto.randomUUID(), kind: getCropById(cropId)?.group === "cover" ? "cover" : "crop", cropId, ...dates, dateConfidence: "typical", irrigated: field.irrigation !== "none" }]);
+          setViewMode("advanced");
+        }
       }
+      if (own || loaded?.some((r) => r.source === "strategy" && r.slots.length > 0)) setViewMode("advanced");
     });
-  }, [fieldId, loadRotations]);
+  }, [fieldId, field, loadRotations]);
 
   const regionKey = field?.region && field.region !== "unsupported" ? field.region : undefined;
   const regionName = regionKey ? REGIONS[regionKey]?.name : null;
@@ -513,7 +525,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     setSaveSuccess(false);
     try {
       const record: Rotation = {
-        id: rotations[0]?.id ?? crypto.randomUUID(),
+        id: ownRotation?.id ?? crypto.randomUUID(),
         fieldId: field.id,
         label: `${field.name} rotation`,
         cycleYears,
@@ -559,6 +571,12 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         title={copy.rotation.title}
         summary="Record what you grow on this field across the seasonal cycle. Sowing dates are pre-filled with local agricultural windows."
       />
+
+      {field.localNotes?.includes("[Explore context]:") && !ownRotation ? (
+        <Message tone="info" title="Started from your Explore answers">
+          Your crop and water choice are carried forward. The dates below are clearly marked as typical regional dates—check them, change them, or remove the crop before saving.
+        </Message>
+      ) : null}
 
       <section aria-labelledby="editor-mode" className="flex flex-col gap-2 border-b border-line pb-4">
         <div className="flex flex-col gap-0.5">

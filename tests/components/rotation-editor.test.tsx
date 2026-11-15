@@ -138,3 +138,29 @@ describe("RotationEditor Component Calendar UI", () => {
     expect(screen.getAllByText(/121 days/).length).toBeGreaterThan(0);
   });
 });
+
+describe("RotationEditor after a plan is saved", () => {
+  const plan: Rotation = { ...mockRotation, id: `guided-plan-${mockField.id}`, label: "Delta Field draft plan", source: "strategy" };
+
+  beforeEach(() => {
+    cleanup();
+    storeState = {
+      status: "ready",
+      fields: [mockField],
+      rotations: { [mockField.id]: [plan] },
+      load: vi.fn(),
+      loadRotations: vi.fn().mockResolvedValue([plan]),
+      saveRotation: vi.fn().mockResolvedValue(plan),
+    };
+  });
+
+  afterEach(() => cleanup());
+
+  it("asks for current crops in the detailed list instead of reopening the planner", () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    expect(screen.getByRole("button", { name: /Detailed/ })).toHaveAttribute("aria-pressed", "true");
+    // the saved plan's crops are not passed off as what grows here now
+    expect(screen.queryAllByText(/121 days/)).toHaveLength(0);
+  });
+});
+

@@ -25,6 +25,13 @@ describe("Flow step states", () => {
     expect(states.compare).toBe("not-started");
   });
 
+  it("a saved plan alone does not count as the crops grown now", () => {
+    const plan: Rotation = { id: "p", fieldId: mockField.id, label: "plan", cycleYears: 1, source: "strategy",
+      slots: [{ id: "s", kind: "crop", cropId: "rice", plantDate: "2026-06-01", harvestDate: "2026-09-30", dateConfidence: "typical", irrigated: false }] };
+    expect(deriveStepStates(mockField, [plan]).rotation).toBe("needs-input");
+    expect(deriveStepStates(mockField, [plan, { ...plan, id: "f", source: "farmer" }]).rotation).toBe("done");
+  });
+
   it("a location the farmer has not confirmed still needs input", () => {
     const states = deriveStepStates({ ...mockField, locationConfirmed: false }, []);
     expect(states.location).toBe("needs-input");

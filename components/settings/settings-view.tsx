@@ -78,11 +78,11 @@ export function SettingsView() {
       <section aria-labelledby="backup-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
         <h2 id="backup-settings" className="text-headline text-ink">{bilingual.backup}</h2>
         <p className="m-0 max-w-measure text-body-sm text-ink-muted">Version 3 backups include fields, saved rotations and your Plan draft. Restore adds records and replaces matching IDs and the included Plan draft. Keep the file private.</p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => void exportData()} disabled={busy !== null} icon="download">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void exportData()} disabled={busy !== null} icon="download" className="w-full sm:w-auto justify-center">
             {busy === "export" ? "Preparing backup…" : "Export backup (JSON)"}
           </Button>
-          <Button variant="secondary" onClick={() => restoreInput.current?.click()} disabled={busy !== null} icon="restore">
+          <Button variant="secondary" onClick={() => restoreInput.current?.click()} disabled={busy !== null} icon="restore" className="w-full sm:w-auto justify-center">
             {busy === "restore" ? "Restoring…" : "Restore backup"}
           </Button>
           <input ref={restoreInput} type="file" accept=".json,application/json" className="sr-only" aria-label="Choose a backup file" onChange={(event) => void restore(event.target.files?.[0])} />

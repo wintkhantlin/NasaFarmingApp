@@ -244,8 +244,28 @@ export function ReportView({ fieldId }: { fieldId: string }) {
         ) : null}
 
         <Disclosure title={copy.report.evidenceSummary} className="border-0 bg-transparent print:break-inside-auto [&>summary]:px-0 [&>summary]:text-headline [&>div]:px-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[44rem] border-collapse text-left text-source">
+          {/* Mobile: stacked cards instead of wide horizontal-scrolling table */}
+          <div className="flex flex-col gap-3 md:hidden print:hidden">
+            {allEvidence.map(({ option, ev }) => (
+              <div key={`${option}-${ev.id}`} className="flex flex-col gap-1.5 rounded-md border border-line bg-surface p-3 text-body-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-pill bg-field-soft px-2 py-0.5 text-source font-semibold text-field">{option}</span>
+                  <span className="tabular font-mono text-body-sm font-medium text-ink">
+                    {ev.indicator.value === null ? `Unknown: ${missingText(ev.indicator.missingReason)}` : `${ev.indicator.value} ${ev.indicator.units}`}
+                  </span>
+                </div>
+                <p className="m-0 font-medium text-ink">{ev.claim}</p>
+                <p className="m-0 text-source text-ink-muted">
+                  {provenanceLine(ev.indicator)}
+                  {ev.indicator.assumptions.length ? ` · ${ev.indicator.assumptions[0]}` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop & Print: tabular evidence view */}
+          <div className="hidden overflow-x-auto md:block print:block">
+            <table className="w-full min-w-[44rem] border-collapse text-left text-source print:min-w-0">
               <thead>
                 <tr className="text-ink-muted">
                   <th scope="col" className="py-1.5 pr-2 font-normal">Option</th>

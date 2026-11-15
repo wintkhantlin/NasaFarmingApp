@@ -23,6 +23,7 @@ export function Disclosure({ title, hint, defaultOpen, className, lazy, children
   const ref = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const el = ref.current;
     if (!el) return;
     let wasOpen = el.open;
@@ -37,8 +38,10 @@ export function Disclosure({ title, hint, defaultOpen, className, lazy, children
     window.addEventListener("beforeprint", before);
     window.addEventListener("afterprint", after);
     return () => {
-      window.removeEventListener("beforeprint", before);
-      window.removeEventListener("afterprint", after);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("beforeprint", before);
+        window.removeEventListener("afterprint", after);
+      }
     };
   }, []);
 

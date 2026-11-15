@@ -7,14 +7,14 @@ const place = { id: "typed:ayeyarwady:bogale", name: "Bogale", context: "Ayeyarw
 describe("Plan refinement persistence and field adapter", () => {
   it("migrates a legacy v1 draft without changing its crop or requiring dates", () => {
     const migrated = parsePlanDraft({ version: 1, place, mainCropId: "rice", updatedAt: "2026-11-15" });
-    expect(migrated).toMatchObject({ version: 2, mainCropId: "rice", revision: 0, refinements: { sequence: { sowing: { kind: "unknown" } } } });
+    expect(migrated).toMatchObject({ version: 2, mainCropId: "rice", nextPlantingPeriod: "not-sure", priorityOrder: [], revision: 0, refinements: { sequence: { sowing: { kind: "unknown" } } } });
     expect(adaptPlanToFieldSlot(migrated!).state).toBe("needs-input");
   });
   it("round trips refinements in the existing browser key", () => {
     const store = new Map<string, string>();
-    const draft = { ...emptyPlanDraft(), place, mainCropId: "rice", revision: 3, refinements: { ...emptyPlanDraft().refinements, water: { value: "occasional" as const, state: "saved" as const } } };
+    const draft = { ...emptyPlanDraft(), place, mainCropId: "rice", nextPlantingPeriod: "post-monsoon" as const, priorityOrder: ["water", "soil"] as ("water" | "soil")[], revision: 3, refinements: { ...emptyPlanDraft().refinements, water: { value: "occasional" as const, state: "saved" as const } } };
     expect(writePlanDraft(draft, { setItem: (key, value) => { store.set(key, value); } })).toBe(true);
-    expect(readPlanDraft({ getItem: key => store.get(key) ?? null })).toMatchObject({ revision: 3, refinements: { water: { value: "occasional", state: "saved" } } });
+    expect(readPlanDraft({ getItem: key => store.get(key) ?? null })).toMatchObject({ revision: 3, nextPlantingPeriod: "post-monsoon", priorityOrder: ["water", "soil"], refinements: { water: { value: "occasional", state: "saved" } } });
     expect(store.has(PLAN_DRAFT_KEY)).toBe(true);
   });
   it("retains dekad as an interval and unknown as unknown", () => {

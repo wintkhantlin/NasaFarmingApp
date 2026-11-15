@@ -131,6 +131,17 @@ body {
   overflow-x: clip;
 }
 
+main {
+  min-width: 0;
+  max-width: 100%;
+}
+
+pre,
+code {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 @layer base {
   html {
     scroll-padding-top: 5rem;
@@ -151,9 +162,14 @@ body {
     color: var(--color-ink);
   }
 
-  /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3) */
-  :lang(my) {
-    line-height: 1.7;
+  /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3).
+     Enforce on :lang(my), [lang="my"] and their descendants so Tailwind utility line-heights do not clip diacritics. */
+  :lang(my),
+  [lang="my"],
+  :lang(my) * {
+    line-height: 1.7 !important;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   :focus-visible {

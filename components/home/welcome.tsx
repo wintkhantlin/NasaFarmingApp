@@ -6,8 +6,7 @@ import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/shell/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
-import { copy } from "@/lib/copy/en";
-import { useLocaleStore, type Locale } from "@/lib/store/locale-store";
+import { useAppCopy, useLocaleStore, type Locale } from "@/lib/store/locale-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
 
 const LANGS: Array<{ value: Locale; label: string }> = [
@@ -18,6 +17,7 @@ const LANGS: Array<{ value: Locale; label: string }> = [
 /** Old Zawgyi fonts draw Unicode Myanmar wrongly. A tiny canvas probe is not reliable, so we only offer the hint. */
 export function Welcome() {
   const router = useRouter();
+  const text = useAppCopy();
   const locale = useLocaleStore((s) => s.locale);
   const hydrateLocale = useLocaleStore((s) => s.hydrate);
   const setLocale = useLocaleStore((s) => s.setLocale);
@@ -39,12 +39,12 @@ export function Welcome() {
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col gap-6 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2.5rem,env(safe-area-inset-top))]">
       <div className="flex flex-col items-center gap-2 text-center">
         <BrandMark />
-        <h1 className="text-title text-ink">{copy.app.name}</h1>
-        <p className="m-0 text-body text-ink-muted">Explore crop rotation options using past weather, soil information and your experience.</p>
+        <h1 className="text-title text-ink">{text.app.name}</h1>
+        <p className="m-0 text-body text-ink">{text.path.job}</p>
       </div>
 
       <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-        <legend className="mb-1 text-label text-ink">Language</legend>
+        <legend className="mb-1 text-label text-ink">{text.welcome.language}</legend>
         <Panel as="div" className="divide-y divide-line">
           {LANGS.map((l) => (
             <label key={l.value} className="flex min-h-tap cursor-pointer items-center justify-between gap-3 px-4">
@@ -58,25 +58,25 @@ export function Welcome() {
       <section aria-labelledby="notice" className="flex flex-col gap-3">
         <h2 id="notice" className="sr-only">Your data</h2>
         <div>
-          <h3 className="m-0 text-headline text-ink">What stays on this phone / ဖုန်းထဲတွင်သာ သိမ်းထားသည်</h3>
+          <h3 className="m-0 text-headline text-ink">{text.welcome.staysTitle}</h3>
           <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
-            <li>Your fields, crops and soil tests</li>
-            <li>Your priorities and limits</li>
+            <li>{text.welcome.staysFields}</li>
+            <li>{text.welcome.staysPriorities}</li>
           </ul>
         </div>
         <div>
-          <h3 className="m-0 text-headline text-ink">What may leave the phone / ဖုန်းမှ ထွက်သွားနိုင်သည်</h3>
+          <h3 className="m-0 text-headline text-ink">{text.welcome.leavesTitle}</h3>
           <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
-            <li>Field location, to NASA, ISRIC and Microsoft data services</li>
+            <li>{text.welcome.leavesLocation}</li>
           </ul>
         </div>
-        {offline ? <p className="m-0 text-body-sm text-ink-muted">You are offline. Data will load when you connect.</p> : null}
+        {offline ? <p className="m-0 text-body-sm text-ink-muted">{text.welcome.offline}</p> : null}
         {locale === "my" ? (
           <p className="m-0 rounded-md bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
-            If Myanmar text looks wrong, your phone may use an older Myanmar font. Switch to Unicode for correct text.
+            {text.welcome.zawgyi}
           </p>
         ) : null}
-        <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">Learn about data / ဒေတာအကြောင်း လေ့လာရန်</Link>
+        <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">{text.welcome.learnData}</Link>
       </section>
 
       <div className="mt-auto">
@@ -88,7 +88,7 @@ export function Welcome() {
             router.replace("/");
           }}
         >
-          Continue
+          {text.welcome.continue}
         </Button>
       </div>
     </main>

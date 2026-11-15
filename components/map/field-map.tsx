@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Map, { Layer, Source, type MapRef } from "react-map-gl/mapbox";
 import {
   TerraDraw,
+  TerraDrawModeUndoRedo,
   TerraDrawPointMode,
   TerraDrawPolygonMode,
   TerraDrawRectangleMode,
@@ -18,9 +19,9 @@ import { centroid } from "@/lib/geo/shapes";
 import type { FieldGeometry, LngLat } from "@/lib/types";
 import { MAPBOX_STYLE } from "./mapbox-config";
 
-export type DrawTool = "box" | "outline";
+export type DrawTool = "point" | "box" | "outline";
 
-const MODE_FOR_TOOL: Record<DrawTool, string> = { box: "rectangle", outline: "polygon" };
+const MODE_FOR_TOOL: Record<DrawTool, string> = { point: "point", box: "rectangle", outline: "polygon" };
 const SHAPE_MODES = new Set(["point", "rectangle", "polygon"]);
 
 export interface MapFocus {
@@ -43,6 +44,15 @@ export interface FieldMapProps {
   initialCenter: LngLat;
   initialZoom: number;
   onGeometryChange: (geometry: FieldGeometry | null) => void;
+  /** One-off commands. Change `nonce` to send the same command again. */
+  command?: MapCommand | null;
+  /** Reports whether the corner just placed can be taken back. */
+  onDrawingChange?: (drawing: { canUndoCorner: boolean }) => void;
+}
+
+export interface MapCommand {
+  kind: "edit" | "undo-corner";
+  nonce: number;
 }
 
 const GREEN = "#2e5e3a" as HexColor;
@@ -95,15 +105,19 @@ export function FieldMap({
   initialCenter,
   initialZoom,
   onGeometryChange,
+  command,
+  onDrawingChange,
 }: FieldMapProps) {
   const mapRef = useRef<MapRef>(null);
   const drawRef = useRef<TerraDraw | null>(null);
   const lastEmitted = useRef("null");
   const onChangeRef = useRef(onGeometryChange);
+  const onDrawingRef = useRef(onDrawingChange);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onGeometryChange;
+    onDrawingRef.current = onDrawingChange;
   });
 
   const handleLoad = useCallback(() => {
@@ -118,6 +132,8 @@ export function FieldMap({
     };
     const draw = new TerraDraw({
       adapter: new TerraDrawMapboxGLAdapter({ map }),
+      // Mode-level undo takes back the last corner of an outline that is still being drawn.
+      undoRedo: { modeLevel: new TerraDrawModeUndoRedo() },
       modes: [
         new TerraDrawPointMode({
           styles: { pointColor: GREEN, pointWidth: 9, pointOutlineColor: PARCHMENT, pointOutlineWidth: 3 },
@@ -171,6 +187,9 @@ export function FieldMap({
       }
     });
 
+    // Tell the page whether a corner can still be taken back while an outline is being drawn.
+    draw.on("change", () => onDrawingRef.current?.({ canUndoCorner: draw.getMode() === "polygon" && draw.canUndo() }));
+
     drawRef.current = draw;
     setReady(true);
   }, []);
@@ -204,6 +223,22 @@ export function FieldMap({
     if (!draw || !ready || !tool) return;
     draw.setMode(MODE_FOR_TOOL[tool]);
   }, [tool, toolNonce, ready]);
+
+  useEffect(() => {
+    const draw = drawRef.current;
+    if (!draw || !ready || !command) return;
+    if (command.kind === "undo-corner") {
+      if (draw.canUndo()) draw.undo();
+      return;
+    }
+    const shape = draw.getSnapshot().find((f) => SHAPE_MODES.has(String(f.properties.mode)));
+    if (!shape) {
+      draw.setMode("static");
+      return;
+    }
+    draw.setMode("select");
+    draw.selectFeature(shape.id as string);
+  }, [command, ready]);
 
   useEffect(() => {
     const map = mapRef.current?.getMap();

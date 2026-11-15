@@ -26,7 +26,7 @@ import { REGIONS, regionOfPoint } from "@/lib/data/regions";
 import { openQuickQuestions } from "@/lib/engine/questions";
 import { formatPoint } from "@/lib/geo/format";
 import { staticMapUrl } from "@/lib/geo/static-map";
-import { formatSpan, plural, sequenceText, slotName } from "@/lib/rotation-format";
+import { formatSpan, plural, sequenceText, slotName, currentRotation } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
 import { DRY_ZONE_POWER_RAIN, WEATHER_CHECK, isDryZone } from "@/lib/validation/source-checks";
 
@@ -105,7 +105,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
     );
   }
 
-  const rotation = rotations[0]?.slots.length ? rotations[0] : null;
+  const rotation = currentRotation(rotations) ?? null;
   const hasRotation = Boolean(rotation);
   const hasBoundary = field.geometry.type === "Polygon";
   const boundaryHref = `/fields/${field.id}/location`;
@@ -153,9 +153,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   ];
   const doneCount = setup.filter((s) => s.done).length;
 
-  const next = !hasRotation
+  const next = !rotation
     ? { title: "Record what you grow now", body: "Tap the crops you grow.", href: `/fields/${field.id}/rotation`, cta: "Add my crops", icon: "rotation" as const }
-    : { title: "Your answer is ready", body: `See how ${sequenceText(rotations[0], " then ")} compares with other plans for this field.`, href: `/fields/${field.id}/compare`, cta: "See my answer", icon: "compare" as const };
+    : { title: "Your answer is ready", body: `See how ${sequenceText(rotation, " then ")} compares with other plans for this field.`, href: `/fields/${field.id}/compare`, cta: "See my answer", icon: "compare" as const };
 
   const handleRemove = async () => {
     setRemoving(true);
@@ -300,7 +300,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
             <h2 className="text-headline text-ink">{next.title}</h2>
             <p className="max-w-measure text-body text-ink-muted">{next.body}</p>
           </div>
-          <Link href={next.href} className={buttonClass("primary")}>
+          <Link href={next.href} className={buttonClass("primary", "w-full sm:w-auto justify-center")}>
             <Icon name={next.icon} />
             <span>{next.cta}</span>
           </Link>
@@ -482,9 +482,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                 {rows.map((r) => {
                   const value = detail === "simple" ? r.simple : r.technical;
                   return (
-                    <div key={r.label} className="flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0">
+                    <div key={r.label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-4 py-2 first:pt-0 last:pb-0">
                       <dt className="shrink-0 text-body-sm text-ink-muted">{r.label}</dt>
-                      <dd className={`m-0 text-right text-body-sm first-letter:uppercase ${value ? "font-medium text-ink" : "text-ink-muted"}`}>
+                      <dd className={`m-0 text-left sm:text-right text-body-sm first-letter:uppercase ${value ? "font-medium text-ink" : "text-ink-muted"}`}>
                         {value || r.hint}
                       </dd>
                     </div>

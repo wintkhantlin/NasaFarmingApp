@@ -86,14 +86,14 @@ export function SeasonStrip({ strip, field }: { strip: StripYear[]; field: Field
       {open && sel ? (
         <div className="flex flex-col gap-2">
           <p className="m-0 text-body text-ink">How was {open} at your field?</p>
-          <div role="group" aria-label={`How was ${open}`} className="flex flex-wrap gap-2">
+          <div role="group" aria-label={`How was ${open}`} className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
             {ANSWERS.map((a) => (
               <button
                 key={a.value}
                 type="button"
                 aria-pressed={mine === a.value}
                 onClick={() => void save(open, a.value)}
-                className={cn("min-h-tap rounded-md border px-3 text-label", mine === a.value ? "border-field bg-field-soft text-ink" : "border-line bg-surface text-ink")}
+                className={cn("flex min-h-tap items-center justify-center rounded-md border px-3 text-label text-center", mine === a.value ? "border-field bg-field-soft text-ink" : "border-line bg-surface text-ink")}
               >
                 {a.label}
               </button>

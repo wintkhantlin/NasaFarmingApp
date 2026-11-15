@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { FarmProfile } from "@/components/field/farm-profile";
 import { useFieldsStore } from "@/lib/store/fields-store";
+import { resetFormDrafts } from "@/lib/store/form-drafts";
 import type { Field } from "@/lib/types";
 
 // Mock router
@@ -53,6 +54,7 @@ describe("FarmProfile - Soil around your field", () => {
 
   afterEach(() => {
     cleanup();
+    resetFormDrafts();
   });
 
   it("renders editable inputs for Soil acidity, texture, and salinity in Soil around your field", () => {

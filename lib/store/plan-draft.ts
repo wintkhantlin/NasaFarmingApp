@@ -1,9 +1,10 @@
-import type { RegionId } from "../types";
+import type { PriorityId, RegionId } from "../types";
 
 export const PLAN_DRAFT_KEY = "fieldshift.plan-draft.v1";
 export type InputState = "draft" | "confirmed" | "unknown" | "invalid" | "saved";
 export type WaterChoice = "rain-only" | "occasional" | "reliable" | "unknown";
-export type GoalChoice = "water" | "soil" | "income" | "forage" | "risk" | "unknown";
+export type GoalChoice = "water" | "soil" | "income" | "forage" | "lower-inputs" | "risk" | "unknown";
+export type NextPlantingPeriod = "monsoon" | "post-monsoon" | "dry-season" | "not-sure";
 export type ResidueChoice = "kept" | "incorporated" | "mulched" | "removed" | "burned" | "unknown";
 export type FeasibilityChoice = "available" | "unavailable" | "unknown";
 export type RefinementKey = "sequence" | "water" | "goal" | "residue" | "feasibility";
@@ -52,6 +53,10 @@ export interface PlanDraft {
   version: 1 | 2;
   place: PlanDraftPlace | null;
   mainCropId: string | null;
+  /** Regional planning context only. It never becomes a verified field date. */
+  nextPlantingPeriod: NextPlantingPeriod;
+  /** Most important first; consumed by the existing MCDA model after a field is confirmed. */
+  priorityOrder: PriorityId[];
   updatedAt: string;
   revision: number;
   refinements: PlanRefinements;
@@ -60,7 +65,7 @@ export interface PlanDraft {
 const REGION_IDS = new Set<RegionId>(["ayeyarwady", "magway", "shan", "myanmar"]);
 
 export function emptyPlanDraft(): PlanDraft {
-  return { version: 2, place: null, mainCropId: null, updatedAt: new Date(0).toISOString(), revision: 0, refinements: emptyRefinements() };
+  return { version: 2, place: null, mainCropId: null, nextPlantingPeriod: "not-sure", priorityOrder: [], updatedAt: new Date(0).toISOString(), revision: 0, refinements: emptyRefinements() };
 }
 
 export function parsePlanDraft(value: unknown): PlanDraft | null {
@@ -68,8 +73,14 @@ export function parsePlanDraft(value: unknown): PlanDraft | null {
   const draft = value as Partial<PlanDraft>;
   if ((draft.version !== 1 && draft.version !== 2) || typeof draft.updatedAt !== "string") return null;
   if (draft.mainCropId !== null && draft.mainCropId !== undefined && typeof draft.mainCropId !== "string") return null;
+  const nextPlantingPeriod = (["monsoon", "post-monsoon", "dry-season", "not-sure"] as const).includes(draft.nextPlantingPeriod as NextPlantingPeriod)
+    ? draft.nextPlantingPeriod as NextPlantingPeriod
+    : "not-sure";
+  const priorityOrder = Array.isArray(draft.priorityOrder)
+    ? draft.priorityOrder.filter((priority): priority is PriorityId => ["water", "soil", "income", "forage", "lower-inputs"].includes(String(priority)))
+    : [];
   if (draft.place === null || draft.place === undefined) {
-    return { version: 2, place: null, mainCropId: draft.mainCropId ?? null, updatedAt: draft.updatedAt, revision: validRevision(draft.revision), refinements: validRefinements(draft.refinements) };
+    return { version: 2, place: null, mainCropId: draft.mainCropId ?? null, nextPlantingPeriod, priorityOrder, updatedAt: draft.updatedAt, revision: validRevision(draft.revision), refinements: validRefinements(draft.refinements) };
   }
   const place = draft.place as Partial<PlanDraftPlace>;
   if (
@@ -87,6 +98,8 @@ export function parsePlanDraft(value: unknown): PlanDraft | null {
     version: 2,
     place: place as PlanDraftPlace,
     mainCropId: draft.mainCropId ?? null,
+    nextPlantingPeriod,
+    priorityOrder,
     updatedAt: draft.updatedAt,
     revision: validRevision(draft.revision),
     refinements: validRefinements(draft.refinements),
@@ -124,7 +137,7 @@ function validRefinements(value: unknown): PlanRefinements {
       texture: choice(v.water.observation.texture, ["sandy", "loamy", "clayey", "unknown"], "unknown"),
       context: choice(v.water.observation.context, ["now", "at-planting", "remembered", "unknown"], "unknown"),
     } } : {}), value: choice(v.water?.value, ["rain-only", "occasional", "reliable", "unknown"], "unknown"), state: state(v.water?.state) },
-    goal: { value: choice(v.goal?.value, ["water", "soil", "income", "forage", "risk", "unknown"], "unknown"), state: state(v.goal?.state) },
+    goal: { value: choice(v.goal?.value, ["water", "soil", "income", "forage", "lower-inputs", "risk", "unknown"], "unknown"), state: state(v.goal?.state) },
     residue: { value: choice(v.residue?.value, ["kept", "incorporated", "mulched", "removed", "burned", "unknown"], "unknown"), state: state(v.residue?.state) },
     feasibility: { values: Object.fromEntries((Object.keys(empty.feasibility.values) as Array<keyof typeof empty.feasibility.values>).map(key => [key, choice(v.feasibility?.values?.[key], ["available", "unavailable", "unknown"], "unknown")])) as PlanRefinements["feasibility"]["values"], state: state(v.feasibility?.state) },
   };

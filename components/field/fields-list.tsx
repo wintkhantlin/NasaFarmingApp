@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { copy } from "@/lib/copy/en";
 import { downloadJson } from "@/lib/download";
 import { staticMapUrl } from "@/lib/geo/static-map";
-import { sequenceText } from "@/lib/rotation-format";
+import { sequenceText, currentRotation } from "@/lib/rotation-format";
 import { deriveStepStates, EMPTY_ROTATIONS, useFieldsStore } from "@/lib/store/fields-store";
 import type { Field, Rotation } from "@/lib/types";
 
@@ -68,8 +68,8 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[]; 
             </div>
           </dl>
 
-          {hasRotation && rotations[0] ? (
-            <p className="text-body-sm text-ink">{sequenceText(rotations[0], " → ")}</p>
+          {hasRotation && currentRotation(rotations) ? (
+            <p className="text-body-sm text-ink">{sequenceText(currentRotation(rotations)!, " → ")}</p>
           ) : null}
 
           <div className="mt-auto flex flex-col gap-2 border-t border-line pt-3">
@@ -117,11 +117,10 @@ export function FieldsList() {
 
   if (status === "error") {
     return (
-      <EmptyState title={copy.home.loadError} body="Saved work could not be read. Check browser storage, then try again. Basic regional preview is still available from Plan.">
+      <EmptyState title={copy.home.loadError} body="Saved work could not be read. Check browser storage, then try again.">
         <Button variant="primary" onClick={() => void load()}>
           {copy.home.retry}
         </Button>
-        <Link href="/plan" className={buttonClass("secondary")}>Explore regional preview</Link>
       </EmptyState>
     );
   }
