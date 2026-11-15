@@ -21,6 +21,7 @@ export type FarmerRequest = {
     soilPh?: number | null;
     drainage?: "well" | "moderate" | "poor" | "unknown";
     equipment?: string;
+    previousResidue?: "retained" | "removed" | "burned" | "grazed" | "unknown";
     availableCrops?: string[];
   };
 };
@@ -35,6 +36,8 @@ export type MonthlyCondition = {
 export type EnvironmentSnapshot = {
   source: string;
   basis?: "synthetic" | "historical_normals" | "observed" | "forecast";
+  observation_period?: { start_date: string; end_date: string };
+  units?: { temp_c: "C"; rain_mm: "mm"; soil_moisture_anomaly?: "unitless" };
   spatial_resolution_km?: number | null;
   /** Known biases of the source at this location, from the ground-truth checks in docs/validation. */
   known_biases?: string[];
@@ -80,6 +83,9 @@ export function parseFarmerRequest(value: unknown): FarmerRequest {
   if (advanced.equipment !== undefined && (typeof advanced.equipment !== "string" || advanced.equipment.length > 200)) {
     throw new Error("Equipment notes must be under 200 characters.");
   }
+  if (advanced.previousResidue !== undefined && !["retained", "removed", "burned", "grazed", "unknown"].includes(advanced.previousResidue)) {
+    throw new Error("Choose a valid previous-crop residue status.");
+  }
   if (advanced.availableCrops !== undefined && (!Array.isArray(advanced.availableCrops) || !advanced.availableCrops.length || advanced.availableCrops.some((crop) => !cropIds.includes(crop)))) {
     throw new Error("Choose at least one available crop.");
   }
@@ -101,6 +107,7 @@ export function buildEngineRequest(input: FarmerRequest, environment: Environmen
       soil_ph: input.advanced?.soilPh ?? null,
       drainage: input.advanced?.drainage ?? "unknown",
       irrigation: input.irrigation === "yes" ? "available" : input.irrigation === "no" ? "none" : "unknown",
+      previous_residue: input.advanced?.previousResidue ?? "unknown",
       available_crops: input.advanced?.availableCrops ?? cropIds,
     },
     environment,

@@ -76,5 +76,10 @@ export function powerEnvironment(weather: DailyWeather, startDate: string, endDa
   // Monthly rain here is POWER PRECTOTCORR, which read about half the station total in the Dry Zone (docs/validation).
   const region = Number.isFinite(weather.latitude) && Number.isFinite(weather.longitude) ? regionOfPoint([weather.longitude, weather.latitude]) : null;
   const known_biases = !synthetic && isDryZone(region) ? [dryZoneRainCaution()] : undefined;
-  return { source: sourceParts.join(" · "), basis: synthetic ? "synthetic" : "historical_normals", spatial_resolution_km: null, ...(known_biases ? { known_biases } : {}), monthly };
+  return {
+    source: sourceParts.join(" · "), basis: synthetic ? "synthetic" : "historical_normals",
+    observation_period: weather.dates.length ? { start_date: weather.dates[0], end_date: weather.dates.at(-1)! } : undefined,
+    units: { temp_c: "C", rain_mm: "mm" }, spatial_resolution_km: null,
+    ...(known_biases ? { known_biases } : {}), monthly,
+  };
 }
