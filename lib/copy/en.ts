@@ -72,6 +72,7 @@ export const copy = {
   appNav: {
     main: "Main",
     fields: "My fields",
+    plan: "Plan",
     guide: "Data guide",
     openQuestions: (count: string) => `${count} open questions`,
     settings: "Settings",

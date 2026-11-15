@@ -183,15 +183,21 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   useEffect(() => {
     if (!fromPlan || field) return;
     const saved = readPlanDraft();
-    if (!saved?.place) return;
-    skipAutoSearch.current = true;
-    setPlanDraft(saved);
-    const draftWater = saved.refinements.water.value;
-    setWaterChoice(draftWater === "rain-only" ? "rain-only" : draftWater === "reliable" ? "irrigation-available" : draftWater === "occasional" ? "both" : null);
-    setQuery(saved.place.name);
-    if (saved.place.lon !== undefined && saved.place.lat !== undefined) {
-      setFocus({ center: [saved.place.lon, saved.place.lat], zoom: 13, nonce: 1 });
-    }
+    const place = saved?.place;
+    if (!place) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      skipAutoSearch.current = true;
+      setPlanDraft(saved);
+      const draftWater = saved.refinements.water.value;
+      setWaterChoice(draftWater === "rain-only" ? "rain-only" : draftWater === "reliable" ? "irrigation-available" : draftWater === "occasional" ? "both" : null);
+      setQuery(place.name);
+      if (place.lon !== undefined && place.lat !== undefined) {
+        setFocus({ center: [place.lon, place.lat], zoom: 13, nonce: 1 });
+      }
+    });
+    return () => { cancelled = true; };
   }, [field, fromPlan]);
 
   // On a phone the bottom bar sits over the map. Publish its height so the Mapbox

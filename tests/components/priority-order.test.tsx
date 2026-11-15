@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { PRIORITY_INFO, PriorityOrder, influenceWords, orderSummary } from "@/components/field/priority-order";
 import { copy } from "@/lib/copy/en";
 import { priorityWeights } from "@/lib/engine/mcda";
@@ -9,30 +9,30 @@ import type { PriorityId } from "@/lib/types";
 
 afterEach(cleanup);
 
-let latest: PriorityId[] = [];
-function Harness({ start = [] as PriorityId[] }) {
+function Harness({ start = [], onChange = () => {} }: { start?: PriorityId[]; onChange?: (order: PriorityId[]) => void }) {
   const [order, setOrder] = useState<PriorityId[]>(start);
-  latest = order;
-  return <PriorityOrder value={order} onChange={setOrder} />;
+  return <PriorityOrder value={order} onChange={(next) => { setOrder(next); onChange(next); }} />;
 }
 
 describe("PriorityOrder", () => {
   test("adds priorities in the order chosen and reports the summary", () => {
-    render(<Harness />);
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Add: Save water" }));
     fireEvent.click(screen.getByRole("button", { name: "Add: Earn more" }));
-    expect(latest).toEqual(["water", "income"]);
+    expect(onChange).toHaveBeenLastCalledWith(["water", "income"]);
     expect(screen.getByText("Save water counts most, then earn more.")).toBeTruthy();
   });
 
   test("keyboard buttons reorder and remove, and announce the change", () => {
-    render(<Harness start={["water", "soil", "income"]} />);
+    const onChange = vi.fn();
+    render(<Harness start={["water", "soil", "income"]} onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Move up: Earn more" }));
-    expect(latest).toEqual(["water", "income", "soil"]);
+    expect(onChange).toHaveBeenLastCalledWith(["water", "income", "soil"]);
     expect((screen.getByRole("button", { name: "Move up: Save water" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("status").textContent).toContain("Earn more is now second");
     fireEvent.click(screen.getByRole("button", { name: "Not important: Improve soil" }));
-    expect(latest).toEqual(["water", "income"]);
+    expect(onChange).toHaveBeenLastCalledWith(["water", "income"]);
     expect(screen.getByRole("status").textContent).toContain("Improve soil is now marked not important");
   });
 
@@ -44,11 +44,12 @@ describe("PriorityOrder", () => {
   });
 
   test("drag and drop moves a card to the target place", () => {
-    render(<Harness start={["water", "soil", "income"]} />);
+    const onChange = vi.fn();
+    render(<Harness start={["water", "soil", "income"]} onChange={onChange} />);
     const items = screen.getAllByRole("listitem").filter((el) => el.getAttribute("draggable") === "true");
     fireEvent.dragStart(items[2]);
     fireEvent.drop(items[0]);
-    expect(latest).toEqual(["income", "water", "soil"]);
+    expect(onChange).toHaveBeenLastCalledWith(["income", "water", "soil"]);
   });
 
   test("no order is described as equal weighting, one priority as the only one used", () => {
