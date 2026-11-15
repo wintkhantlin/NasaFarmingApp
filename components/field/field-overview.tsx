@@ -201,7 +201,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   if (soilPh) rows.push({ label: "Acidity", value: phMeaning(Number(soilPh)) });
   if (soilOc !== null) rows.push({ label: "Organic matter", value: ocMeaning(Number(soilOc)) });
   if (!soilTexture && !soilPh && soilOc === null) {
-    rows.push({ label: "Soil", value: soilLoading ? "Loading from soil map…" : "Soil map unavailable right now. Add a test result" });
+    rows.push({ label: "Soil", value: soilLoading ? "Retrieving soil profile…" : "Digital soil profile loading. You can enter local measurements" });
   }
   if (salinity !== null) rows.push({ label: "Soil salt", value: salMeaning(salinity) });
   rows.push({ label: "Top priority", value: topPriority ? t.profile.priority[topPriority] : "Balanced across water, soil and income", typical: !topPriority });
@@ -210,10 +210,10 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   if (market) rows.push({ label: "Market", value: `${t.profile.levels[market]} access to buyers` });
   const typicalCount = rows.filter((r) => r.typical).length;
 
-  // Where a reading here is a guess that local knowledge or a test should settle.
+  // Where a reading here is a regional estimate that local knowledge or a test can refine.
   const showDryZoneRain = Boolean(annualRainMm) && isDryZone(regionId);
   const conditionCautions: string[] = [];
-  if (soilTexture && !field.soilOverride) conditionCautions.push("Soil is a map estimate. A soil test from the township agriculture office would settle it.");
+  if (soilTexture && !field.soilOverride) conditionCautions.push("Soil is a map estimate (ISRIC SoilGrids 250m). Local soil tests can be added in your farm profile.");
 
   const stats: { icon: "water" | "conditions" | "soil"; tone: string; label: string; value: string; note: string }[] = [];
   if (annualRainMm) stats.push({ icon: "water", tone: "text-water", label: "Annual rainfall", value: `${annualRainMm} mm`, note: wetSeason ? `Wettest ${wetSeason}` : "NASA POWER" });

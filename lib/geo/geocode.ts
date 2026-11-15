@@ -18,6 +18,7 @@ export function geocodeUrl(query: string, token: string, limit = 5): string {
     access_token: token,
     limit: String(limit),
     types: "country,region,district,place,locality,neighborhood,postcode,address",
+    country: "MM",
   });
   return `https://api.mapbox.com/search/geocode/v6/forward?${q.toString()}`;
 }

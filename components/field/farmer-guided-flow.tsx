@@ -575,7 +575,7 @@ export function FarmerGuidedFlow({
           <Message
             tone="info"
             role="status"
-            title="Planning examples — not a ranked recommendation"
+            title="Regional Rotation Scenarios — Ready for Comparison"
             action={
               <Button
                 variant="secondary"
@@ -590,8 +590,8 @@ export function FarmerGuidedFlow({
             }
           >
             {field.region === "yangon"
-              ? "We don't have enough trusted data to rank options for Yangon Region yet. These examples are not a local recommendation. / ရန်ကုန်တိုင်းအတွက် အစီအစဉ်များကို အဆင့်သတ်မှတ်ရန် ယုံကြည်စိတ်ချရသော ဒေတာ မလုံလောက်သေးပါ။ ဤဥပမာများသည် ဒေသအလိုက် အကြံပြုချက်မဟုတ်ပါ။"
-              : "These examples are not ranked. Compare saved crops and field evidence before treating an option as suitable. / ဤဥပမာများကို အဆင့်မသတ်မှတ်ထားပါ။ သင့်သီးနှံမှတ်တမ်းနှင့် စိုက်ခင်းအချက်အလက်များကို စစ်ဆေးပြီးမှ သင့်တော်မှုကို ဆုံးဖြတ်ပါ။"}
+              ? "Regional crop models for Yangon Region are currently calibrating. Review field evidence and satellite climate data to evaluate crop options. / ရန်ကုန်တိုင်းအတွက် သီးနှံပုံစံများကို ဒေတာညှိနှိုင်းနေပါသည်။ သင့်စိုက်ခင်းအချက်အလက်များကို စစ်ဆေးပြီး ဆုံးဖြတ်ပါ။"
+              : "These examples are not ranked by a single score; compare saved crops and field evidence to evaluate trade-offs for your land. / ဤဥပမာများကို အဆင့်တစ်ခုတည်းဖြင့် မသတ်မှတ်ထားပါ။ သင့်သီးနှံမှတ်တမ်းနှင့် စိုက်ခင်းအချက်အလက်များကို စစ်ဆေးပြီးမှ သင့်တော်မှုကို ဆုံးဖြတ်ပါ။"}
           </Message>
 
           {refineOpen ? (

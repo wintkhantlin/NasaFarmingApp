@@ -167,7 +167,7 @@ const METHODOLOGY_STEPS: MethodologyStep[] = [
       my: "ရာသီဥတုပြင်းထန်မှုများကို ဖုံးကွယ်တတ်သည့် ပျမ်းမျှကိန်းဂဏန်းတစ်ခုတည်းအပေါ် အခြေမခံဘဲ သီးနှံစိုက်ပျိုးချိန်ကို နေ့စဉ်ရာသီဥတုမှတ်တမ်းများနှင့် တိုက်ဆိုင်စစ်ဆေးသည်။ ပန်းပွင့်ချိန်တွင် အပူဒဏ်လွန်ကဲခြင်း သို့မဟုတ် မိုးခေါင်ခြင်း ကြုံတွေ့ခဲ့ရသည့် ရာသီအရေအတွက်ကို တိကျစွာ ရေတွက်သည်။",
     },
     farmerBenefit: {
-      en: "Tells you honestly how frequently a crop copes with real local droughts and heatwaves, without guessing next year's forecast.",
+      en: "Evaluates how frequently a crop copes with documented droughts and heatwaves, grounded in multi-year historical climate observations.",
       my: "ရှေ့နှစ် မိုးလေဝသကို မခန့်မှန်းဘဲ ဒေသတွင်း မိုးခေါင်မှုနှင့် အပူဒဏ်ကို ဤသီးနှံ မည်မျှခံနိုင်ရည်ရှိခဲ့သည်ကို အမှန်အတိုင်း ပြသပေးသည်။",
     },
     icon: "calendar",
@@ -251,7 +251,7 @@ const METHODOLOGY_STEPS: MethodologyStep[] = [
       my: "အနိမ့်ဆုံးနှင့် အမြင့်ဆုံး အကျိုးအမြတ်ကို [အနိမ့်ဆုံးအထွက် × အနိမ့်ဆုံးဈေး − အမြင့်ဆုံးကုန်ကျစရိတ်] မှ [အမြင့်ဆုံးအထွက် × အမြင့်ဆုံးဈေး − အနိမ့်ဆုံးကုန်ကျစရိတ်] အထိ တွက်ချက်သည်။ ရိတ်သိမ်းချိန်မတိုင်မီ ကြိုတင်စိုက်ထုတ်ရမည့် စရိတ်ကို တွက်ပြသည်။",
     },
     farmerBenefit: {
-      en: "Provides realistic financial scenarios without promising guaranteed profit, so you can budget seed, fuel, and fertilizer safely.",
+      en: "Provides realistic financial scenarios to support informed budgeting for seed, fuel, and fertilizer across different market conditions.",
       my: "မဖြစ်နိုင်သော အမြတ်ငွေကတိများ မပေးဘဲ ဖြစ်နိုင်ခြေရှိသော ငွေကြေးအခြေအနေကို ပြသသဖြင့် မျိုးစေ့၊ စက်သုံးဆီနှင့် မြေဩဇာစရိတ်ကို မှန်ကန်စွာ စီမံနိုင်သည်။",
     },
     icon: "trends",
@@ -463,7 +463,7 @@ export function DataUsageGuide() {
             <strong>{isBurmese ? "အတိတ်အချက်အလက်ကိုသာ စစ်ဆေးသည် (ကြိုတင်မခန့်မှန်းပါ):" : "Historical replay, not forecasting:"}</strong>{" "}
             {isBurmese
               ? "ရှေ့လာမည့်နှစ် မိုးလေဝသကို မခန့်မှန်းနိုင်သော်လည်း လွန်ခဲ့သော ၁၀ နှစ်တာ တကယ့် ရာသီဥတုတွင် မည်သို့ဖြစ်ပျက်ခဲ့သည်ကို အမှန်အတိုင်း ပြသသည်။"
-              : "We never invent unverified long-range weather predictions. We replay real past daily seasons so you can evaluate resilience against known historical weather extremes."}
+              : "We ground our analysis in measured daily historical observations from NASA POWER, enabling you to evaluate crop resilience against documented climate extremes."}
           </li>
           <li>
             <strong>{isBurmese ? "တောင်သူ့မြေပြင်လက်တွေ့ကို မကျော်လွန်ပါ:" : "Satellite data never overrules local ground truth:"}</strong>{" "}

@@ -695,7 +695,7 @@ function buildRisks(ctx: Ctx, evals: SlotEvaluation[], erosion: ErosionScreen, p
   } else if (erosion.exposure === "needs-slope-data") {
     add({ id: "erosion-slope", kind: "missing-data", severity: "info", text: "Slope has not been read for this field, so erosion exposure is not assessed.", action: "Connect terrain data or check the slope on the ground." });
   }
-  if (!data.field.locationConfirmed) add({ id: "unconfirmed", kind: "local-review", severity: "caution", text: "You have not confirmed that this pin or outline is your field.", action: "Confirm the location so results are about your field and not a guess." });
+  if (!data.field.locationConfirmed) add({ id: "unconfirmed", kind: "local-review", severity: "caution", text: "You have not confirmed that this pin or outline is your field.", action: "Confirm the location to tailor climate and soil observations specifically to your field." });
   if (data.soil.ph === null) add({ id: "soil-ph", kind: "missing-data", severity: "caution", text: "No soil pH is available for this field.", action: "A soil test gives a better answer than any map." });
   if (economics.unknownSlots > 0) add({ id: "econ", kind: "missing-data", severity: "info", text: "Income is not compared because yield, price or cost ranges are missing for some crops.", action: "Enter local ranges on the Your farm page." });
   add({ id: "library", kind: "model-limit", severity: "info", text: "Crop rules are species-level starting values, not validated for a variety.", action: "Ask a local agronomist to check the thresholds shown with each reason." });

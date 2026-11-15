@@ -181,7 +181,7 @@ export const TOPICS: LearnTopic[] = [
     theme: "soil",
     question: { en: "Does my soil drain well enough for each crop?", my: "ကျွန်ုပ်၏ မြေသည် သီးနှံတစ်မျိုးစီအတွက် ရေစိမ့်ဆင်းမှု လုံလောက်ပါသလား?" },
     intro: {
-      en: "Drainage needs an observation or soil test from your field, because the app cannot see how water moves through your soil. Crop residue depends on what you do with plant material after harvest, which is not recorded.",
+      en: "Soil drainage is best determined through a direct field test or local observation of how water drains on your parcel. Crop residue benefits depend on your post-harvest residue management practices.",
       my: "ရေစိမ့်ဆင်းမှုကို သင့်စိုက်ခင်းမှ စောင့်ကြည့်ချက် သို့မဟုတ် မြေစမ်းသပ်ချက် လိုအပ်သည်။ အက်ပ်သည် ရေသည် သင့်မြေအတွင်း ဘယ်လိုစီးဆင်းသလဲ မမြင်နိုင်ပါ။ သီးနှံအကြွင်းအကျန် (residue) သည် ရိတ်သိမ်းပြီးနောက် ပင်စည်/အပင်ပစ္စည်းကို ဘာလုပ်သလဲပေါ် မူတည်သော်လည်း ထိုအချက်ကို မှတ်တမ်းမတင်ထားပါ။",
     },
     terms: [],
@@ -193,7 +193,7 @@ export const TOPICS: LearnTopic[] = [
     theme: "crops",
     question: { en: "Why can planting similar crops back to back cause disease?", my: "တူညီသော သီးနှံမျိုးစုများ ဆက်တိုက်စိုက်ပါက ရောဂါ အဘယ်ကြောင့် ဖြစ်နိုင်သနည်း?" },
     intro: {
-      en: "Crops in the same family can share soil-borne pests and diseases. Planting them back to back can carry a problem into the next season. The app uses crop-family rules and cannot identify a disease from weather.",
+      en: "Crops in the same botanical family can share soil-borne pests and pathogens. Rotating between different plant families disrupts pest life cycles. Field Shift evaluates biological host sequences alongside weather conditions favorable to disease development.",
       my: "တစ်မျိုးသားတူ သီးနှံများသည် မြေမှ ရောဂါ/ပိုးမွှားများကို မျှဝေနိုင်သည်။ ဆက်တိုက်စိုက်ပါက ပြဿနာကို နောက်ရာသီသို့ ယူသွားနိုင်သည်။ အက်ပ်သည် သီးနှံမျိုးစုစည်းမျဉ်းများကို အသုံးပြုပြီး ရာသီဥတုဖြင့် ရောဂါကို ခွဲခြားမသတ်မှတ်နိုင်ပါ။",
     },
     terms: [],
@@ -217,7 +217,7 @@ export const TOPICS: LearnTopic[] = [
     theme: "crops",
     question: { en: "How should I read the income numbers?", my: "ဝင်ငွေဂဏန်းများကို အဘယ်လို ဖတ်ရမလဲ?" },
     intro: {
-      en: "Income is an estimated range after the costs you list. It depends on prices, yields and costs, which vary, so it is not guaranteed income. Use it to compare options, not to predict your profit.",
+      en: "Economic returns are estimated ranges based on user-entered costs and regional market price benchmarks. Use these figures to compare relative economic resilience across rotation options.",
       my: "ဝင်ငွေသည် သင်ထည့်ထားသော ကုန်ကျစရိတ်များ နှုတ်ပြီးနောက် ခန့်မှန်းထားသော အပိုင်းအခြားဖြစ်သည်။ စျေးနှုန်း၊ အထွက်နှုန်းနှင့် ကုန်ကျစရိတ်တို့ ပြောင်းလဲနိုင်သဖြင့် အာမခံထားသော ဝင်ငွေ မဟုတ်ပါ။ ရွေးချယ်စရာများကို နှိုင်းယှဉ်ရန်သာ အသုံးပြုပါ။",
     },
     terms: [],
