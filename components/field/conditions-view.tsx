@@ -398,7 +398,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                   Download weather CSV
                 </Button>
               ) : null}
-              <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "max-sm:flex-1")}>
+              <Link href={`/plan?fieldId=${encodeURIComponent(field.id)}`} className={buttonClass("primary", "max-sm:flex-1")}>
                 {copy.conditions.compareButton}
                 <ChevronRightGlyph />
               </Link>

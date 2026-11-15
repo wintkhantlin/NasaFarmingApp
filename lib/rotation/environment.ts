@@ -16,7 +16,7 @@ type WeatherLoader = (lat: number, lon: number, options: { signal: AbortSignal }
 function validateEnvironment(value: unknown, planning?: FarmerRequest["planning"], requireProvenance = false): EnvironmentSnapshot {
   if (!value || typeof value !== "object") throw new Error("Environmental data was not returned in the expected format.");
   const item = value as EnvironmentSnapshot;
-  if (typeof item.source !== "string" || !item.source.trim() || !["synthetic", "historical_normals", "observed", "forecast"].includes(item.basis || "") || !Array.isArray(item.monthly)) {
+  if (typeof item.source !== "string" || !item.source.trim() || !["synthetic", "historical_normals", "historical_analogue", "observed", "forecast"].includes(item.basis || "") || !Array.isArray(item.monthly)) {
     throw new Error("Environmental data is missing its source, basis, or monthly values.");
   }
   if (item.basis !== "synthetic" && /\b(synthetic|demo|mock|fixture)\b/i.test(item.source)) throw new Error("Environmental source conflicts with its non-synthetic basis.");
@@ -102,7 +102,7 @@ export async function resolveEnvironment(input: FarmerRequest, fetcher: typeof f
       ? "The connected data service supplied no usable temperature or rainfall values. Climate checks remain unknown."
       : snapshot.basis === "synthetic"
       ? "The connected data service supplied synthetic values. These are not real observations for this farm."
-      : snapshot.basis === "historical_normals"
+      : snapshot.basis === "historical_normals" || snapshot.basis === "historical_analogue"
         ? "Historical averages from the connected service, not a forecast for the coming planting period. Check source and dates in Scientific details."
         : snapshot.basis === "observed"
           ? "Past observations from the connected service, not a forecast for the coming planting period. Check source and dates in Scientific details."

@@ -84,16 +84,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ fiel
       days: imerg.days,
       error: imerg.error,
     },
+    sourceWarnings: [
+      ...(weatherResult.error ? ["NASA POWER history could not be retrieved; temperature and rainfall are unknown."] : []),
+      ...(soilResult.error ? ["SoilGrids map data could not be retrieved; estimated soil pH is unknown."] : soil === null ? ["SoilGrids returned no usable soil values at this location; estimated soil pH is unknown."] : []),
+      ...(imerg.status === "unconfigured" ? ["IMERG needs an Earthdata token; NASA POWER rainfall remains the historical source when available."] : []),
+      ...(imerg.status === "unavailable" ? ["IMERG rainfall could not be retrieved; NASA POWER rainfall remains the historical source when available."] : []),
+      ...(imerg.status === "pending" ? ["IMERG rainfall is still being retrieved; NASA POWER rainfall remains the historical source for now."] : []),
+    ],
     sources: [
-      {
+      ...(weather ? [{
         dataset: "NASA POWER",
         resolution: "about 0.5° x 0.625° (MERRA-2, CERES), daily, UTC days",
         dates: `${BASELINE.startYear} to ${BASELINE.endYear}`,
-      },
+      }] : []),
       ...(imerg.status === "ok" || imerg.status === "pending"
         ? [{ dataset: "GPM IMERG Final daily V07", resolution: "0.1°", dates: `${imerg.covered} of ${imerg.expected} days retrieved` }]
         : []),
-      { dataset: "ISRIC SoilGrids v2", resolution: "250 m", dates: "0 to 30 cm" },
+      ...(soil ? [{ dataset: "ISRIC SoilGrids v2", resolution: "250 m", dates: "0 to 30 cm" }] : []),
     ],
   });
 }

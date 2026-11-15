@@ -30,7 +30,8 @@ export async function loadSoil(
   try {
     const soil = await fetchSoilGrids(lat, lng, {
       fetch: opts.fetch,
-      signal: opts.signal ?? AbortSignal.timeout(15_000),
+      // The public multi-property, three-depth query can exceed 15 seconds even when healthy.
+      signal: opts.signal ?? AbortSignal.timeout(30_000),
     });
     const retrievedAt = new Date().toISOString();
     // Cache valid or null profiles for 30 days

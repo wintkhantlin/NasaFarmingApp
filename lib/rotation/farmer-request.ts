@@ -35,11 +35,23 @@ export type MonthlyCondition = {
 
 export type EnvironmentSnapshot = {
   source: string;
-  basis?: "synthetic" | "historical_normals" | "observed" | "forecast";
+  basis?: "synthetic" | "historical_normals" | "historical_analogue" | "observed" | "forecast";
   observation_period?: { start_date: string; end_date: string };
   units?: { temp_c: "C"; rain_mm: "mm"; soil_moisture_anomaly?: "unitless" };
   spatial_resolution_km?: number | null;
   monthly: MonthlyCondition[];
+  /** Separate provenance is essential when temperature and rainfall come from different products. */
+  variable_sources?: {
+    temperature: string;
+    rainfall: string;
+    rainfall_period?: { start_date: string; end_date: string };
+    rainfall_resolution?: string;
+    missing?: string[];
+  };
+  context?: {
+    soil_ph_estimate?: { value: number; source: string; resolution: string; depth: string; retrieved_at: string | null };
+    smap?: { source: string; resolution: string; units: "m^3/m^3"; period: { start_date: string; end_date: string }; retrieved_at: string | null; observations: { date: string; rootzone: number | null; valid_samples: number }[]; missing_count: number };
+  };
 };
 
 export function parseFarmerRequest(value: unknown): FarmerRequest {
@@ -103,6 +115,7 @@ export function buildEngineRequest(input: FarmerRequest, environment: Environmen
     history: [input.previousCrop],
     farm: {
       soil_ph: input.advanced?.soilPh ?? null,
+      soil_ph_estimate: environment.context?.soil_ph_estimate ?? null,
       drainage: input.advanced?.drainage ?? "unknown",
       irrigation: input.irrigation === "yes" ? "available" : input.irrigation === "no" ? "none" : "unknown",
       previous_residue: input.advanced?.previousResidue ?? "unknown",

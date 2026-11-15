@@ -37,6 +37,8 @@ export interface ConditionsData {
     days: ImergDay[];
     error: string | null;
   };
+  /** Plain-language retrieval gaps; these never stand in for observations. */
+  sourceWarnings?: string[];
   sources: Array<{
     dataset: string;
     resolution?: string;
@@ -46,7 +48,7 @@ export interface ConditionsData {
 
 const CONDITIONS_CACHE_PREFIX = "conditions_cache:";
 /** Bump when the shape or units of ConditionsData change, so old caches are refetched. */
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 
 export async function getCachedConditions(fieldId: string): Promise<ConditionsData | null> {
   if (typeof window === "undefined") return null;

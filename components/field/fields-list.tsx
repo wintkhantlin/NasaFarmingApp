@@ -25,7 +25,7 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }
   const stepList = Object.values(states);
   const stepsDone = stepList.filter((s) => s === "done").length;
   const next = hasRotation ? "Compare rotation options" : "Record what you grow now";
-  const nextHref = hasRotation ? `/fields/${field.id}/compare` : `/fields/${field.id}/rotation`;
+  const nextHref = hasRotation ? `/plan?fieldId=${encodeURIComponent(field.id)}` : `/fields/${field.id}/rotation`;
 
   return (
     <li className="min-w-0">

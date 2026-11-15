@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import cropData from "@/rotation-engine/data/crops.json";
 import dryZone from "@/rotation-engine/examples/dryzone_demo.json";
 import delta from "@/rotation-engine/examples/ayeyarwady_demo.json";
@@ -9,9 +10,13 @@ import { en } from "./messages";
 import { SequenceEvidence, SequenceReasoning } from "@/components/field/sequence-reasoning";
 import { farmerReasons, statusText, temperatureScreenText, type EngineResult, type Scenario } from "@/lib/rotation/presentation";
 import type { FarmerRequest, Irrigation, Priority } from "@/lib/rotation/farmer-request";
+import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
+import { buildLocationRequest, unsavedLocationField } from "@/lib/rotation/explorer-request";
+import { buildFieldRequest, engineCropId, fieldPriority, lastKnownCrop } from "@/lib/rotation/field-request";
+import { useFieldsStore } from "@/lib/store/fields-store";
 
 type Place = { id: string; kind: "demo" | "farm"; label: string; lat?: number; lon?: number };
-type ExplorerResponse = { environment: { state: "demo" | "connected" | "unavailable"; note: string }; recommendation: EngineResult };
+type ExplorerResponse = { environment: { state: "demo" | "connected" | "unavailable"; note: string }; recommendation: EngineResult; historyNotApplied?: string[] };
 
 const cropNames: Record<string, string> = Object.fromEntries(cropData.crops.map((crop) => [crop.id, en.crops[crop.id as keyof typeof en.crops] || crop.name]));
 cropNames.fallow = en.crops.fallow;
@@ -55,6 +60,14 @@ function OptionCard({ scenario }: { scenario: Scenario }) {
 }
 
 export default function RotationExplorer({ suggestedWindow }: { suggestedWindow: { startDate: string; endDate: string } }) {
+  const searchParams = useSearchParams();
+  const requestedFieldId = searchParams.get("fieldId");
+  const savedFields = useFieldsStore((state) => state.fields);
+  const rotations = useFieldsStore((state) => state.rotations);
+  const storeStatus = useFieldsStore((state) => state.status);
+  const loadFields = useFieldsStore((state) => state.load);
+  const [entry, setEntry] = useState<"new" | "saved">(requestedFieldId ? "saved" : "new");
+  const [savedFieldId, setSavedFieldId] = useState(requestedFieldId ?? "");
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [searchText, setSearchText] = useState("");
   const [places, setPlaces] = useState<Place[]>([]);
@@ -71,6 +84,43 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
   const [result, setResult] = useState<ExplorerResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const savedField = savedFields.find((field) => field.id === savedFieldId);
+  const savedRotation = savedField ? rotations[savedField.id]?.[0] : undefined;
+  const temporaryField = useMemo(() => selectedPlace ? unsavedLocationField({ kind: selectedPlace.kind, label: selectedPlace.label, lat: selectedPlace.lat, lon: selectedPlace.lon }, irrigation) : null, [selectedPlace, irrigation]);
+  const activeField = entry === "saved" ? savedField : temporaryField ?? undefined;
+  const analysis = useFieldAnalysis(activeField);
+  const dataPending = Boolean(activeField && analysis.conditions?.fieldId !== activeField.id && analysis.phase !== "failed");
+
+  useEffect(() => { if (storeStatus === "idle") void loadFields(); }, [storeStatus, loadFields]);
+
+  function chooseSavedField(id: string) {
+    const field = savedFields.find((item) => item.id === id);
+    setSavedFieldId(id);
+    setEntry("saved");
+    setResult(null);
+    setError("");
+    if (!field) return;
+    const last = rotations[id]?.[0] ? lastKnownCrop(rotations[id][0]) : null;
+    setPreviousCrop(last ? engineCropId(last.id) ?? "" : "");
+    setIrrigation((field.constraints?.irrigation?.access ?? field.irrigation) === "full" ? "yes" : (field.constraints?.irrigation?.access ?? field.irrigation) === "none" ? "no" : "sometimes");
+    setPriority(fieldPriority(field) ?? "balanced");
+    const ph = field.soilObservations?.filter((item) => item.property === "ph" && typeof item.value === "number" && ["laboratory", "field-kit"].includes(item.method)).sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? field.soilOverride?.ph;
+    setSoilPh(typeof ph === "number" ? String(ph) : "");
+    const drainage = field.soilObservations?.filter((item) => item.property === "drainage" && ["well", "moderate", "poor"].includes(String(item.value))).sort((a, b) => b.date.localeCompare(a.date))[0]?.value;
+    setDrainage(drainage === "well" || drainage === "moderate" || drainage === "poor" ? drainage : "unknown");
+    setAvailableCrops(cropData.crops.map((crop) => crop.id).filter((id) => !field.constraints?.excludedCropIds?.some((excluded) => engineCropId(excluded) === id)));
+  }
+
+  useEffect(() => {
+    const id = requestedFieldId;
+    let cancelled = false;
+    if (id && storeStatus === "ready" && savedFields.some((field) => field.id === id)) {
+      queueMicrotask(() => { if (!cancelled) chooseSavedField(id); });
+    }
+    // Run after the saved fields are loaded; later form changes must not be reset.
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeStatus, requestedFieldId]);
 
   function choosePlace(place: Place) {
     setSelectedPlace(place);
@@ -120,11 +170,15 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
     event.preventDefault();
     setError("");
     setResult(null);
-    if (!selectedPlace) { setError(en.chooseLocation); return; }
+    if (entry === "new" && !selectedPlace) { setError(en.chooseLocation); return; }
+    if (entry === "saved" && !savedField) { setError("Choose one of your saved farms first."); return; }
+    if (entry === "saved" && !savedRotation) { setError("Record the previous crop in this saved farm before comparing."); return; }
     if (!previousCrop) { setError("Choose the crop last grown on this field."); return; }
     if (!availableCrops.length) { setError(en.chooseAvailableCrop); return; }
     const payload: FarmerRequest = {
-      location: { kind: selectedPlace.kind, label: selectedPlace.label, lat: selectedPlace.lat, lon: selectedPlace.lon, ...(selectedPlace.kind === "demo" ? { demoId: selectedPlace.id as "dryzone" | "delta" } : {}) },
+      location: entry === "saved" && savedField
+        ? { kind: "farm", label: savedField.name, lat: savedField.centroid[1], lon: savedField.centroid[0] }
+        : { kind: selectedPlace!.kind, label: selectedPlace!.label, lat: selectedPlace!.lat, lon: selectedPlace!.lon, ...(selectedPlace!.kind === "demo" ? { demoId: selectedPlace!.id as "dryzone" | "delta" } : {}) },
       previousCrop,
       irrigation,
       priority,
@@ -133,10 +187,24 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
     };
     setLoading(true);
     try {
-      const response = await fetch("/api/rotation/explore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const demo = payload.location.kind === "demo";
+      const savedBuilt = !demo && entry === "saved" && savedField && savedRotation
+        ? buildFieldRequest(savedField, savedRotation, analysis.conditions, planning, analysis.remote, payload) : null;
+      const engineRequest = demo ? null : savedBuilt
+        ? savedBuilt.request
+        : buildLocationRequest(payload, analysis.conditions, analysis.remote);
+      const response = await fetch(demo ? "/api/rotation/explore" : "/api/rotation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(demo ? payload : engineRequest) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || en.requestFailed);
-      setResult(data);
+      const recommendation = demo ? data.recommendation as EngineResult : data as EngineResult;
+      setResult({ environment: demo ? data.environment : {
+        state: recommendation.input_environment_basis === "synthetic" ? "demo" : recommendation.input_environment_basis ? "connected" : "unavailable",
+        note: recommendation.input_environment_basis === "historical_analogue"
+          ? "POWER temperature and IMERG rainfall from one past year. These are not a forecast."
+          : recommendation.input_environment_basis === "historical_normals"
+            ? "NASA POWER historical monthly averages around this location. These are not a forecast."
+            : "Weather data is unavailable. Climate checks remain unknown; no demonstration values were substituted.",
+      }, recommendation, historyNotApplied: savedBuilt?.historyNotApplied });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : en.requestFailed);
     } finally {
@@ -151,18 +219,34 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
     <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
         <Link href="/" className="flex min-h-tap items-center gap-3 text-ink no-underline"><span aria-hidden="true" className="grid size-10 place-items-center rounded-md bg-field text-on-field text-xl">F</span><span><span className="block text-lg font-semibold leading-5">Field Almanac</span><span className="mt-1 block text-body-sm text-ink-muted">Farm decisions, grounded in observation</span></span></Link>
-        <nav aria-label="Main navigation" className="flex min-h-tap items-center gap-5 text-label text-ink-muted"><Link href="/" className="hover:text-ink">Today</Link><Link href="/plan" aria-current="page" className="font-semibold text-field underline decoration-2 underline-offset-8">Plan</Link></nav>
+        <nav aria-label="Main navigation" className="flex min-h-tap items-center gap-5 text-label text-ink-muted"><Link href="/" className="hover:text-ink">Your fields</Link><Link href="/plan" aria-current="page" className="font-semibold text-field underline decoration-2 underline-offset-8">Rotation Explorer</Link></nav>
       </header>
 
       <div className="py-8 sm:py-12"><h1 className="max-w-3xl text-display">{en.title}</h1><p className="mt-3 max-w-measure text-ink-muted">{en.intro}</p></div>
 
+      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Choose how to start">
+        <button type="button" aria-pressed={entry === "new"} onClick={() => { setEntry("new"); setResult(null); setError(""); }} className={`min-h-tap rounded-md border px-4 text-label ${entry === "new" ? "border-field bg-field-soft text-field" : "border-line-strong bg-surface-raised text-ink"}`}>Select a new location</button>
+        <button type="button" aria-pressed={entry === "saved"} onClick={() => { setEntry("saved"); setResult(null); setError(""); }} className={`min-h-tap rounded-md border px-4 text-label ${entry === "saved" ? "border-field bg-field-soft text-field" : "border-line-strong bg-surface-raised text-ink"}`}>Select a saved farm</button>
+      </div>
+
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] lg:gap-12">
         <div>
-          <section aria-labelledby="location-heading" className="border-b border-line pb-8">
+          {entry === "saved" && <section aria-labelledby="saved-heading" className="border-b border-line pb-8">
+            <h2 id="saved-heading" className="text-title">Your saved farms</h2>
+            <label className="mt-4 block font-semibold">Farm<select value={savedFieldId} onChange={(event) => chooseSavedField(event.target.value)} className="mt-2 min-h-tap w-full rounded-sm border border-line-strong bg-surface-raised px-3 text-body"><option value="">Choose a saved farm</option>{savedFields.map((field) => <option key={field.id} value={field.id}>{field.name}</option>)}</select></label>
+            {storeStatus === "loading" && <p role="status" className="mt-2 text-body-sm text-ink-muted">Loading your saved farms…</p>}
+            {storeStatus === "error" && <p role="alert" className="mt-2 text-body-sm text-ink-muted">Saved farms could not be read in this browser. Check site storage, or select a new location.</p>}
+            {storeStatus === "ready" && !savedFields.length && <p className="mt-2 text-body-sm text-ink-muted">No saved farms yet. Select a new location above, or <Link href="/fields/new" className="text-field underline">save a farm</Link>.</p>}
+            {storeStatus === "ready" && savedFieldId && !savedField && <p role="alert" className="mt-2 text-body-sm text-ink-muted">This saved farm is not in this browser. Choose another farm or select a new location.</p>}
+            {savedField && <p className="mt-3 text-body-sm text-ink-muted">Using the recorded crop history and field measurements for {savedField.name}. You can adjust the simple choices below for this comparison.</p>}
+            {savedField?.priorities?.order[0] && !fieldPriority(savedField) && <p className="mt-2 text-body-sm text-ink-muted">The saved “{savedField.priorities.order[0]}” priority is outside this Explorer’s choices. Choose a priority below; no crop ranking is claimed.</p>}
+            {savedField && !savedRotation && <p className="mt-2 text-body-sm text-ink-muted">No crop history is recorded yet. <Link href={`/fields/${savedField.id}/rotation`} className="text-field underline">Record a crop</Link> before comparing this farm.</p>}
+          </section>}
+          {entry === "new" && <section aria-labelledby="location-heading" className="border-b border-line pb-8">
             <h2 id="location-heading" className="text-title">{en.location}</h2>
-            <form onSubmit={searchPlaces} className="mt-4 flex flex-wrap gap-2">
+            <form onSubmit={searchPlaces} className="mt-4 flex flex-col gap-2 sm:flex-row">
               <label className="sr-only" htmlFor="place-search">{en.location}</label>
-              <input id="place-search" type="search" value={searchText} onChange={(event) => { setSearchText(event.target.value); setSelectedPlace(null); setResult(null); }} placeholder={en.searchPlaceholder} className="min-h-tap min-w-0 flex-1 rounded-sm border border-line-strong bg-surface-raised px-3 text-body" />
+              <input id="place-search" type="search" value={searchText} onChange={(event) => { setSearchText(event.target.value); setSelectedPlace(null); setResult(null); }} placeholder={en.searchPlaceholder} className="min-h-tap min-w-0 w-full flex-1 rounded-sm border border-line-strong bg-surface-raised px-3 text-body" />
               <button type="submit" disabled={searching} className="min-h-tap rounded-md border border-line-strong px-4 font-semibold hover:bg-field-soft disabled:opacity-60">{searching ? en.searching : en.search}</button>
             </form>
             {searchMode === "demo_only" && <p className="mt-2 text-body-sm text-ink-muted">{en.demoOnly}</p>}
@@ -173,7 +257,7 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
             <p className="mt-5 text-body-sm text-ink-muted">{en.demoPlacesPrompt}</p>
             <div className="mt-2 flex flex-wrap gap-2">{demoPlaces.map((place) => <button key={place.id} type="button" onClick={() => choosePlace(place)} className="min-h-tap rounded-md border border-line-strong bg-surface-raised px-3 text-label hover:bg-field-soft">{place.label}</button>)}</div>
             {selectedPlace && <p className="mt-4 rounded-md bg-field-soft p-3 text-body-sm"><strong>{en.selected}:</strong> {selectedPlace.label}{selectedPlace.kind === "demo" ? ` · ${en.demoData}` : selectedPlace.lat === undefined ? ` · ${en.positionUnmapped}` : ` · ${en.locationMatched}`}</p>}
-          </section>
+          </section>}
 
           <form onSubmit={compare} className="space-y-8 pt-8">
             <section className="space-y-5">
@@ -191,8 +275,9 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
               <fieldset><legend className="font-semibold">{en.cropPreferences}</legend><div className="mt-3 grid gap-2 sm:grid-cols-2">{cropData.crops.map((crop) => <label key={crop.id} className="flex min-h-tap items-center gap-3 rounded-md border border-line-strong bg-surface-raised px-3 text-label"><input type="checkbox" checked={availableCrops.includes(crop.id)} onChange={(event) => { setAvailableCrops(event.target.checked ? [...availableCrops, crop.id] : availableCrops.filter((id) => id !== crop.id)); setResult(null); }} className="size-4 accent-field" />{cropNames[crop.id]}</label>)}</div></fieldset>
             </div></details>
 
+            {dataPending && <p role="status" className="text-body-sm text-ink-muted">Checking available weather and soil data for this location…</p>}
             {error && <p role="alert" className="rounded-md border border-heat bg-heat-soft p-3 text-body-sm text-ink">{error}</p>}
-            <button type="submit" disabled={loading} className="min-h-tap rounded-md bg-field px-6 font-semibold text-on-field hover:brightness-95 disabled:opacity-60">{loading ? en.comparing : en.compare}</button>
+            <button type="submit" disabled={loading || dataPending} className="min-h-tap rounded-md bg-field px-6 font-semibold text-on-field hover:brightness-95 disabled:opacity-60">{loading ? en.comparing : dataPending ? "Checking local data…" : en.compare}</button>
           </form>
         </div>
 
@@ -201,10 +286,13 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
           {result && <div className="mt-4">
             <p className="text-body-sm text-ink-muted">{result.recommendation.scenario_count_total} {en.resultsCount}</p>
             <div className="mt-4 rounded-md border border-line bg-surface-raised p-4 text-body-sm"><strong className="text-ink">{en.dataStatus}</strong><p className="mt-1 text-ink-muted">{result.environment.state === "demo" ? en.demoWarning : result.environment.state === "unavailable" ? en.noDataWarning : result.environment.note}</p></div>
+            {result.recommendation.input_variable_sources?.missing?.length ? <p className="mt-3 text-body-sm text-ink-muted">Some data is unavailable: {result.recommendation.input_variable_sources.missing.join(" ")}</p> : null}
+            {result.historyNotApplied?.length ? <p className="mt-3 text-body-sm text-ink-muted">Earlier recorded crops outside this five-crop model were not used: {result.historyNotApplied.join(", ")}.</p> : null}
             {noPriorityEvidence && <p className="mt-4 rounded-md border border-line bg-surface-raised p-4 text-body-sm text-ink-muted">{en.noPriorityEvidence}</p>}
             <p className="mt-5 text-body-sm text-ink-muted">{en.scope}</p>
+            {entry === "saved" && savedField && <div className="mt-3 text-body-sm"><Link href={`/fields/${savedField.id}/report?start=${planning.startDate}&end=${planning.endDate}`} className="inline-flex min-h-tap items-center font-semibold text-field underline">Open saved farm report</Link><p className="text-ink-muted">The report uses the farm’s saved records, including its saved crop and priorities.</p></div>}
             <div className="mt-5">{result.recommendation.scenarios.map((scenario, index) => <OptionCard key={`${scenario.proposed_crops.join("-")}-${index}`} scenario={scenario} />)}</div>
-            <details className="border-t border-line py-4 text-body-sm"><summary className="min-h-tap cursor-pointer font-semibold text-field">{en.scientific} · {en.source}</summary><div className="space-y-2 pt-2 text-ink-muted"><p>{result.recommendation.input_environment_source || en.notProvided}</p><p>Basis: {result.recommendation.input_environment_basis || en.notProvided}</p><p>Observation or forecast period: {result.recommendation.input_observation_period ? `${result.recommendation.input_observation_period.start_date} to ${result.recommendation.input_observation_period.end_date}` : "unknown"}</p><p>Units: {result.recommendation.input_environment_units ? `${result.recommendation.input_environment_units.temp_c}, ${result.recommendation.input_environment_units.rain_mm}` : "unverified"} · Spatial resolution: {result.recommendation.input_spatial_resolution_km == null ? "unknown" : `${result.recommendation.input_spatial_resolution_km} km`}</p><p>{result.recommendation.ranking.method}</p><ul className="list-disc space-y-1 pl-5">{result.recommendation.global_warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div></details>
+            <details className="border-t border-line py-4 text-body-sm"><summary className="min-h-tap cursor-pointer font-semibold text-field">{en.scientific} · {en.source}</summary><div className="space-y-2 pt-2 text-ink-muted"><p>{result.recommendation.input_environment_source || en.notProvided}</p><p>Basis: {result.recommendation.input_environment_basis || en.notProvided}</p><p>Observation or forecast period: {result.recommendation.input_observation_period ? `${result.recommendation.input_observation_period.start_date} to ${result.recommendation.input_observation_period.end_date}` : "unknown"}</p><p>Units: {result.recommendation.input_environment_units ? `${result.recommendation.input_environment_units.temp_c}, ${result.recommendation.input_environment_units.rain_mm}` : "unverified"} · Spatial resolution: {result.recommendation.input_spatial_resolution_km == null ? "unknown" : `${result.recommendation.input_spatial_resolution_km} km`}</p>{result.recommendation.input_variable_sources && <p>Temperature: {result.recommendation.input_variable_sources.temperature}. Rainfall: {result.recommendation.input_variable_sources.rainfall}{result.recommendation.input_variable_sources.rainfall_period ? ` (${result.recommendation.input_variable_sources.rainfall_period.start_date} to ${result.recommendation.input_variable_sources.rainfall_period.end_date})` : ""}.</p>}{result.recommendation.input_environment_context?.soil_ph_estimate && <p>SoilGrids estimated pH: {result.recommendation.input_environment_context.soil_ph_estimate.value}, {result.recommendation.input_environment_context.soil_ph_estimate.depth}, {result.recommendation.input_environment_context.soil_ph_estimate.resolution}. Map estimate, not a field test.</p>}{result.recommendation.input_environment_context?.smap && <p>SMAP regional root-zone moisture: {result.recommendation.input_environment_context.smap.observations.length} valid days, {result.recommendation.input_environment_context.smap.missing_count} missing days, {result.recommendation.input_environment_context.smap.period.start_date} to {result.recommendation.input_environment_context.smap.period.end_date}. Latest reading: {result.recommendation.input_environment_context.smap.observations.at(-1)?.rootzone ?? "unknown"} {result.recommendation.input_environment_context.smap.units}. {result.recommendation.input_environment_context.smap.resolution}. Context only; not field water availability.</p>}<p>{result.recommendation.ranking.method}</p><ul className="list-disc space-y-1 pl-5">{result.recommendation.global_warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div></details>
           </div>}
         </aside>
       </div>

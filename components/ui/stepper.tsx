@@ -20,7 +20,7 @@ const HREF: Record<StepId, (id: string) => string> = {
   rotation: (id) => `/fields/${id}/rotation`,
   profile: (id) => `/fields/${id}/profile`,
   conditions: (id) => `/fields/${id}/conditions`,
-  compare: (id) => `/fields/${id}/compare`,
+  compare: (id) => `/plan?fieldId=${encodeURIComponent(id)}`,
 };
 
 export interface StepperProps {

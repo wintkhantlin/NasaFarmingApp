@@ -7,6 +7,7 @@ import { useLocaleStore } from "@/lib/store/locale-store";
 
 const LINKS = [
   { href: "/", long: "Your fields", short: "Fields", match: (p: string) => p === "/" || p.startsWith("/fields") },
+  { href: "/plan", long: "Rotation Explorer", short: "Explore", match: (p: string) => p === "/plan" },
   { href: "/about/data", long: "About the data", short: "Data", match: (p: string) => p.startsWith("/about/data") },
   { href: "/about/crops", long: "Crop library", short: "Crops", match: (p: string) => p.startsWith("/about/crops") },
 ];

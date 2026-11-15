@@ -1,8 +1,8 @@
 import cropData from "@/rotation-engine/data/crops.json";
-import type { ConditionsData } from "@/lib/store/data-cache";
+import type { ConditionsData, RemoteData } from "@/lib/store/data-cache";
 import type { Field, Rotation } from "@/lib/types";
 import { buildEngineRequest, type FarmerRequest, type Priority } from "./farmer-request";
-import { powerEnvironment } from "./power-environment";
+import { existingDataEnvironment } from "./existing-data";
 
 const ids = new Set(cropData.crops.map((crop) => crop.id));
 const aliases: Record<string, string> = { "green-gram": "green_gram", "black-gram": "black_gram" };
@@ -25,16 +25,19 @@ export function fieldPriority(field: Field): Priority | null {
   return null;
 }
 
-export function buildFieldRequest(field: Field, rotation: Rotation, conditions: ConditionsData | null, planning: FarmerRequest["planning"]) {
+export function buildFieldRequest(field: Field, rotation: Rotation, conditions: ConditionsData | null, planning: FarmerRequest["planning"], remote: RemoteData | null = null, choices?: Pick<FarmerRequest, "previousCrop" | "irrigation" | "priority" | "advanced">) {
   const last = lastKnownCrop(rotation);
   if (!last) throw new Error("Add a previous crop to this field before comparing next crops.");
-  const previousCrop = engineCropId(last.id);
+  const previousCrop = choices?.previousCrop ?? engineCropId(last.id);
   if (!previousCrop) throw new Error(`${last.label} is not in this five-crop screening model yet. Choose a supported previous crop in your rotation.`);
+  const recorded = [...rotation.slots].filter((slot) => slot.kind !== "fallow" && slot.cropId).sort((a, b) => a.harvestDate.localeCompare(b.harvestDate));
+  const historyNotApplied = recorded.slice(0, -1).filter((slot) => !engineCropId(slot.cropId!)).map((slot) => slot.cropId!);
+  const supportedEarlier = recorded.slice(0, -1).map((slot) => engineCropId(slot.cropId!)).filter((id): id is string => id !== null);
   const excluded = new Set((field.constraints?.excludedCropIds ?? []).map(engineCropId).filter(Boolean));
   const preferencesNotApplied = field.constraints?.preferredCropIds ?? [];
-  const availableCrops = cropData.crops.map((crop) => crop.id).filter((id) => !excluded.has(id));
+  const availableCrops = (choices?.advanced?.availableCrops ?? cropData.crops.map((crop) => crop.id)).filter((id) => !excluded.has(id));
   if (!availableCrops.length) throw new Error("All supported crops are excluded in this field's profile.");
-  const soilPh = field.soilObservations?.filter((item) => item.property === "ph" && typeof item.value === "number" && item.method !== "soil-map")
+  const soilPh = field.soilObservations?.filter((item) => item.property === "ph" && typeof item.value === "number" && ["laboratory", "field-kit"].includes(item.method))
     .sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? field.soilOverride?.ph ?? null;
   const drainageObservation = field.soilObservations?.filter((item) => item.property === "drainage" && ["well", "moderate", "poor"].includes(String(item.value)))
     .sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -44,15 +47,14 @@ export function buildFieldRequest(field: Field, rotation: Rotation, conditions: 
   const farmer: FarmerRequest = {
     location: { kind: "farm", label: field.name, lon: field.centroid[0], lat: field.centroid[1] },
     previousCrop,
-    irrigation: irrigation === "full" ? "yes" : irrigation === "none" ? "no" : "sometimes",
-    priority: priority ?? "balanced",
+    irrigation: choices?.irrigation ?? (irrigation === "full" ? "yes" : irrigation === "none" ? "no" : "sometimes"),
+    priority: choices?.priority ?? priority ?? "balanced",
     planning,
-    advanced: { soilPh: typeof soilPh === "number" ? soilPh : null, drainage, availableCrops, previousResidue: last.residue ?? "unknown" },
+    advanced: { soilPh: choices?.advanced?.soilPh !== undefined ? choices.advanced.soilPh : typeof soilPh === "number" ? soilPh : null, drainage: choices?.advanced?.drainage ?? drainage, equipment: choices?.advanced?.equipment, availableCrops, previousResidue: last.residue ?? "unknown" },
   };
-  const environment = conditions?.weather
-    ? powerEnvironment(conditions.weather, planning.startDate, planning.endDate, conditions.fetchedAt)
-    : { source: "NASA POWER unavailable for this field", monthly: [] };
+  const environment = existingDataEnvironment(conditions?.fieldId === field.id ? conditions : null, remote?.fieldId === field.id ? remote : null, planning);
   const request = buildEngineRequest(farmer, environment);
-  if (!priority) request.farmer.priorities = {};
-  return { request, preferencesNotApplied, unsupportedPriority: !priority ? field.priorities?.order[0] : null, priorityMissing: !field.priorities?.order[0] };
+  request.history = [...supportedEarlier, previousCrop];
+  if (!priority && !choices) request.farmer.priorities = {};
+  return { request, preferencesNotApplied, historyNotApplied, unsupportedPriority: !priority && !choices ? field.priorities?.order[0] : null, priorityMissing: !choices && !field.priorities?.order[0] };
 }
