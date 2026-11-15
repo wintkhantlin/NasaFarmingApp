@@ -15,9 +15,21 @@ export interface SourceLineProps {
   className?: string;
 }
 
+/**
+ * Farmers do not read degrees of latitude. A grid size given in degrees ("0.5°", "about 0.5° x 0.625°, 50 km")
+ * is shown as a distance ("about 50 km"). The exact grid stays in provenance details.
+ */
+export function plainResolution(resolution: string | undefined): string | undefined {
+  if (!resolution || !resolution.includes("°")) return resolution;
+  const km = resolution.match(/(\d+(?:\.\d+)?)\s*km/i);
+  if (km) return `about ${km[1]} km`;
+  const deg = resolution.match(/(\d+(?:\.\d+)?)\s*°/);
+  return deg ? `about ${Math.round(Number(deg[1]) * 111)} km` : resolution;
+}
+
 /** Cites the data behind a figure quietly. One goes under every reading, chart and recommendation. */
 export function SourceLine({ dataset, resolution, dates, stale, detail, className }: SourceLineProps) {
-  const parts = [dataset, resolution, dates].filter(Boolean) as string[];
+  const parts = [dataset, plainResolution(resolution), dates].filter(Boolean) as string[];
 
   const content = (
     <div className={cn("tabular flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-source text-ink-muted", className)}>

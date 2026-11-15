@@ -73,6 +73,18 @@ describe("field repository", () => {
     expect(f.samplePoints).toEqual([[95, 20.1]]);
   });
 
+  test("accepts a field located in Yangon region", async () => {
+    const repo = createRepository(memoryStorage());
+    const f = await repo.createField({
+      name: "Yangon Field",
+      geometry: { type: "Point", coordinates: [96.1951, 16.8661] },
+      irrigation: "none",
+    });
+    expect(f.region).toBe("yangon");
+    const loaded = await repo.getField(f.id);
+    expect(loaded?.region).toBe("yangon");
+  });
+
   test("rejects a crossing outline with a plain message", async () => {
     const repo = createRepository(memoryStorage());
     await expect(repo.createField({ name: "Bad", geometry: bowtie, irrigation: "none" })).rejects.toThrow(

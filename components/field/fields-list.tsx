@@ -8,21 +8,38 @@ import { FirstRun } from "@/components/home/first-run";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ChevronRightGlyph, DownloadGlyph } from "@/components/ui/icons";
-import { RiskChip } from "@/components/ui/risk-chip";
+import { Icon } from "@/components/ui/icon";
+import { ChevronRightGlyph } from "@/components/ui/icons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { copy } from "@/lib/copy/en";
-import { downloadJson } from "@/lib/download";
+import { formatAreaForLocale } from "@/lib/format-area";
 import { staticMapUrl } from "@/lib/geo/static-map";
 import { sequenceText, currentRotation } from "@/lib/rotation-format";
 import { deriveStepStates, EMPTY_ROTATIONS, useFieldsStore } from "@/lib/store/fields-store";
+import { useAppCopy, useLocaleStore } from "@/lib/store/locale-store";
 import type { Field, Rotation } from "@/lib/types";
 
-function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[]; onArchive?: (f: Field) => void }) {
+/** Show the search box only once the list is long enough to need it. */
+const SEARCH_MIN_FIELDS = 6;
+
+function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[] }) {
+  const t = useAppCopy();
+  const locale = useLocaleStore((s) => s.locale);
+  const areaUnit = useLocaleStore((s) => s.areaUnit);
   const states = deriveStepStates(field, rotations);
   const hasRotation = states.rotation === "done";
-  const next = hasRotation ? "See my answer" : "Add my crops";
+  const rotation = currentRotation(rotations);
+  const next = hasRotation ? t.path.seeAnswer : t.path.addCrops;
   const nextHref = hasRotation ? `/fields/${field.id}/compare` : `/fields/${field.id}/rotation`;
+  const water = field.constraints?.irrigation?.access;
+
+  // One line: "2.4 ha · Rain only · Rice → Bean". Parts with no value are left out.
+  const summary = [
+    field.areaHa === null ? t.home.pinOnly : formatAreaForLocale(field.areaHa, areaUnit, locale),
+    water ? t.irrigation[water] : "",
+    hasRotation && rotation ? sequenceText(rotation, " → ") : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <li className="min-w-0">
@@ -41,36 +58,17 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[]; 
           </div>
         ) : null}
 
-        <div className="flex flex-1 flex-col gap-3 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="min-w-0 text-headline text-ink">
-              {/* The stretched link makes the whole card one tap target */}
-              <Link
-                href={`/fields/${field.id}`}
-                className="truncate no-underline after:absolute after:inset-0 after:content-['']"
-              >
-                {field.name}
-              </Link>
-            </h3>
-            <RiskChip hazard={hasRotation ? "field" : "neutral"} className="shrink-0">
-              {hasRotation ? "Rotation recorded" : "Needs your input"}
-            </RiskChip>
-          </div>
-
-          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-ink-muted">
-            <div>
-              <dt className="sr-only">Area</dt>
-              <dd>{field.areaHa === null ? copy.home.pinOnly : copy.home.area(field.areaHa)}</dd>
-            </div>
-            <div>
-              <dt className="sr-only">Water</dt>
-              <dd>{copy.irrigation[field.irrigation]}</dd>
-            </div>
-          </dl>
-
-          {hasRotation && currentRotation(rotations) ? (
-            <p className="text-body-sm text-ink">{sequenceText(currentRotation(rotations)!, " → ")}</p>
-          ) : null}
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <h3 className="min-w-0 text-headline text-ink">
+            {/* The stretched link makes the whole card one tap target */}
+            <Link
+              href={`/fields/${field.id}`}
+              className="truncate no-underline after:absolute after:inset-0 after:content-['']"
+            >
+              {field.name}
+            </Link>
+          </h3>
+          <p className="m-0 text-body-sm text-ink-muted">{summary}</p>
 
           <div className="mt-auto flex flex-col gap-2 border-t border-line pt-3">
             <Link
@@ -78,7 +76,7 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[]; 
               className="relative z-10 flex min-h-tap items-center justify-between gap-2 text-label text-field no-underline hover:underline"
             >
               <span>
-                {copy.home.nextStepLabel} {next}
+                {t.home.nextStepLabel} {next}
               </span>
               <ChevronRightGlyph className="shrink-0" />
             </Link>
@@ -90,16 +88,12 @@ function FieldCard({ field, rotations }: { field: Field; rotations: Rotation[]; 
 }
 
 export function FieldsList() {
+  const t = useAppCopy();
   const status = useFieldsStore((s) => s.status);
   const fields = useFieldsStore((s) => s.fields);
   const rotations = useFieldsStore((s) => s.rotations);
   const load = useFieldsStore((s) => s.load);
-  const exportBackup = useFieldsStore((s) => s.exportBackup);
-  const importBackup = useFieldsStore((s) => s.importBackup);
-  const update = useFieldsStore((s) => s.update);
   const [query, setQuery] = useState("");
-  const [undo, setUndo] = useState<Field | null>(null);
-  const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -107,7 +101,7 @@ export function FieldsList() {
 
   if (status === "idle" || status === "loading") {
     return (
-      <div role="status" aria-label={copy.home.loading} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div role="status" aria-label={t.home.loading} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Skeleton className="h-64" />
         <Skeleton className="hidden h-64 sm:block" />
         <Skeleton className="hidden h-64 lg:block" />
@@ -115,118 +109,76 @@ export function FieldsList() {
     );
   }
 
+  const settingsLink = (
+    <Link href="/settings" className="inline-flex min-h-tap items-center self-start text-label text-ink-muted underline underline-offset-4 hover:text-ink">
+      {t.home.settingsLink}
+    </Link>
+  );
+
   if (status === "error") {
     return (
-      <EmptyState title={copy.home.loadError} body="Saved work could not be read. Check browser storage, then try again.">
-        <Button variant="primary" onClick={() => void load()}>
-          {copy.home.retry}
-        </Button>
-      </EmptyState>
+      <div className="flex flex-col gap-4">
+        <EmptyState title={t.home.loadError} body="Saved work could not be read from this phone. Try again.">
+          <Button variant="primary" onClick={() => void load()}>{t.home.retry}</Button>
+        </EmptyState>
+        {settingsLink}
+      </div>
     );
   }
 
   if (fields.length === 0) return <FirstRun />;
 
   const needle = query.trim().toLowerCase();
-  const matches = (f: Field) => f.name.toLowerCase().includes(needle);
+  const matches = (f: Field) => !needle || f.name.toLowerCase().includes(needle);
   const live = fields.filter((f) => !f.archivedAt && matches(f));
   const archived = fields.filter((f) => f.archivedAt && matches(f));
-  const archive = async (f: Field) => {
-    const wasArchived = Boolean(f.archivedAt);
-    await update(f.id, { archivedAt: wasArchived ? undefined : new Date().toISOString() });
-    if (!wasArchived) {
-      setUndo(f);
-      window.setTimeout(() => setUndo((u) => (u?.id === f.id ? null : u)), 5000);
-    }
-  };
+  const showSearch = fields.length >= SEARCH_MIN_FIELDS;
 
   return (
     <div className="flex flex-col gap-6">
-      <TextField
-        type="search"
-        label="Search fields"
-        placeholder="Search fields"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        size="small"
-        fullWidth
-        slotProps={{ htmlInput: { "aria-label": "Search fields" } }}
-      />
-      <p className="m-0 text-body-sm text-ink-muted">Resume a saved field below, or explore a regional example without creating a farm record.</p>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-title text-ink sm:text-display">{t.home.title}</h1>
+        <Link href="/fields/new" className={buttonClass("primary", "max-sm:w-full")}>
+          <Icon name="add" />
+          {t.home.addField}
+        </Link>
+      </header>
+
+      {showSearch ? (
+        <TextField
+          type="search"
+          label={t.home.searchFields}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          size="small"
+          fullWidth
+          slotProps={{ htmlInput: { "aria-label": t.home.searchFields } }}
+        />
+      ) : null}
+
       {live.length === 0 ? (
-        <p className="m-0 text-body text-ink-muted">{needle ? `No fields named \u201c${query.trim()}\u201d.` : "All your fields are archived."}</p>
+        <p className="m-0 text-body text-ink-muted">{needle ? `No fields named “${query.trim()}”.` : "All your fields are archived."}</p>
       ) : null}
       <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
         {live.map((f) => (
-          <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} onArchive={archive} />
+          <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} />
         ))}
       </ul>
 
       {archived.length > 0 ? (
-        <details className="rounded-md border border-line bg-surface-raised p-3">
-          <summary className="min-h-tap cursor-pointer text-label text-ink">Show {archived.length} archived {archived.length === 1 ? "field" : "fields"}</summary>
-          <ul className="m-0 mt-3 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+        <details className="border-t border-line pt-2">
+          <summary className="flex min-h-tap cursor-pointer items-center text-label text-field">
+            Show {archived.length} archived {archived.length === 1 ? "field" : "fields"}
+          </summary>
+          <ul className="m-0 mt-2 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
             {archived.map((f) => (
-              <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} onArchive={archive} />
+              <FieldCard key={f.id} field={f} rotations={rotations[f.id] ?? EMPTY_ROTATIONS} />
             ))}
           </ul>
         </details>
       ) : null}
 
-      {undo ? (
-        <div role="status" className="fixed inset-x-4 bottom-[calc(var(--tabbar-h)+0.75rem)] z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-md bg-ink px-4 py-2 text-body-sm text-surface-raised">
-          <span>Archived {undo.name}.</span>
-          <button type="button" className="min-h-tap font-semibold underline" onClick={() => { void update(undo.id, { archivedAt: undefined }); setUndo(null); }}>
-            Undo
-          </button>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4 text-body-sm text-ink-muted">
-        <p className="m-0">Your fields and crop data are saved privately in this browser.</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={async () => {
-              try {
-                const backup = await exportBackup();
-                const dateStr = new Date().toISOString().slice(0, 10);
-                downloadJson(`farm-fields-backup-${dateStr}.json`, backup);
-                setBackupMessage("Backup download started. Keep the file somewhere private.");
-              } catch {
-                setBackupMessage("Could not create a backup. Check browser storage and try again.");
-              }
-            }}
-            className="min-h-tap text-label"
-          >
-            <DownloadGlyph />
-            Export farm backup (JSON)
-          </Button>
-          <label className={buttonClass("secondary", "cursor-pointer min-h-tap text-label")}>
-            <span>Restore backup</span>
-            <input
-              type="file"
-              accept=".json,application/json"
-              className="sr-only"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  const text = await file.text();
-                  const json = JSON.parse(text);
-                  const res = await importBackup(json);
-                  setBackupMessage(`Restored ${res.fields} fields and ${res.rotations} rotations.`);
-                } catch (err) {
-                  setBackupMessage(err instanceof Error ? err.message : "Could not import backup.");
-                }
-              }}
-            />
-          </label>
-          <Link href="/settings" className={buttonClass("secondary", "min-h-tap text-label")}>Privacy and settings</Link>
-        </div>
-        {backupMessage ? <p role="status" className="basis-full m-0 text-source">{backupMessage}</p> : null}
-      </div>
+      {settingsLink}
     </div>
   );
 }

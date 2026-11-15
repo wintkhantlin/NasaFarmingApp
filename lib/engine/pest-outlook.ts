@@ -1,5 +1,5 @@
 import { getCropById } from "../data/crops";
-import { organismsHostedBy, type HostOrganism } from "../data/crops/host-organisms";
+import { HOST_ORGANISMS, organismsHostedBy, type Carryover, type HostOrganism } from "../data/crops/host-organisms";
 import { weatherRulesFor, type WeatherDiseaseRule } from "../data/crops/weather-disease-rules";
 import type { Rotation, RuleScope } from "../types";
 import { dryZoneRainCaution, isDryZone } from "../validation/source-checks";
@@ -27,6 +27,8 @@ export type WeatherLevel = "often" | "sometimes" | "rarely" | "unknown";
 
 export interface WeatherRiskResult {
   ruleId: string;
+  /** The host-table organism this rule is about, when there is one (links weather to soil carry-over). */
+  organismId?: string;
   name: string;
   scientific: string;
   weather: string;
@@ -145,6 +147,7 @@ export function weatherRisk(
 
   return {
     ruleId: rule.id,
+    organismId: rule.organismId,
     name: rule.name,
     scientific: rule.scientific,
     weather: rule.weather,
@@ -204,4 +207,177 @@ export function pestOutlook({ rotation, records, years, region }: PestOutlookInp
   }
 
   return { crops: outlook, returnIntervals, watch, weatherYears: hasWeather ? years : null };
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * The message at the top of the Pests page: one main thing to watch and up to three actions.
+ * Everything here comes from the outlook and from the rule and host tables. Nothing is invented: the
+ * action lines are sentences from those tables' own advice text.
+ * ---------------------------------------------------------------------------------------------- */
+
+export interface PestCropRef {
+  cropId: string;
+  cropName: string;
+}
+
+/** One organism that carries between crops in the plan, shown once however many crops it touches. */
+export interface SoilGroup {
+  organismId: string;
+  name: string;
+  scientific: string;
+  carryover: Carryover;
+  severity: "caution" | "info";
+  /** Every crop in the plan that is on either side of a carry-over pair for this organism. */
+  crops: PestCropRef[];
+  gapDays: number | null;
+  advice: string;
+  ref: string;
+  scope: RuleScope;
+}
+
+export interface PestHeadline {
+  kind: "weather" | "soil" | "return";
+  name: string;
+  /** The crops it affects, the one with the weather result first. */
+  crops: PestCropRef[];
+  weather: { crop: PestCropRef; seasonsFavoured: number; seasonsChecked: number; level: WeatherLevel } | null;
+  soil: SoilGroup | null;
+  returnYears: number | null;
+  minReturnYears: number | null;
+}
+
+export type PestAction =
+  | { kind: "look"; text: string }
+  | { kind: "when"; crop: PestCropRef; plantDate: string; harvestDate: string; months: string[] }
+  | { kind: "gap"; days: number; fromCrop: PestCropRef; toCrop: PestCropRef }
+  | { kind: "help"; text: string };
+
+export interface PestSummary {
+  headline: PestHeadline | null;
+  /** At most three short lines: what to look for, when, and what helps. */
+  actions: PestAction[];
+  /** Organisms that carry between crops, each once, cautions first. */
+  soil: SoilGroup[];
+  /** Plain-words limits on the weather results, each once for the whole page. */
+  caveats: string[];
+}
+
+/** The first name of a "A / B / C" organism name, which is the one a farmer is most likely to know. */
+export function plainPestName(name: string): string {
+  return name.split(" / ")[0].trim();
+}
+
+const SENTENCE_SPLIT = /(?<=[.!?])\s+(?=[A-Z])/;
+const sentences = (text: string) => text.split(SENTENCE_SPLIT).map((t) => t.trim()).filter(Boolean);
+const LOOK_FOR = /^(look|check|watch|scout)\b/i;
+
+function soilGroups(outlook: PestOutlook): SoilGroup[] {
+  const n = outlook.crops.length;
+  const groups = new Map<string, SoilGroup>();
+  outlook.crops.forEach((c, k) => {
+    if (!c.carriedIn) return;
+    const from = outlook.crops[(k - 1 + n) % n];
+    for (const h of c.carriedIn.shared) {
+      let g = groups.get(h.organismId);
+      if (!g) {
+        g = { organismId: h.organismId, name: h.name, scientific: h.scientific, carryover: h.carryover, severity: h.severity, crops: [], gapDays: c.carriedIn.gapDays, advice: h.advice, ref: h.ref, scope: h.scope };
+        groups.set(h.organismId, g);
+      }
+      for (const ref of [from, c]) if (!g.crops.some((x) => x.cropId === ref.cropId)) g.crops.push({ cropId: ref.cropId, cropName: ref.cropName });
+      if (c.carriedIn.gapDays !== null && (g.gapDays === null || c.carriedIn.gapDays < g.gapDays)) g.gapDays = c.carriedIn.gapDays;
+    }
+  });
+  return [...groups.values()].sort((a, b) => Number(b.severity === "caution") - Number(a.severity === "caution") || b.crops.length - a.crops.length);
+}
+
+/** Pulls the single most important thing to watch out of the outlook and turns it into short actions. */
+export function buildPestSummary(outlook: PestOutlook): PestSummary {
+  const soil = soilGroups(outlook);
+  const caveats: string[] = [];
+  for (const c of outlook.crops) for (const w of c.weather) for (const t of w.caveats) if (!caveats.includes(t)) caveats.push(t);
+
+  interface Candidate {
+    score: number;
+    tie: number;
+    headline: PestHeadline;
+    rule: WeatherRiskResult | null;
+    slot: CropPestOutlook | null;
+  }
+  const candidates: Candidate[] = [];
+  const ref = (c: CropPestOutlook): PestCropRef => ({ cropId: c.cropId, cropName: c.cropName });
+  const claimed = new Set<string>();
+
+  for (const g of soil.filter((s) => s.severity === "caution")) {
+    let best: { crop: CropPestOutlook; w: WeatherRiskResult } | null = null;
+    for (const c of outlook.crops) {
+      for (const w of c.weather) {
+        if (w.organismId !== g.organismId) continue;
+        if (!best || LEVEL_RANK[w.level] < LEVEL_RANK[best.w.level] || (w.level === best.w.level && w.seasonsFavoured > best.w.seasonsFavoured)) best = { crop: c, w };
+      }
+    }
+    const hit = best && (best.w.level === "often" || best.w.level === "sometimes") ? best : null;
+    if (hit) claimed.add(hit.w.ruleId);
+    const crops = hit ? [ref(hit.crop), ...g.crops.filter((x) => x.cropId !== hit.crop.cropId)] : g.crops;
+    candidates.push({
+      score: hit ? (hit.w.level === "often" ? 0 : 1) : 2,
+      tie: hit ? hit.w.seasonsFavoured : 0,
+      headline: {
+        kind: hit ? "weather" : "soil",
+        name: plainPestName(hit ? hit.w.name : g.name),
+        crops,
+        weather: hit ? { crop: ref(hit.crop), seasonsFavoured: hit.w.seasonsFavoured, seasonsChecked: hit.w.seasonsChecked, level: hit.w.level } : null,
+        soil: g,
+        returnYears: null,
+        minReturnYears: null,
+      },
+      rule: hit?.w ?? null,
+      slot: hit?.crop ?? null,
+    });
+  }
+  for (const c of outlook.crops) {
+    for (const w of c.weather) {
+      if ((w.level !== "often" && w.level !== "sometimes") || claimed.has(w.ruleId)) continue;
+      candidates.push({
+        score: w.level === "often" ? 0 : 4,
+        tie: w.seasonsFavoured,
+        headline: { kind: "weather", name: plainPestName(w.name), crops: [ref(c)], weather: { crop: ref(c), seasonsFavoured: w.seasonsFavoured, seasonsChecked: w.seasonsChecked, level: w.level }, soil: null, returnYears: null, minReturnYears: null },
+        rule: w,
+        slot: c,
+      });
+    }
+  }
+  for (const r of outlook.returnIntervals) {
+    candidates.push({
+      score: 3,
+      tie: 0,
+      headline: { kind: "return", name: plainPestName(r.name), crops: [{ cropId: r.cropId, cropName: r.cropName }], weather: null, soil: null, returnYears: r.returnYears, minReturnYears: r.minReturnYears },
+      rule: null,
+      slot: null,
+    });
+  }
+  candidates.sort((a, b) => a.score - b.score || b.tie - a.tie);
+  const top = candidates[0];
+  if (!top) return { headline: null, actions: [], soil, caveats };
+
+  const actions: PestAction[] = [];
+  const organism = HOST_ORGANISMS.find((o) => o.id === (top.headline.soil?.organismId ?? top.rule?.organismId));
+  if (top.rule && top.slot) {
+    const parts = sentences(top.rule.advice);
+    const look = parts.filter((p) => LOOK_FOR.test(p));
+    const help = parts.filter((p) => !LOOK_FOR.test(p));
+    if (look.length) actions.push({ kind: "look", text: look.join(" ") });
+    actions.push({ kind: "when", crop: ref(top.slot), plantDate: top.slot.plantDate, harvestDate: top.slot.harvestDate, months: top.rule.peakMonths });
+    const helpText = help.length ? help.join(" ") : organism ? sentences(organism.advice).slice(-1).join(" ") : "";
+    if (helpText) actions.push({ kind: "help", text: helpText });
+  } else if (top.headline.soil) {
+    const g = top.headline.soil;
+    const parts = sentences(g.advice);
+    if (parts[0]) actions.push({ kind: "look", text: parts[0] });
+    if (g.gapDays !== null && g.crops.length >= 2) actions.push({ kind: "gap", days: g.gapDays, fromCrop: g.crops[0], toCrop: g.crops[1] });
+    if (parts.length > 1) actions.push({ kind: "help", text: parts.slice(1).join(" ") });
+  } else {
+    const r = outlook.returnIntervals.find((x) => x.cropId === top.headline.crops[0].cropId && plainPestName(x.name) === top.headline.name);
+    if (r) actions.push({ kind: "help", text: r.text });
+  }
+  return { headline: top.headline, actions: actions.slice(0, 3), soil, caveats };
 }

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLocaleStore } from "@/lib/store/locale-store";
 
 describe("locale store", () => {
@@ -25,5 +25,28 @@ describe("locale store", () => {
     localStorage.setItem("fieldshift.locale.v1", "not json");
     useLocaleStore.getState().hydrate();
     expect(useLocaleStore.getState()).toMatchObject({ locale: "en", areaUnit: "ha", hydrated: true });
+  });
+
+  describe("first-run language", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("starts in Burmese on a Burmese phone when nothing is saved", () => {
+      vi.stubGlobal("navigator", { language: "my-MM" });
+      useLocaleStore.getState().hydrate();
+      expect(useLocaleStore.getState().locale).toBe("my");
+    });
+
+    it("keeps a saved choice over the phone language", () => {
+      vi.stubGlobal("navigator", { language: "my-MM" });
+      localStorage.setItem("fieldshift.locale.v1", JSON.stringify({ locale: "en", areaUnit: "ha" }));
+      useLocaleStore.getState().hydrate();
+      expect(useLocaleStore.getState().locale).toBe("en");
+    });
+
+    it("stays English for other phone languages", () => {
+      vi.stubGlobal("navigator", { language: "en-US" });
+      useLocaleStore.getState().hydrate();
+      expect(useLocaleStore.getState().locale).toBe("en");
+    });
   });
 });

@@ -18,7 +18,7 @@ A farmer's almanac with satellite eyes. The interface speaks plainly about land,
 Decisions come first and data second. Every screen answers "what should I do on my land, and when?" before showing the maps, charts and indices that support it. Density is moderate: more generous than an analyst tool, tighter than a consumer app. It must be readable outdoors on a phone in bright sun, so contrast and tap size outrank decoration.
 
 **Key Characteristics:**
-- Earth-toned and organic, with one confident accent and semantic colors reserved for risk and status.
+- White-led and organic, with quiet soft-neutral sections, one confident accent and semantic colors reserved for risk and status.
 - Plain-language headlines, with the data source and date always one tap away.
 - Maps and charts are first-class, styled as part of the system rather than dropped in.
 - Mobile-first, **light mode only**, usable in low connectivity and high glare.
@@ -30,20 +30,20 @@ Strategy: restrained earth palette, light mode only. Warm neutrals carry most of
 ### Neutral
 | Token | Value | Use |
 | --- | --- | --- |
-| `surface` | `#f4f2ea` | Parchment. Page background. Never pure white. |
-| `surface-raised` | `#fbfaf6` | Cards, sheets, the recommendation block. |
-| `surface-sunken` | `#e9e6da` | Inputs, chart plots, map frame. |
-| `line` | `#d8d3c2` | Hairlines. Decorative only, never a control's only boundary. |
-| `line-strong` | `#8c8676` | Control borders (3.2:1 on surface). |
-| `ink` | `#1f1d17` | Soil. Primary text (15:1 on surface). Never pure black. |
-| `ink-muted` | `#5a564a` | Reasons, metadata, source lines (6.5:1 on surface). |
+| `surface` | `#ffffff` | Clear white page canvas. |
+| `surface-raised` | `#f8faf7` | Quiet soft-neutral cards, sheets and recommendation blocks. |
+| `surface-sunken` | `#f0f3ee` | Inputs, chart plots and map frames. |
+| `line` | `#d8ddd6` | Hairlines. Decorative only, never a control's only boundary. |
+| `line-strong` | `#7f877d` | Control borders (3.5:1 on raised surfaces). |
+| `ink` | `#20241f` | Graphite. Primary text (15:1 on raised surfaces). Never pure black. |
+| `ink-muted` | `#4f574f` | Reasons, metadata and source lines (7.1:1 on raised surfaces). |
 
 ### Primary
 | Token | Value | Use |
 | --- | --- | --- |
 | `field` | `#2e5e3a` | Field Green. Primary actions, active states, focus ring. A small share of any screen. |
 | `field-soft` | `#dfe8d8` | Fill behind field text, the in-range band on charts. |
-| `on-field` | `#fbfaf6` | Label on a field fill. |
+| `on-field` | `#ffffff` | Label on a field fill. |
 
 ### Semantic (data)
 Used only for data meaning, always paired with a label or icon, never color alone. Each has a `-soft` fill for chips and bands; the strong color reads at 5:1 or better on its soft fill and on every surface.
@@ -57,7 +57,7 @@ Used only for data meaning, always paired with a label or icon, never color alon
 | `frost` | `#4850a6` | `#e3e4f5` | Frost and cold risk |
 
 ### Named Rules
-**The Light-Only Rule.** The app ships in light mode only. There is no dark palette and no `prefers-color-scheme` switch: `:root` sets `color-scheme: light`, the viewport sets `colorScheme: "light"`, and Tailwind's `dark:` variant is bound to a `.dark` class that is never set. Don't add `dark:` classes, dark tokens or a theme toggle. Light parchment surfaces with soil-dark text hold up best in direct sun, which is where this app is used.
+**The Light-Only Rule.** The app ships in light mode only. There is no dark palette and no `prefers-color-scheme` switch: `:root` sets `color-scheme: light`, the viewport sets `colorScheme: "light"`, and Tailwind's `dark:` variant is bound to a `.dark` class that is never set. Don't add `dark:` classes, dark tokens or a theme toggle. A clear white canvas with graphite text holds up best in direct sun, which is where this app is used.
 **The Meaning-Only Rule.** Data hues (water, heat, drought) are never used decoratively, so a color always means something.
 **The Never-Color-Alone Rule.** Every status carries text or an icon as well, for color-blind users and glare.
 

@@ -187,7 +187,7 @@ describe("FarmProfile - Soil around your field", () => {
     );
   });
 
-  it("auto-fills pH and texture from the map estimate but does not save them as the farmer's own", async () => {
+  it("shows one soil line first and opens the fields on tap; map values are not saved as the farmer's own", async () => {
     const bare: Field = { ...mockField, soilOverride: undefined };
     const updateSpy = vi.fn().mockResolvedValue(bare);
     useFieldsStore.setState({
@@ -201,12 +201,29 @@ describe("FarmProfile - Soil around your field", () => {
 
     render(<FarmProfile fieldId={bare.id} />);
 
-    await waitFor(() => expect(screen.getByLabelText("Soil acidity (pH)")).toHaveValue(6.8));
+    // Folded by default: one line, no pH box yet.
+    await waitFor(() => expect(screen.getByText("Soil: map estimate (sandy loam, pH 6.8)")).toBeInTheDocument());
+    expect(screen.queryByLabelText("Soil acidity (pH)")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Use my own test" }));
+    expect(screen.getByLabelText("Soil acidity (pH)")).toHaveValue(6.8);
     expect(screen.getByLabelText("Soil texture")).toHaveTextContent("Sandy loam");
-    expect(screen.getAllByText("Auto-filled estimate")).toHaveLength(2);
+    expect(screen.getAllByText("We guessed")).toHaveLength(2);
+
+    // The save bar is hidden until something changes.
+    expect(screen.queryByRole("button", { name: "Save and see my answer" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Soil salinity (dS/m)"), { target: { value: "1.1" } });
+    fireEvent.change(screen.getByLabelText("Soil salinity (dS/m)"), { target: { value: "" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Save and see my answer" }));
     await waitFor(() => expect(updateSpy).toHaveBeenCalled());
     expect(updateSpy.mock.calls[0][1].soilOverride).toBeUndefined();
+  });
+
+  it("starts with the soil fields open when the farmer already gave their own values", () => {
+    useFieldsStore.setState({ status: "ready", fields: [mockField], rotations: { [mockField.id]: [] }, load: vi.fn(), loadRotations: vi.fn() });
+    render(<FarmProfile fieldId={mockField.id} />);
+    expect(screen.getByText("Soil: your own values (loam, pH 6, 1.2 dS/m)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide my soil test" })).toBeInTheDocument();
   });
 });

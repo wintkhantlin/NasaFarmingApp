@@ -1,6 +1,8 @@
 import type { ComparisonResult, EvaluatedOption } from "../engine/compare";
 import { BASELINE, type EngineData, type SourceStatus } from "../engine/data";
 import { provenanceLine, type DerivedIndicator } from "../evidence/indicator";
+import { copy as copyEn } from "../copy/en";
+import { copyMy } from "../copy/my";
 import type { Field, Rotation } from "../types";
 import type { RegionalPreviewResult } from "./regional-preview";
 
@@ -8,6 +10,8 @@ import type { RegionalPreviewResult } from "./regional-preview";
 export type ComparisonDisplayState =
   | "regional-preview" | "field-incomplete" | "evaluating" | "partial-evidence"
   | "comparable" | "unresolved" | "data-unavailable" | "stale" | "error";
+
+export type DisplayLocale = "en" | "my";
 
 export interface DisplaySource {
   claim: string;
@@ -43,10 +47,12 @@ export interface ComparisonDisplay {
   tiedFirst: boolean;
   sourceStatuses: { power: SourceStatus; imerg: SourceStatus; smap: SourceStatus; hls: SourceStatus; srtm: SourceStatus } | null;
   gaps: string[];
+  /** Why other plans were left out (crop does not fit, a limit was broken). Empty when nothing was excluded. */
+  reasons: string[];
 }
 
 export type DisplayInput =
-  | { mode: "regional-preview"; preview: RegionalPreviewResult }
+  | { mode: "regional-preview"; preview: RegionalPreviewResult; locale?: DisplayLocale }
   | {
       mode: "field";
       phase: "loading" | "ready" | "failed";
@@ -56,36 +62,29 @@ export type DisplayInput =
       comparison: ComparisonResult | null;
       inputRevision: string;
       resultRevision: string | null;
+      /** Language of the sentences built here. English when omitted. */
+      locale?: DisplayLocale;
     };
 
+type DisplayText = typeof copyEn.compare.display;
+const textFor = (locale: DisplayLocale | undefined): DisplayText => (locale === "my" ? (copyMy.compare.display as unknown as DisplayText) : copyEn.compare.display);
+
 const empty = (state: ComparisonDisplayState, headline: string, detail: string): ComparisonDisplay => ({
-  state, headline, detail, engineStatus: null, replay: null, options: [], tiedFirst: false, sourceStatuses: null, gaps: [],
+  state, headline, detail, engineStatus: null, replay: null, options: [], tiedFirst: false, sourceStatuses: null, gaps: [], reasons: [],
 });
 
-function farmerFriendlyGap(gap: string): string {
-  if (gap.startsWith("GPM IMERG rainfall is not")) {
-    return "Detailed satellite rain data is not available. We used NASA POWER regional rain estimates instead.";
-  }
-  if (gap === "SMAP regional soil moisture is not available.") {
-    return "Regional soil-moisture information is not available, so the soil's starting moisture is unknown.";
-  }
-  if (gap.startsWith("HLS satellite vegetation observations are not available")) {
-    return "Clear satellite crop-cover images are not available. Bare-soil periods come only from the crops and dates you entered.";
-  }
-  if (gap === "SRTM terrain is not available, so slope is unknown.") {
-    return "Land-slope information is not available, so slope remains unknown.";
-  }
+function farmerFriendlyGap(gap: string, t: DisplayText): string {
+  if (gap.startsWith("GPM IMERG rainfall is not")) return t.gapImerg;
+  if (gap === "SMAP regional soil moisture is not available.") return t.gapSmap;
+  if (gap.startsWith("HLS satellite vegetation observations are not available")) return t.gapHls;
+  if (gap === "SRTM terrain is not available, so slope is unknown.") return t.gapSrtm;
   return gap;
 }
 
-function farmerFriendlyRisk(risk: string): string {
-  if (risk === "Crop rules are species-level starting values, not validated for a variety.") {
-    return "These checks use general crop information. Your local variety may behave differently.";
-  }
+function farmerFriendlyRisk(risk: string, t: DisplayText): string {
+  if (risk === "Crop rules are species-level starting values, not validated for a variety.") return t.riskGeneral;
   const heat = risk.match(/^(.+): (\d+) of (\d+) seasons had a day above (\d+) °C at flowering and pod or grain set\.$/);
-  if (heat) {
-    return `In ${heat[2]} of ${heat[3]} past seasons, ${heat[1]} had heat above ${heat[4]} °C during flowering or grain filling.`;
-  }
+  if (heat) return t.riskHeat(heat[1], heat[2], heat[3], heat[4]);
   return risk;
 }
 
@@ -98,19 +97,17 @@ function sourceStatus(indicator: DerivedIndicator, data: EngineData): DisplaySou
   return indicator.value === null ? "unavailable" : "available";
 }
 
-function displayOption(option: EvaluatedOption, kind: DisplayOption["kind"], data: EngineData): DisplayOption {
+function displayOption(option: EvaluatedOption, kind: DisplayOption["kind"], data: EngineData, t: DisplayText): DisplayOption {
   const sourceIndicators = option.evidence.map((e) => ({ claim: e.claim, indicator: e.indicator }));
   return {
     id: option.id,
-    label: kind === "current" ? "Your current rotation" : option.label,
+    label: kind === "current" ? t.yourCurrent : option.label,
     kind,
     reason: option.reason,
-    tradeOff: farmerFriendlyRisk(option.risks.find((r) => r.kind === "agronomic" || r.kind === "model-limit")?.text
-      ?? "Costs, timing and field fit may differ; check locally before changing crops."),
-    assumption: option.evidence.flatMap((e) => e.indicator.assumptions)[0] ?? option.explanations[0]?.input
-      ?? "Typical crop calendars and library rules may differ from your variety and field.",
-    unknown: option.unknowns[0] ?? "Local field and market conditions still need checking.",
-    localCheck: option.risks.find((r) => r.action)?.action ?? "Check seed access, water, labour and buyer with a local adviser.",
+    tradeOff: farmerFriendlyRisk(option.risks.find((r) => r.kind === "agronomic" || r.kind === "model-limit")?.text ?? t.tradeOffDefault, t),
+    assumption: option.evidence.flatMap((e) => e.indicator.assumptions)[0] ?? option.explanations[0]?.input ?? t.assumptionDefault,
+    unknown: option.unknowns[0] ?? t.unknownDefault,
+    localCheck: option.risks.find((r) => r.action)?.action ?? t.localCheckDefault,
     sources: sourceIndicators.map(({ claim, indicator }) => ({
       claim,
       product: indicator.product,
@@ -126,25 +123,18 @@ function displayOption(option: EvaluatedOption, kind: DisplayOption["kind"], dat
 
 /** Read the engine's result; never calculate a scientific score or fill a missing metric here. */
 export function adaptComparison(input: DisplayInput): ComparisonDisplay {
+  const t = textFor(input.locale);
   if (input.mode === "regional-preview") {
-    return empty("regional-preview", "Regional examples", input.preview.message);
+    return empty("regional-preview", t.regionalExamples, input.preview.message);
   }
   const { field, rotation, phase, data, comparison } = input;
-  if (!field?.locationConfirmed) {
-    return empty("field-incomplete", "Confirm where this field is", "Check the field location first. This helps us use crop information for the right part of Myanmar.");
-  }
-  if (rotation?.source === "strategy" && rotation.slots.length > 0) {
-    return empty("field-incomplete", "Your plan is saved", "Next, add the crops grown on this field now. Use the dates you know—you do not need to guess exact dates. We will keep your saved plan while you do this.");
-  }
-  if (!rotation || rotation.slots.length === 0) {
-    return empty("field-incomplete", "What do you grow on this field?", "Add the crops grown here now. This lets us compare your field with other choices without treating a regional example as your own history.");
-  }
-  if (input.resultRevision !== null && input.inputRevision !== input.resultRevision) {
-    return empty("stale", "Your answers changed", "The earlier comparison no longer matches your answers. Check the crops and field details again.");
-  }
-  if (phase === "loading" && !comparison) return empty("evaluating", "Checking past seasons", "We are loading the available weather and field information from 2016–2025.");
-  if (phase === "failed" && !comparison) return empty("error", "We could not load the field information", "Your saved crops are safe. Try loading the information again.");
-  if (!data || !comparison) return empty("data-unavailable", "The comparison is not ready", "Your saved crops are safe. Try loading the information again.");
+  if (!field?.locationConfirmed) return empty("field-incomplete", t.confirmWhereTitle, t.confirmWhereBody);
+  if (rotation?.source === "strategy" && rotation.slots.length > 0) return empty("field-incomplete", t.planSavedTitle, t.planSavedBody);
+  if (!rotation || rotation.slots.length === 0) return empty("field-incomplete", t.addCropsTitle, t.addCropsBody);
+  if (input.resultRevision !== null && input.inputRevision !== input.resultRevision) return empty("stale", t.staleTitle, t.staleBody);
+  if (phase === "loading" && !comparison) return empty("evaluating", t.checkingTitle, t.checkingBody(BASELINE.startYear, BASELINE.endYear));
+  if (phase === "failed" && !comparison) return empty("error", t.errorTitle, t.errorBody);
+  if (!data || !comparison) return empty("data-unavailable", t.notReadyTitle, t.notReadyBody);
 
   const statuses = { power: data.power.status, imerg: data.imergInfo.status, smap: data.smapInfo.status, hls: data.hlsInfo.status, srtm: data.srtmInfo.status };
   const baseline = comparison.baseline;
@@ -157,48 +147,50 @@ export function adaptComparison(input: DisplayInput): ComparisonDisplay {
   const completeAlternatives = alternatives.filter((o) => !partialIds.has(o.id) && rankedIds.has(o.id))
     .sort((a, b) => (rankPosition.get(a.id) ?? Infinity) - (rankPosition.get(b.id) ?? Infinity));
   const selected = (completeAlternatives.length >= 2 ? completeAlternatives : alternatives).slice(0, 2);
-  const options = [displayOption(comparison.current, "current", data), ...selected.map((o) => displayOption(o, "alternative", data))];
+  const options = [displayOption(comparison.current, "current", data, t), ...selected.map((o) => displayOption(o, "alternative", data, t))];
   const ranking = comparison.mcda.ranking;
   // At the precision presented to farmers, effectively equal scores carry no first-place badge.
   const tiedFirst = ranking.length > 1 && ranking[0].score.toFixed(2) === ranking[1].score.toFixed(2);
   const replay = { ...baseline };
-  const frame = `We checked ${baseline.completeYears} of ${expectedYears} complete past years from ${BASELINE.startYear}–${BASELINE.endYear} as a shared historical stress test.`;
-  const common = { engineStatus: comparison.mcda.status, replay, options, tiedFirst, sourceStatuses: statuses, gaps: comparison.dataGaps.map(farmerFriendlyGap) };
+  const frame = t.frame(baseline.completeYears, expectedYears, BASELINE.startYear, BASELINE.endYear);
+  const common = {
+    engineStatus: comparison.mcda.status, replay, options, tiedFirst, sourceStatuses: statuses,
+    gaps: comparison.dataGaps.map((g) => farmerFriendlyGap(g, t)), reasons: [] as string[],
+  };
 
   if (comparison.region === "unsupported" || alternatives.length === 0 || baseline.completeYears === 0 || comparison.rain.primary === "none") {
     const exclusions = [comparison.current, ...comparison.alternatives]
-      .filter(o => o.fit === "does-not-fit")
-      .map(o => `${o.label}: ${o.noFitReason ?? "The recorded crop sequence does not pass the field checks."}`);
-    exclusions.push(...comparison.rejected.map(r => `${r.template.label}: ${r.reason}`));
+      .filter((o) => o.fit === "does-not-fit")
+      .map((o) => `${o.label}: ${o.noFitReason ?? t.exclusionDefault}`);
+    exclusions.push(...comparison.rejected.map((r) => `${r.template.label}: ${r.reason}`));
     if (comparison.shortfall) exclusions.unshift(comparison.shortfall);
-    if (comparison.region === "myanmar") {
-      return { ...common, state: "unresolved", headline: "Your crops can be checked, but local alternatives are not ready",
-        detail: `${frame} We do not yet have a trusted local list of crop choices for this part of Myanmar, so we will not rank alternatives. You can still review the crops you entered below.`,
-        gaps: [...new Set([...common.gaps, "A trusted local crop calendar and list of alternatives are not available for this area yet."])] };
+    if (comparison.region === "myanmar" || comparison.region === "yangon") {
+      const regionName = t.noCatalogRegion[comparison.region];
+      return { ...common, state: "unresolved", headline: t.noCatalogTitle, detail: t.noCatalogBody(frame, regionName),
+        gaps: [...new Set([...common.gaps, t.noCatalogGap(regionName)])] };
     }
     if (comparison.region === "unsupported") {
-      return { ...common, gaps: [...new Set([...exclusions, ...common.gaps])], state: "data-unavailable",
-        headline: "This field appears to be outside Myanmar",
-        detail: `${frame} Check the saved field location before using Myanmar crop information. Weather information alone cannot tell us which local crops are suitable.` };
+      return { ...common, gaps: [...new Set([...exclusions, ...common.gaps])], state: "data-unavailable", reasons: [],
+        headline: t.outsideTitle, detail: t.outsideBody(frame) };
     }
     const weatherReady = baseline.completeYears > 0 && comparison.rain.primary !== "none";
-    return { ...common, gaps: [...new Set([...common.gaps, ...exclusions])], state: "data-unavailable",
-      headline: weatherReady ? "Not enough crop choices to compare" : "A field comparison is not ready yet",
-      detail: `${frame} Fewer than two crop choices passed the checks for this field.${weatherReady ? " The weather information is ready. Check the crop and field questions below; loading the weather again will not change those answers." : ""}` };
+    const reasons = [...new Set(exclusions)];
+    return { ...common, gaps: [...new Set([...common.gaps, ...exclusions])], state: "data-unavailable", reasons,
+      headline: weatherReady ? t.fewTitle : t.notReadyYetTitle,
+      detail: t.fewBody(frame, weatherReady) };
   }
   if (comparison.mcda.status === "unresolved" || !rankedIds.has(comparison.current.id)) {
     const topPriorityMissing = comparison.mcda.partial.some((candidate) => candidate.lacksTopPriority)
       || /(?:first|top)[ -]priority/i.test(comparison.mcda.note);
-    const reason = topPriorityMissing
-      ? "Information for your main priority is missing from at least one option."
-      : "The available information is not enough to put these options in a fair order.";
-    return { ...common, state: "unresolved", headline: "We cannot choose between these options yet", detail: `${reason} ${frame}` };
+    const reason = topPriorityMissing ? t.unresolvedTopPriority : t.unresolvedGeneral;
+    return { ...common, state: "unresolved", headline: t.unresolvedTitle, detail: `${reason} ${frame}` };
   }
   if (comparison.mcda.status !== "ranked" || baseline.completeYears < expectedYears || completeAlternatives.length < 2 || partialIds.size > 0) {
-    const reason = comparison.mcda.status === "no-priorities"
-      ? "Tell us what matters most to you before asking the app to put the choices in order."
-      : "Some choices do not have the same information, so they are shown without a forced ranking.";
-    return { ...common, state: "partial-evidence", headline: "Some information is still missing", detail: `${frame} ${reason} We have enough information to compare ${completeAlternatives.length} alternative${completeAlternatives.length === 1 ? "" : "s"}.` };
+    const reason = comparison.mcda.status === "no-priorities" ? t.partialNoPriorities : t.partialOther;
+    return { ...common, state: "partial-evidence", headline: t.partialTitle, detail: `${frame} ${reason} ${t.partialCompared(completeAlternatives.length)}` };
   }
-  return { ...common, state: "comparable", headline: tiedFirst ? "The leading options are close" : "Compare your crops with other options", detail: `We checked these choices against ${baseline.completeYears} past years from ${BASELINE.startYear}–${BASELINE.endYear} and what you said matters. Use the result to compare trade-offs, then confirm local prices and field conditions.` };
+  return {
+    ...common, state: "comparable", headline: tiedFirst ? t.comparableTied : t.comparableTitle,
+    detail: t.comparableBody(baseline.completeYears, BASELINE.startYear, BASELINE.endYear),
+  };
 }

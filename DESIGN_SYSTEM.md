@@ -19,12 +19,50 @@ Everything here serves the honesty rules in the whitepaper. When a visual choice
 
 | Principle | In practice |
 | --- | --- |
-| **Calm field notebook** | Warm off-white canvas, plain type, few colours. The app should feel like a well-kept notebook, not a dashboard |
+| **Calm field notebook** | Clear white canvas, quiet soft-neutral sections, plain type and few colours. The app should feel open and practical, not clinical or dashboard-like |
 | **Plain words lead** | Every block starts with a sentence; numbers and indices sit one level down |
 | **Two things stand out** | Only the best-match outline (accent) and *Not known* (amber) get distinctive treatment (Von Restorff). Everything else is neutral |
 | **Shape and word, never colour alone** | Each status has a word, an icon and a shape as well as a colour, so it survives colour blindness, sunlight and black-and-white printing |
 | **Native first** | System controls, system navigation, system sheets. Custom components only for data display (season strip, calendar bar, scale badge) |
 | **Readable outdoors** | Higher-than-minimum contrast, solid fills over imagery, large tap targets |
+
+### 1.1 The simplicity contract
+
+Every screen must make one farmer decision obvious before it explains the science. Use this order:
+
+1. **Decision:** the plain-language answer, warning or next task.
+2. **Action:** one primary action, when an action is needed.
+3. **Reason:** the shortest useful explanation of why.
+4. **Evidence:** the key reading and a quiet source summary.
+5. **Method:** full provenance, formulas, assumptions and limitations on demand.
+
+The order is a contract, not a suggested template. Do not give the reason, evidence or method the same visual weight as the decision.
+
+#### Containment
+
+- A card exists only when a group has its own interaction, selection state, status or boundary that must travel together. Basic headings, paragraphs, readings and navigation use spacing, alignment and separators instead.
+- Never nest cards. Do not wrap each metric, sentence or form field in its own bordered surface.
+- Above the fold, reserve the strongest surface treatment for the decision or blocking warning. Supporting sections stay flat unless their interaction requires containment.
+- Borders separate controls or dense rows; they are not decoration. Icons identify an action, object or status; they are not bullets or ornaments.
+
+#### Text and disclosure
+
+- Lead with a short, speakable answer. Put the consequence and the next action in the first one or two sentences.
+- Keep the one-line evidence summary visible: source name, recency and scale when they affect trust. Put dataset identifiers, formulas, methodology, full assumptions and detailed limitations inside a clearly named `Disclosure`.
+- Disclosure labels describe the content: **How this was worked out**, **Data source and limits**, or **See the details**. Do not use vague labels such as **More**.
+- Collapsed content must not hide a safety warning, an unknown that changes the recommendation, or information required to choose safely.
+
+#### Hierarchy and actions
+
+- One screen has one dominant message and, at most, one primary button in the current decision area. Other actions are secondary links, menu items or later steps.
+- Use size, weight, position and whitespace before colour, borders or icons. Warnings state **what happened · when · what to do** and visually outrank explanations.
+- When everything appears important, reduce emphasis; do not add another callout.
+
+#### Navigation
+
+- App-level navigation appears once. Field-level navigation appears once. Do not duplicate either as cards, progress links, page-footer links or a second tab set.
+- Tabs change peer destinations. Segmented controls change the view of the current content. Steppers show a genuinely linear setup task. Do not use these patterns interchangeably.
+- A contextual detail page may replace field tabs with one clear back destination. A **Next** action belongs only to a linear task and never competes with persistent navigation.
 
 ---
 
@@ -32,19 +70,19 @@ Everything here serves the honesty rules in the whitepaper. When a visual choice
 
 ### 2.1 Primitive palette
 
-Warm neutrals, one green accent, an amber family for unknowns, a clay family for stress, and a red for destructive actions only.
+White-led neutrals, one green accent, an amber family for unknowns, a clay family for stress, and a red for destructive actions only.
 
 | Token | Light | Dark |
 | --- | --- | --- |
 | `neutral.0` | `#FFFFFF` | `#1D1C19` |
-| `neutral.50` | `#F4F3EE` | `#121210` |
-| `neutral.100` | `#ECEAE3` | `#0B0B0A` |
-| `neutral.200` | `#E7E1D2` | `#3A372F` |
-| `neutral.300` | `#D9D6CC` | `#34322D` |
-| `neutral.500` | `#8F8C82` | `#6B685F` |
-| `neutral.600` | `#6E6C64` | `#A19E94` |
-| `neutral.700` | `#5A5850` | `#B9B6AC` |
-| `neutral.900` | `#1C1B18` | `#F2F0EA` |
+| `neutral.50` | `#F8FAF7` | `#121210` |
+| `neutral.100` | `#F0F3EE` | `#0B0B0A` |
+| `neutral.200` | `#E7EBE5` | `#3A372F` |
+| `neutral.300` | `#D8DDD6` | `#34322D` |
+| `neutral.500` | `#7F877D` | `#6B685F` |
+| `neutral.600` | `#646C64` | `#A19E94` |
+| `neutral.700` | `#4F574F` | `#B9B6AC` |
+| `neutral.900` | `#20241F` | `#F2F0EA` |
 | `green.50` | `#E3F2EC` | `#123A2D` |
 | `green.300` | `#7FB59A` | `#2C6B51` |
 | `green.600` | `#2F7D5B` | `#4FB387` |
@@ -62,8 +100,8 @@ Warm neutrals, one green accent, an amber family for unknowns, a clay family for
 
 | Token | Maps to | Use |
 | --- | --- | --- |
-| `bg.canvas` | `neutral.50` | Screen background behind grouped content |
-| `bg.surface` | `neutral.0` | Inset groups, cards, sheets |
+| `bg.canvas` | `neutral.0` | White screen background; the dominant app surface |
+| `bg.surface` | `neutral.50` | Quiet soft-neutral inset groups, cards and sheets |
 | `bg.sunken` | `neutral.100` | Segmented-control track, inputs, map placeholder |
 | `text.primary` | `neutral.900` | Body, titles |
 | `text.secondary` | `neutral.700` | Supporting lines, values in rows |
@@ -84,19 +122,19 @@ Measured with `scripts/contrast.py`. AA needs 4.5:1 for text and 3:1 for UI part
 
 | Pair | Light | Dark |
 | --- | --- | --- |
-| `text.primary` on `bg.surface` | 17.22 | 14.95 |
-| `text.secondary` on `bg.surface` | 7.13 | 8.40 |
-| `text.secondary` on `bg.canvas` | 6.41 | 9.24 |
-| `text.tertiary` on `bg.surface` | 5.26 | 6.36 |
-| `accent` on `bg.surface` (links) | 6.49 | 8.40 |
+| `text.primary` on `bg.surface` | 15.00 | 14.95 |
+| `text.secondary` on `bg.surface` | 7.12 | 8.40 |
+| `text.secondary` on `bg.canvas` | 7.48 | 9.24 |
+| `text.tertiary` on `bg.surface` | 5.17 | 6.36 |
+| `accent` on `bg.surface` (links) | 6.19 | 8.40 |
 | `on.accent` on `accent` (buttons) | 6.49 | 9.24 |
 | `accent.text` on `accent.bg` | 8.08 | 8.14 |
 | `unknown.text` on `unknown.bg` | 6.56 | 8.67 |
-| `stress` on `bg.surface` | 6.80 | 6.89 |
-| `danger` on `bg.surface` | 6.57 | 6.70 |
-| `unknown.border` on `bg.surface` (UI) | 3.72 | 6.86 |
-| `border.strong` on `bg.surface` (UI) | 3.36 | 3.06 |
-| `viz.crop` on `viz.bare` (UI) | 3.83 | 4.60 |
+| `stress` on `bg.surface` | 6.48 | 6.89 |
+| `danger` on `bg.surface` | 6.26 | 6.70 |
+| `unknown.border` on `bg.surface` (UI) | 3.54 | 6.86 |
+| `border.strong` on `bg.surface` (UI) | 3.53 | 3.06 |
+| `viz.crop` on `viz.bare` (UI) | 4.14 | 4.60 |
 
 Rule: white text on the dark-mode accent measures 2.03:1 and is **not allowed**; `on.accent` switches to the dark canvas colour in dark mode.
 
@@ -310,9 +348,10 @@ States: default, pressed (opacity 0.8 or system highlight), loading (label repla
 
 | Component | Spec |
 | --- | --- |
-| Tab bar (`TabView`) [bottom nav] | 3 items: Fields, Compare, Learn. System material. Badge on Fields for total open questions |
-| Sidebar (`NavigationSplitView`) [left rail, 260 px web] | Same three destinations plus area groups of fields; replaces the tab bar on regular width |
-| Navigation bar | Back leading; context (field switcher) in the title area on S10; up to two trailing icon buttons |
+| App navigation [header on wide web, bottom bar on compact web] | 2 items: My fields and Data guide. The two placements are responsive versions of the same navigation and never appear together |
+| Field tab row | Overview, Farm, Crops, Conditions, Compare. One row per field; never repeated as cards, footer links or a second tab set |
+| Sidebar (`NavigationSplitView`) [left rail, 260 px web] | The same app destinations plus area groups of fields; replaces the compact app navigation on regular width |
+| Navigation bar | Back only for a distinct parent or in-progress task; context (field switcher) in the title area on S10; up to two trailing icon buttons |
 | Large title | Tab roots only; collapses on scroll |
 | Progress steps | "Step n of 4" text plus four dots under the nav bar, first run only |
 | Sheet | Grabber visible; detents medium and large as specified per screen; Cancel leading, Done/Save trailing; interactive dismiss blocked when dirty |
@@ -460,12 +499,14 @@ Destructive actions are never in the easy zone by default; they live behind swip
 ### 11.4 Content order inside Z4 (every screen)
 
 1. **The answer sentence** (what this screen tells you)
-2. **The honesty line** (Not a forecast / Hypothetical / scale), inline next to what it qualifies
-3. **The visual** (strip, bar, chart, map)
-4. **Groups of detail**, at most about seven rows each
-5. **Unknowns** (with the question that resolves them)
-6. **Check locally**
-7. **Evidence and sources** (or a link to them)
+2. **The action**, when the answer requires one
+3. **The shortest useful reason** and honesty qualifier (Not a forecast / Hypothetical / scale)
+4. **The visual** (strip, bar, chart, map), only when it helps the decision
+5. **Decision-changing unknowns** and **Check locally** items
+6. **Supporting detail**, in flat groups of at most about seven rows
+7. **Compact evidence summary** followed by one named disclosure for full sources, methods, assumptions and limitations
+
+The default view stops when the farmer can decide what to do and what to check. Do not render every supporting group as a card, and do not expose the full scientific method before the farmer asks for it.
 
 ### 11.5 Large text and narrow widths
 
@@ -631,14 +672,14 @@ Single source: `tokens.json` (W3C Design Tokens format), generated to Swift and 
 {
   "color": {
     "bg": {
-      "canvas":  { "$type": "color", "$value": { "light": "#F4F3EE", "dark": "#121210" } },
-      "surface": { "$type": "color", "$value": { "light": "#FFFFFF", "dark": "#1D1C19" } },
-      "sunken":  { "$type": "color", "$value": { "light": "#ECEAE3", "dark": "#0B0B0A" } }
+      "canvas":  { "$type": "color", "$value": { "light": "#FFFFFF", "dark": "#121210" } },
+      "surface": { "$type": "color", "$value": { "light": "#F8FAF7", "dark": "#1D1C19" } },
+      "sunken":  { "$type": "color", "$value": { "light": "#F0F3EE", "dark": "#0B0B0A" } }
     },
     "text": {
-      "primary":   { "$type": "color", "$value": { "light": "#1C1B18", "dark": "#F2F0EA" } },
-      "secondary": { "$type": "color", "$value": { "light": "#5A5850", "dark": "#B9B6AC" } },
-      "tertiary":  { "$type": "color", "$value": { "light": "#6E6C64", "dark": "#A19E94" } }
+      "primary":   { "$type": "color", "$value": { "light": "#20241F", "dark": "#F2F0EA" } },
+      "secondary": { "$type": "color", "$value": { "light": "#4F574F", "dark": "#B9B6AC" } },
+      "tertiary":  { "$type": "color", "$value": { "light": "#646C64", "dark": "#A19E94" } }
     },
     "accent":   { "$type": "color", "$value": { "light": "#0E6B4F", "dark": "#5FC9A0" } },
     "onAccent": { "$type": "color", "$value": { "light": "#FFFFFF", "dark": "#121210" } },
@@ -666,8 +707,8 @@ Single source: `tokens.json` (W3C Design Tokens format), generated to Swift and 
 
 ```css
 :root{
-  --bg-canvas:#F4F3EE; --bg-surface:#FFFFFF; --bg-sunken:#ECEAE3;
-  --text-primary:#1C1B18; --text-secondary:#5A5850; --text-tertiary:#6E6C64;
+  --bg-canvas:#FFFFFF; --bg-surface:#F8FAF7; --bg-sunken:#F0F3EE;
+  --text-primary:#20241F; --text-secondary:#4F574F; --text-tertiary:#646C64;
   --accent:#0E6B4F; --on-accent:#FFFFFF;
   --unknown-bg:#FBEFD5; --unknown-text:#7A4A00; --unknown-border:#B77700;
   --stress:#9C3D12; --stress-bg:#F8E3D8; --danger:#B42318;

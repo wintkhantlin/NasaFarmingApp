@@ -172,8 +172,8 @@ export const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: "#ffffff",
-          border: "1px solid #d9d6cc",
+          backgroundColor: "var(--color-surface-raised)",
+          border: "1px solid var(--color-line)",
           borderRadius: 10,
           boxShadow: "none",
         },
@@ -182,7 +182,7 @@ export const theme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--color-surface-raised)",
           borderRadius: 16,
           boxShadow: "0 8px 24px -12px rgb(31 29 23 / 0.35)",
         },
@@ -191,7 +191,7 @@ export const theme = createTheme({
     MuiSkeleton: {
       styleOverrides: {
         root: {
-          backgroundColor: "#eceae3",
+          backgroundColor: "var(--color-surface-sunken)",
         },
       },
     },

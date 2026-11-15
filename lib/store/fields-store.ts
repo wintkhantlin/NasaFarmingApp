@@ -133,7 +133,16 @@ export function useFieldRotations(fieldId: string): Rotation[] {
 export type StepId = "location" | "rotation" | "profile" | "conditions" | "compare";
 export type StepState = "done" | "needs-input" | "loading" | "not-started";
 
-export function deriveStepStates(field: Field | undefined, fieldRotations: Rotation[] | undefined): Record<StepId, StepState> {
+/**
+ * `compareViewed` is true once a comparison has actually been shown for this field
+ * (see lib/store/compare-viewed.ts); without it Compare is "not-started" even when crops exist.
+ * Conditions has no synchronous signal (its cache is async), so it stays tied to having crops.
+ */
+export function deriveStepStates(
+  field: Field | undefined,
+  fieldRotations: Rotation[] | undefined,
+  opts: { compareViewed?: boolean } = {},
+): Record<StepId, StepState> {
   if (!field) {
     return { location: "not-started", rotation: "not-started", profile: "not-started", conditions: "not-started", compare: "not-started" };
   }
@@ -148,6 +157,6 @@ export function deriveStepStates(field: Field | undefined, fieldRotations: Rotat
     // priorities are optional, so this step never blocks the others
     profile: hasPriorities ? "done" : hasRotation ? "needs-input" : "not-started",
     conditions: hasRotation ? "done" : "not-started",
-    compare: hasRotation ? "done" : "not-started",
+    compare: hasRotation ? (opts.compareViewed ? "done" : "needs-input") : "not-started",
   };
 }

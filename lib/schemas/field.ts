@@ -112,7 +112,7 @@ export const fieldSchema: z.ZodType<Field> = z.object({
   irrigation: z.enum(["none", "supplemental", "full"]),
   soilOverride: soilOverrideSchema.optional(),
   soilObservations: z.array(soilObservationSchema).max(100).optional(),
-  region: z.enum(["ayeyarwady", "magway", "shan", "myanmar", "unsupported"]).optional(),
+  region: z.enum(["ayeyarwady", "magway", "shan", "yangon", "myanmar", "unsupported"]).optional(),
   locationConfirmed: z.boolean().optional(),
   confirmedAt: isoDateTime.optional(),
   archivedAt: isoDateTime.optional(),

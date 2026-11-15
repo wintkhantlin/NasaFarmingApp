@@ -1,4 +1,5 @@
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Icon } from "@/components/ui/icon";
+import { PanelHeader } from "@/components/ui/panel";
 import { IndicatorCard } from "@/components/ui/indicator-card";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { copy } from "@/lib/copy/en";
@@ -7,15 +8,21 @@ import type { ComparisonResult, SlotEvaluation } from "@/lib/engine/compare";
 import type { ConditionsData, RemoteData } from "@/lib/store/data-cache";
 import type { SourceStatus } from "@/lib/engine/data";
 import { EVIDENCE_CLASS_LABEL, type EvidenceClass } from "@/lib/evidence/explain";
+import { dryZoneRainCaution } from "@/lib/validation/source-checks";
 
 const fmt = (n: number | null, d = 0) => (n === null ? "unknown" : n.toFixed(d));
 
-function statusText(status: SourceStatus | undefined, progress?: string): string {
-  if (status === "ok") return "Retrieved";
-  if (status === "pending") return progress ? `${copy.conditions.pending} ${progress}` : copy.conditions.pending;
-  if (status === "unconfigured") return copy.conditions.unconfigured;
-  if (status === "unavailable") return "The source did not answer.";
-  return "Not requested yet.";
+/** Dry Zone caution for NASA rain: amber (unknown) styling, never green. Rendered only for Dry Zone fields. */
+export function DryZoneRainNote({ className }: { className?: string }) {
+  return (
+    <p
+      role="note"
+      className={`m-0 flex max-w-measure items-start gap-2 rounded-md border border-unknown-border/40 bg-unknown-bg px-3 py-2 text-body-sm text-unknown-text ${className ?? ""}`}
+    >
+      <Icon name="alert" size={16} strokeWidth={2.4} className="mt-0.5 shrink-0" />
+      <span>{dryZoneRainCaution()}</span>
+    </p>
+  );
 }
 
 function sourceKindLine(status: SourceStatus | undefined, evidence: Exclude<EvidenceClass, "missing">, where: string): string {
@@ -23,17 +30,28 @@ function sourceKindLine(status: SourceStatus | undefined, evidence: Exclude<Evid
   return status === "ok" ? `${kind} · ${where} · past record, not a forecast` : `Missing information, not zero · would be a ${kind.toLowerCase()} · ${where}`;
 }
 
-/** One line per NASA source: connected, pending or not connected. Missing sources are stated, never hidden. */
+type SourceRow = { title: string; status: SourceStatus | undefined; note: string; progress?: string; fallback?: string; evidence: Exclude<EvidenceClass, "missing">; where: string };
+
+/** Plain status line a farmer can read. The acronym lists below it carry the technical names. */
+function plainStatus(status: SourceStatus | undefined, progress?: string, fallback?: string): string {
+  if (status === "ok") return "Ready";
+  if (status === "pending") return progress ? `${copy.conditions.pending} ${progress}` : copy.conditions.pending;
+  if (status === "unconfigured" || status === "unavailable") return fallback ?? copy.conditions.unconfigured;
+  return "Not checked yet.";
+}
+
+/** Three plain rows (rain detail, soil wetness, field photo). Acronyms and the other sources sit in one technical disclosure. Missing sources are stated, never hidden. */
 export function SourceStatusPanel({ conditions, remote }: { conditions: ConditionsData | null; remote: RemoteData | null }) {
   const imerg = conditions?.imerg;
-  const rows: Array<{ title: string; status: SourceStatus | undefined; note: string; progress?: string; evidence: Exclude<EvidenceClass, "missing">; where: string }> = [
-    {
-      title: copy.conditions.imergTitle,
-      status: imerg?.status,
-      note: copy.conditions.rainfallNote,
-      evidence: "model", where: "Regional, about 11 km",
-      progress: imerg && imerg.status !== "unconfigured" ? copy.conditions.imergProgress(imerg.covered, imerg.expected) : undefined,
-    },
+  const imergProgress = imerg && imerg.status !== "unconfigured" ? copy.conditions.imergProgress(imerg.covered, imerg.expected) : undefined;
+  const imergFallback = "Using regional NASA weather (about 50 km) while detailed satellite rainfall is unavailable.";
+  const plainRows: Array<{ title: string; status: SourceStatus | undefined; progress?: string; fallback?: string; note: string }> = [
+    { title: copy.conditions.rainDetailTitle, status: imerg?.status, progress: imergProgress, fallback: imergFallback, note: "Rain seen from satellites, used when enough days are ready." },
+    { title: copy.conditions.soilWetnessTitle, status: remote?.smap.status, note: "A wide-area view. It does not show how wet your own field is." },
+    { title: copy.conditions.fieldPhotoTitle, status: remote?.hls.status, note: "Satellite photos of your field on clear days." },
+  ];
+  const technical: SourceRow[] = [
+    { title: copy.conditions.imergTitle, status: imerg?.status, note: copy.conditions.rainfallNote, evidence: "model", where: "Regional, about 11 km", progress: imergProgress, fallback: imergFallback },
     { title: copy.conditions.smapTitle, status: remote?.smap.status, note: copy.conditions.smapNote, evidence: "model", where: "Regional, about 9 km" },
     { title: copy.conditions.hlsTitle, status: remote?.hls.status, note: "Clear observations only. Cloud, shadow, snow and water are screened out, and gaps are not zero.", evidence: "satellite", where: "Inside your field, 30 m" },
     { title: copy.conditions.srtmTitle, status: remote?.srtm.status, note: "Slope comes from neighbouring elevation cells. Slope is not soil loss.", evidence: "satellite", where: "Inside your field, 30 m" },
@@ -42,19 +60,35 @@ export function SourceStatusPanel({ conditions, remote }: { conditions: Conditio
     { title: "ECOSTRESS evapotranspiration", status: remote?.ecostressEt.status, note: "Clear 70 m modeled ET in W/m². It is context, not measured crop water use or mm/day.", evidence: "model", where: "Inside your field, 70 m" },
   ];
   return (
-    <Panel as="section" aria-labelledby="sources" className="flex flex-col gap-3 p-4 sm:p-6">
-      <PanelHeader id="sources" title="NASA data connected to this field" description="Each source says whether it was read, is on its way, or is not connected." />
-      <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2">
-        {rows.map((r) => (
-          <li key={r.title} className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3">
+    <section aria-labelledby="sources" className="flex flex-col gap-3">
+      <PanelHeader id="sources" title="Extra satellite detail for this field" description="Each line says if it is ready, on its way, or not available for your area yet." />
+      <ul className="m-0 list-none divide-y divide-line p-0">
+        {plainRows.map((r) => (
+          <li key={r.title} className="grid gap-x-4 gap-y-1 py-3 first:pt-0 sm:grid-cols-[minmax(8rem,0.7fr)_minmax(0,2fr)]">
             <p className="m-0 text-label text-ink">{r.title}</p>
-            <p className="m-0 text-source text-ink-muted">{sourceKindLine(r.status, r.evidence, r.where)}</p>
-            <p className="m-0 text-body-sm text-ink">{statusText(r.status, r.progress)}</p>
-            <p className="m-0 text-body-sm text-ink-muted">{r.note}</p>
+            <div className="flex flex-col gap-1">
+              <p className="m-0 text-body-sm text-ink">{plainStatus(r.status, r.progress, r.fallback)}</p>
+              <p className="m-0 text-body-sm text-ink-muted">{r.note}</p>
+            </div>
           </li>
         ))}
       </ul>
-    </Panel>
+      <details className="text-body-sm">
+        <summary className="inline-flex min-h-tap cursor-pointer items-center text-field underline-offset-2 hover:underline">{copy.conditions.technicalNames}</summary>
+        <ul className="m-0 mt-2 list-none divide-y divide-line p-0">
+          {technical.map((r) => (
+            <li key={r.title} className="grid gap-x-4 gap-y-1 py-3 first:pt-2 sm:grid-cols-[minmax(8rem,0.7fr)_minmax(0,2fr)]">
+              <p className="m-0 text-label text-ink">{r.title}</p>
+              <div className="flex flex-col gap-1">
+                <p className="m-0 text-source text-ink-muted">{sourceKindLine(r.status, r.evidence, r.where)}</p>
+                <p className="m-0 text-body-sm text-ink">{plainStatus(r.status, r.progress, r.fallback)}</p>
+                <p className="m-0 text-body-sm text-ink-muted">{r.note}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
   );
 }
 
@@ -100,7 +134,7 @@ export function VulnerabilityPanel({ comparison }: { comparison: ComparisonResul
   const heatEvidence = comparison.current.evidence.find((x) => x.id.endsWith(":heat"));
   if (slots.length === 0) return null;
   return (
-    <Panel as="section" aria-labelledby="vuln" className="flex flex-col gap-4 p-4 sm:p-6">
+    <section aria-labelledby="vuln" className="flex flex-col gap-4">
       <PanelHeader id="vuln" title={copy.conditions.vulnerabilityTitle} description={copy.conditions.vulnerabilityDescription} />
       {slots.map((e) => (
         <div key={e.slot.id} className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
@@ -112,7 +146,7 @@ export function VulnerabilityPanel({ comparison }: { comparison: ComparisonResul
         Air temperature comes from NASA POWER. Thresholds are starting values labelled by how well they are sourced, and a day above one in the data is not the same as heat damage in your field.
       </p>
       {heatEvidence ? <IndicatorCard indicator={heatEvidence.indicator} claim={heatEvidence.claim} /> : null}
-    </Panel>
+    </section>
   );
 }
 
@@ -122,18 +156,18 @@ export function WaterUsePanel({ comparison }: { comparison: ComparisonResult }) 
   if (slots.length === 0) return null;
   const evidence = comparison.current.evidence.find((x) => x.id.endsWith(":shortfall"));
   return (
-    <Panel as="section" aria-labelledby="wateruse" className="flex flex-col gap-4 p-4 sm:p-6">
+    <section aria-labelledby="wateruse" className="flex flex-col gap-4">
       <PanelHeader id="wateruse" title={copy.conditions.waterUseTitle} description={copy.conditions.waterUseDescription} />
-      {/* Mobile: cards per crop instead of a wide table */}
-      <div className="flex flex-col gap-3 sm:hidden">
+      {/* Mobile: a compact row per crop, separated by rules. */}
+      <ul className="m-0 flex list-none flex-col divide-y divide-line p-0 sm:hidden">
         {slots.map((e) => (
-          <div key={e.slot.id} className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3 text-body-sm">
+          <li key={e.slot.id} className="flex flex-col gap-2 py-3 first:pt-0 text-body-sm">
             <span className="text-body font-semibold text-ink">
               {e.name}{e.irrigated ? <span className="ml-1 text-source font-normal text-ink-muted">(irrigated)</span> : ""}
             </span>
-            <dl className="m-0 grid grid-cols-1 gap-2 border-t border-line/60 pt-1">
+            <dl className="m-0 grid grid-cols-1 gap-1">
               <div className="flex items-baseline justify-between">
-                <dt className="text-ink-muted">Demand (ETc):</dt>
+                <dt className="text-ink-muted">Water crops use:</dt>
                 <dd className="tabular m-0 font-mono font-medium text-ink">{fmt(e.water?.etc.p50 ?? null)} mm</dd>
               </div>
               <div className="flex items-baseline justify-between">
@@ -145,9 +179,9 @@ export function WaterUsePanel({ comparison }: { comparison: ComparisonResult }) 
                 <dd className="tabular m-0 font-mono font-medium text-stress">{fmt(e.water?.shortfall.p50 ?? null)} mm</dd>
               </div>
             </dl>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
 
       {/* Tablet & Desktop: table */}
       <div className="hidden overflow-x-auto sm:block">
@@ -155,7 +189,7 @@ export function WaterUsePanel({ comparison }: { comparison: ComparisonResult }) 
           <thead>
             <tr className="text-ink-muted">
               <th scope="col" className="py-2 pr-3 font-normal">Crop</th>
-              <th scope="col" className="py-2 pr-3 font-normal">Demand, ETc (mm)</th>
+              <th scope="col" className="py-2 pr-3 font-normal">Water crops use (mm)</th>
               <th scope="col" className="py-2 pr-3 font-normal">Rain (mm)</th>
               <th scope="col" className="py-2 font-normal">Rain short of demand (mm)</th>
             </tr>
@@ -175,6 +209,6 @@ export function WaterUsePanel({ comparison }: { comparison: ComparisonResult }) 
       <p className="m-0 text-body-sm text-ink-muted">Medians over the usable seasons from {comparison.baseline.startYear} to {comparison.baseline.endYear}.</p>
       {slots.some((s) => s.rootZone?.status === "unknown") ? <p className="m-0 text-body-sm text-ink">{copy.conditions.rootZoneUnknown}</p> : null}
       {evidence ? <IndicatorCard indicator={evidence.indicator} claim={evidence.claim} /> : null}
-    </Panel>
+    </section>
   );
 }

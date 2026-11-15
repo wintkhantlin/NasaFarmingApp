@@ -79,6 +79,7 @@ const ICONS = {
   profile: Wheat,
   search: Search,
   box: Square,
+  check: Check,
   done: Check,
   download: Download,
   fields: House,
@@ -110,6 +111,7 @@ const ICONS = {
   salinity: Waves,
   organic: Leaf,
   clay: Mountain,
+  retry: RotateCcw,
   reset: RotateCcw,
   undo: Undo2,
   redo: Redo2,
@@ -135,6 +137,7 @@ export function Icon({
   ...rest
 }: { name: IconName; label?: string } & Omit<LucideProps, "ref">) {
   const Glyph = ICONS[name];
+  if (!Glyph) return null;
   return (
     <Glyph
       size={size}

@@ -25,7 +25,8 @@ describe("regions", () => {
     expect(regionOfPoint([94.73, 16.78])).toBe("ayeyarwady"); // Pathein
     expect(regionOfPoint([97.04, 20.78])).toBe("shan"); // Taunggyi
     expect(regionOfPoint([36.8, -1.3])).toBe("unsupported"); // Nairobi
-    expect(regionOfPoint([96.16, 16.8])).toBe("myanmar"); // Yangon has national coverage without a regional catalog
+    expect(regionOfPoint([96.16, 16.8])).toBe("yangon");
+    expect(regionOfPoint([96.24, 16.75])).toBe("yangon"); // Dagon Seikkan
   });
 
   test("a polygon that crosses a boundary is flagged", () => {

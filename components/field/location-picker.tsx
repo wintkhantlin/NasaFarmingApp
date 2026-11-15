@@ -4,19 +4,19 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { DrawTool, MapCommand, MapFocus } from "@/components/map/field-map";
-import { MAPBOX_TOKEN, MAPBOX_TOKEN_PROBLEM } from "@/components/map/mapbox-config";
+import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
-import { copy } from "@/lib/copy/en";
 import { parseCoordinate } from "@/lib/geo/format";
 import { searchPlaces, type Place } from "@/lib/geo/geocode";
 import { acresFromHa, areaHa, isSelfIntersecting } from "@/lib/geo/shapes";
 import { useFieldsStore } from "@/lib/store/fields-store";
+import { useAppCopy, useLocaleStore } from "@/lib/store/locale-store";
 import { readPlanDraft, type PlanDraft } from "@/lib/store/plan-draft";
 import { LARGE_FIELD_HA, ValidationError } from "@/lib/store/repository";
-import type { Field, FieldGeometry } from "@/lib/types";
+import type { Field, FieldGeometry, Irrigation } from "@/lib/types";
 
 const FieldMap = dynamic(() => import("@/components/map/field-map").then((m) => m.FieldMap), {
   ssr: false,
@@ -25,15 +25,9 @@ const FieldMap = dynamic(() => import("@/components/map/field-map").then((m) => 
 
 type Method = "approx" | "exact";
 type Shape = "box" | "outline";
+type WaterChoice = "rain-only" | "irrigation-available" | "both";
 
-const SHAPES: Array<{ id: Shape; label: string; hint: string }> = [
-  { id: "box", label: "Box", hint: "Tap one corner of the field, then tap the opposite corner. Zoom in first for a closer fit." },
-  { id: "outline", label: "Trace outline", hint: "Tap each corner of the field in turn, then tap the first corner again to finish." },
-];
-
-const APPROX_HINT = "Tap the map on or near your field. Zoom in first if you can.";
-const APPROX_LIMITS =
-  "A pin only says roughly where your field is. Weather and satellite results are then regional estimates, based on pixels about 250 m to 9 km wide, not your field's own area. Draw the boundary for results sized to your field.";
+const SHAPES: Array<{ id: Shape }> = [{ id: "box" }, { id: "outline" }];
 
 const inputClass =
   "min-h-tap w-full rounded-sm border border-line-strong bg-surface-sunken px-3 text-body text-ink placeholder:text-ink-muted";
@@ -93,6 +87,9 @@ const fmtHa = (ha: number) => (ha < 10 ? ha.toFixed(2) : ha < 100 ? ha.toFixed(1
  */
 export function LocationPicker({ field, fromPlan = false }: { field?: Field; fromPlan?: boolean }) {
   const router = useRouter();
+  const text = useAppCopy().picker;
+  const copy = useAppCopy();
+  const areaUnit = useLocaleStore((s) => s.areaUnit);
   const add = useFieldsStore((s) => s.add);
   const update = useFieldsStore((s) => s.update);
   const id = useId();
@@ -103,6 +100,11 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   const fieldCount = useFieldsStore((s) => s.fields.length);
   const [name, setName] = useState(field?.name ?? "");
   const [geometry, setGeometry] = useState<FieldGeometry | null>(field?.geometry ?? null);
+  const [waterChoice, setWaterChoice] = useState<WaterChoice | null>(() => {
+    const access = field?.constraints?.irrigation?.access;
+    return access === "none" ? "rain-only" : access === "full" ? "irrigation-available" : access === "supplemental" ? "both" : null;
+  });
+  const [locationConfirmed, setLocationConfirmed] = useState(field?.locationConfirmed === true);
   const [method, setMethod] = useState<Method | null>(
     field?.geometry ? (field.geometry.type === "Point" ? "approx" : "exact") : fromPlan && hasMap ? "approx" : null,
   );
@@ -147,7 +149,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   const drawing = tool !== null;
   const canContinue = geometry?.type === "Point" || (geometry?.type === "Polygon" && !crosses && ha !== null && ha > 0);
   const isApprox = geometry?.type === "Point";
-  const shapeHint = SHAPES.find((x) => x.id === shape)?.hint;
+  const shapeHint = shape === "box" ? text.boxHint : text.outlineHint;
+  const areaText = (value: number) => text.area(fmtHa(areaUnit === "acre" ? acresFromHa(value) : value), areaUnit);
 
   useEffect(() => {
     if (!fromPlan || field) return;
@@ -155,6 +158,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     if (!saved?.place) return;
     skipAutoSearch.current = true;
     setPlanDraft(saved);
+    const draftWater = saved.refinements.water.value;
+    setWaterChoice(draftWater === "rain-only" ? "rain-only" : draftWater === "reliable" ? "irrigation-available" : draftWater === "occasional" ? "both" : null);
     setQuery(saved.place.name);
     if (saved.place.lon !== undefined && saved.place.lat !== undefined) {
       setFocus({ center: [saved.place.lon, saved.place.lat], zoom: 13, nonce: 1 });
@@ -212,6 +217,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     setPast((p) => [...p.slice(-49), geometry]);
     setFuture([]);
     setGeometry(next);
+    setLocationConfirmed(false);
     setSaveError(null);
   }
 
@@ -224,6 +230,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
 
   function restore(next: FieldGeometry | null) {
     setGeometry(next);
+    if (JSON.stringify(next) !== JSON.stringify(geometry)) setLocationConfirmed(false);
     setSaveError(null);
     if (next) {
       setMethod(next.type === "Point" ? "approx" : "exact");
@@ -260,15 +267,6 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     send("edit");
   }
 
-  /** Remove the shape and go back to the two choices. */
-  function clearShape() {
-    commit(null);
-    setSheetOpen(false);
-    setMethod(null);
-    setTool(null);
-    send("edit");
-  }
-
   /** Remove the shape and start drawing it again straight away. */
   function redraw() {
     commit(null);
@@ -292,7 +290,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setResults(null);
-      setSearchError("We couldn't search just now. Try a nearby town or enter the field's corner coordinates.");
+      setSearchError(text.searchError);
     } finally {
       if (searchAbort.current === ctrl) setSearching(false);
     }
@@ -302,13 +300,13 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     skipAutoSearch.current = true;
     setResults(null);
     setQuery(p.name);
-    setPlaceNote(`Showing ${p.name}. Zoom in and mark your own field; a town centre is not your field.`);
+    setPlaceNote(text.placeNote(p.name));
     flyTo(p.center, 14, p.bbox ?? undefined);
   }
 
   function locateMe() {
     if (!("geolocation" in navigator)) {
-      setLocateError("This browser can't share your location. Search for your place instead.");
+      setLocateError(text.locateUnsupported);
       return;
     }
     setLocating(true);
@@ -321,7 +319,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
       },
       () => {
         setLocating(false);
-        setLocateError("We couldn't get your location. You can search for your place instead; sharing location is optional.");
+        setLocateError(text.locateDenied);
       },
       { enableHighAccuracy: true, timeout: 15_000 },
     );
@@ -342,7 +340,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     const northLat = parseCoordinate(north, 90);
     const eastLng = parseCoordinate(east, 180);
     if (southLat === null || westLng === null || northLat === null || eastLng === null || southLat >= northLat || westLng >= eastLng) {
-      setCoordError("Enter two opposite corners. North must be above south, and east must be right of west.");
+      setCoordError(text.coordError);
       return;
     }
     setCoordError(null);
@@ -357,36 +355,41 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
-    const finalName = name.trim() || `Field ${fieldCount + 1}`;
-    if (!geometry || !canContinue) return setSaveError("Mark your field with a pin, a box or an outline before saving.");
+    const finalName = name.trim();
+    if (!finalName) return setSaveError(text.nameRequired);
+    if (!waterChoice) return setSaveError(text.waterRequired);
+    if (!locationConfirmed) return setSaveError(text.confirmRequired);
+    if (!geometry || !canContinue) return setSaveError(text.markRequired);
     if (crosses) return setSaveError(copy.validation.outlineCrosses);
     setSaving(true);
     setSaveError(null);
     try {
-      const water = planDraft?.refinements.water.value;
-      const irrigation = water === "occasional" ? "supplemental" : water === "reliable" ? "full" : "none";
+      const water = waterChoice === "rain-only" ? "rain-only" : waterChoice === "both" ? "occasional" : "reliable";
+      const irrigation: Irrigation = waterChoice === "rain-only" ? "none" : waterChoice === "both" ? "supplemental" : "full";
+      const constraints = {
+        ...field?.constraints,
+        irrigation: { ...field?.constraints?.irrigation, access: irrigation },
+      };
       const context = planDraft?.place
         ? `[Explore context]: region ${planDraft.place.region}; place ${planDraft.place.name}; crop ${planDraft.mainCropId}; water ${water}; planting ${planDraft.nextPlantingPeriod}; priorities ${planDraft.priorityOrder.join(",") || "not-set"}. Regional answers, not verified field measurements.`
         : undefined;
       const saved = field
-        ? await update(field.id, { name: finalName, geometry, locationConfirmed: true })
-        : await add({ name: finalName, geometry, irrigation, locationConfirmed: true, ...(water && water !== "unknown" ? { constraints: { irrigation: { access: irrigation } } } : {}), ...(planDraft?.priorityOrder.length ? { priorities: { order: planDraft.priorityOrder, weights: {} } } : {}), ...(context ? { localNotes: context } : {}) });
+        ? await update(field.id, { name: finalName, geometry, irrigation, constraints, locationConfirmed: true })
+        : await add({ name: finalName, geometry, irrigation, constraints, locationConfirmed: true, ...(planDraft?.priorityOrder.length ? { priorities: { order: planDraft.priorityOrder, weights: {} } } : {}), ...(context ? { localNotes: context } : {}) });
       router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/rotation`);
     } catch (err) {
       setSaving(false);
-      setSaveError(
-        err instanceof ValidationError ? err.message : "We couldn't save this field. Check that this browser allows site storage.",
-      );
+      setSaveError(err instanceof ValidationError ? err.message : text.saveError);
     }
   }
 
   const startCenter = field?.centroid ?? ([95.5, 20.5] as [number, number]);
   const corners = ring ? Math.max(0, ring.length - 1) : 0;
-  const summaryKind = isApprox ? "Approximate location" : "Exact boundary";
+  const summaryKind = isApprox ? text.summaryApprox : text.summaryExact;
 
   return (
     <div ref={rootRef} className="relative size-full bg-surface-sunken">
-      <h1 className="sr-only">{field ? `Edit ${field.name}` : "Add a field"}</h1>
+      <h1 className="sr-only">{field ? text.editTitle(field.name) : text.addTitle}</h1>
       {/* The map fills the screen. */}
       <div className="absolute inset-0">
         {hasMap ? (
@@ -404,13 +407,11 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
             onDrawingChange={(d) => setCanUndoCorner(d.canUndoCorner)}
           />
         ) : (
-          <div className="flex size-full flex-col items-center justify-center gap-2 p-6 text-center lg:pl-[28rem]">
-            <h2 className="text-title text-ink">The map isn&apos;t set up yet</h2>
-            <p className="max-w-measure text-body text-ink-muted">
-              {MAPBOX_TOKEN_PROBLEM === "secret"
-                ? "NEXT_PUBLIC_MAPBOX_TOKEN holds a secret token (it starts with sk.). It would be sent to every visitor, so it is ignored. Use a public token that starts with pk."
-                : "Add a public Mapbox token as NEXT_PUBLIC_MAPBOX_TOKEN in .env.local and restart the app. Until then you can still add a field with coordinates."}
-            </p>
+          <div role="status" className="flex size-full flex-col items-center justify-center gap-3 p-6 text-center lg:pl-[28rem]">
+            <p className="max-w-measure text-title text-ink">{text.mapDown}</p>
+            <Button type="button" variant="secondary" icon="reset" onClick={() => window.location.reload()}>
+              {text.retry}
+            </Button>
           </div>
         )}
       </div>
@@ -418,12 +419,12 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
       {/* Controls float over the map: along the top on a phone, down the left side on a desktop. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex max-h-full flex-col gap-2 overflow-y-auto p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] lg:bottom-0 lg:right-auto lg:w-[26rem] lg:gap-3 lg:p-4">
         {/* Back, search and the optional "use my location" */}
-        <section aria-label="Find your field" className={card}>
+        <section aria-label={text.findField} className={card}>
           <div className="flex items-center gap-1 p-1.5">
             <button
               type="button"
               onClick={goBack}
-              aria-label={field ? `Back to ${field.name}` : "Back to your fields"}
+              aria-label={field ? text.backToField(field.name) : text.backToFields}
               className="grid size-tap shrink-0 place-items-center rounded-md text-ink hover:bg-surface-sunken"
             >
               <Icon name="back" size={24} />
@@ -431,7 +432,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
             {hasMap ? (
               <>
                 <label htmlFor={`${id}-search`} className="sr-only">
-                  Search for a village, town or address
+                  {text.searchLabel}
                 </label>
                 <input
                   id={`${id}-search`}
@@ -449,13 +450,13 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                   }}
                   autoComplete="off"
                   enterKeyHint="search"
-                  placeholder="Search a village or town"
+                  placeholder={text.searchPlaceholder}
                   className="min-h-tap min-w-0 flex-1 bg-transparent px-1 text-body text-ink placeholder:text-ink-muted"
                 />
                 {query ? (
                   <button
                     type="button"
-                    aria-label="Clear search"
+                    aria-label={text.clearSearch}
                     onClick={() => {
                       setQuery("");
                       setResults(null);
@@ -468,7 +469,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                 ) : null}
                 <button
                   type="button"
-                  aria-label={searching ? "Searching" : "Search"}
+                  aria-label={searching ? text.searching : text.search}
                   onClick={() => void runSearch(query)}
                   disabled={searching || query.trim().length < 2}
                   className="grid size-tap shrink-0 place-items-center rounded-md text-field hover:bg-field-soft disabled:opacity-40"
@@ -477,8 +478,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                 </button>
                 <button
                   type="button"
-                  aria-label={locating ? "Finding your location" : "Use my location (optional)"}
-                  title="Use my location (optional)"
+                  aria-label={locating ? text.findingLocation : text.useMyLocation}
+                  title={text.useMyLocation}
                   onClick={locateMe}
                   disabled={locating}
                   className="grid size-tap shrink-0 place-items-center rounded-md text-field hover:bg-field-soft disabled:opacity-40"
@@ -487,7 +488,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                 </button>
               </>
             ) : (
-              <p className="px-1 text-headline text-ink">{field ? "Edit field" : "Add a field"}</p>
+              <p className="px-1 text-headline text-ink">{field ? text.editShort : text.addTitle}</p>
             )}
           </div>
           {searchError ? (
@@ -503,12 +504,12 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           {gps ? (
             <div role="status" className="flex flex-col gap-1.5 border-t border-line px-3 py-2">
               <p className="text-body-sm text-ink-muted">
-                Map moved to where you are, within about {Math.max(1, Math.round(gps.accuracy))} m.
-                {gps.accuracy > 100 ? " That is rough, so check the pin sits on your field before you use it." : ""}
+                {text.mapMoved(Math.max(1, Math.round(gps.accuracy)))}
+                {gps.accuracy > 100 ? text.gpsRough : ""}
               </p>
               {method === "approx" && !geometry ? (
                 <Button type="button" variant="secondary" icon="pin" onClick={pinAtGps}>
-                  Place the pin here
+                  {text.markHere}
                 </Button>
               ) : null}
             </div>
@@ -516,7 +517,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           {results ? (
             results.length === 0 ? (
               <p role="status" className="border-t border-line px-3 py-2 text-body-sm text-ink-muted">
-                No places found. Try the name of a nearby town.
+                {text.noPlaces}
               </p>
             ) : (
               <ul className="max-h-64 overflow-y-auto border-t border-line">
@@ -545,7 +546,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
         {/* The step panel: a bar along the bottom on a phone, the next card in the column on a desktop. */}
         <section
           ref={barRef}
-          aria-label="Your field"
+          aria-label={text.yourField}
           className={cn(
             card,
             "fixed inset-x-0 bottom-0 z-20 flex max-h-[75svh] flex-col gap-3 overflow-y-auto rounded-b-none p-3",
@@ -556,10 +557,10 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           {sheetOpen ? (
             <form onSubmit={onSave} noValidate className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-headline text-ink">Name your field</h2>
+                <h2 className="text-headline text-ink">{text.nameYourField}</h2>
                 <button
                   type="button"
-                  aria-label="Back to the map"
+                  aria-label={text.backToMap}
                   onClick={() => setSheetOpen(false)}
                   className="-mr-2 grid size-tap place-items-center rounded-md text-ink-muted hover:bg-surface-sunken"
                 >
@@ -568,33 +569,66 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
               </div>
               <p className="rounded-md bg-surface-sunken px-3 py-2 text-body-sm text-ink">
                 <span className="font-medium">{summaryKind}</span>
-                {ha !== null ? ` · ${fmtHa(ha)} ha (${fmtHa(acresFromHa(ha))} acres)` : " · no area measured"}
+                {ha !== null ? ` · ${areaText(ha)}` : ` · ${text.noAreaMeasured}`}
               </p>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor={`${id}-name`} className="text-label text-ink">Field name</label>
+                <label htmlFor={`${id}-name`} className="text-label text-ink">{text.fieldName}</label>
                 <input
                   id={`${id}-name`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="off"
-                  placeholder={`Field ${fieldCount + 1}`}
+                  required
+                  placeholder={text.fieldPlaceholder(fieldCount + 1)}
                   className={inputClass}
                 />
               </div>
+              <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                <legend className="text-label text-ink">{text.waterLegend}</legend>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {([
+                    ["rain-only", text.waterRain],
+                    ["irrigation-available", text.waterIrrigation],
+                    ["both", text.waterBoth],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={waterChoice === value}
+                      onClick={() => setWaterChoice(value)}
+                      className={cn(
+                        "flex min-h-tap items-center rounded-md border px-3 py-2 text-left text-label font-semibold",
+                        waterChoice === value ? "border-field bg-field-soft text-ink ring-2 ring-field/30" : "border-line-strong bg-surface-raised text-ink hover:bg-surface-sunken",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="flex min-h-tap items-start gap-3 rounded-md border border-line p-3 text-body-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={locationConfirmed}
+                  onChange={(e) => setLocationConfirmed(e.target.checked)}
+                  className="mt-1 size-5 shrink-0 accent-field"
+                />
+                <span>{isApprox ? text.confirmSpot : text.confirmShape}</span>
+              </label>
               {saveError ? (
                 <p role="alert" className="text-body text-heat">
                   {saveError}
                 </p>
               ) : null}
               <Button type="submit" variant="primary" size="lg" iconEnd="done" disabled={saving} block>
-                {saving ? "Saving" : field ? "Save changes" : "Save field"}
+                {saving ? text.saving : field ? text.saveChanges : text.saveField}
               </Button>
             </form>
           ) : drawing ? (
             /* Drawing now: one short instruction and the way out. */
             <>
               {method === "exact" ? (
-                <div className="grid grid-cols-2 gap-1" role="group" aria-label="Exact boundary shape">
+                <div className="grid grid-cols-2 gap-1" role="group" aria-label={text.shapeGroup}>
                   {SHAPES.map((x) => (
                     <button
                       key={x.id}
@@ -607,23 +641,23 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                       )}
                     >
                       <Icon name={x.id} size={18} />
-                      {x.label}
+                      {x.id === "box" ? text.boxLabel : text.outlineLabel}
                     </button>
                   ))}
                 </div>
               ) : null}
               <p role="status" className="text-body text-ink">
-                {method === "approx" ? APPROX_HINT : shapeHint}
+                {method === "approx" ? text.spotHint : shapeHint}
               </p>
-              {method === "approx" ? <p className="text-body-sm text-ink-muted">{APPROX_LIMITS}</p> : null}
+              {method === "approx" ? <p className="text-body-sm text-ink-muted">{text.spotLimits}</p> : null}
               <div className="flex flex-wrap items-center gap-2 [&>button]:flex-1 sm:[&>button]:flex-initial">
                 {method === "exact" && shape === "outline" ? (
                   <Button type="button" variant="secondary" icon="undo" onClick={() => send("undo-corner")} disabled={!canUndoCorner}>
-                    Undo last corner
+                    {text.undoCorner}
                   </Button>
                 ) : null}
                 <Button type="button" variant="quiet" onClick={cancelDrawing}>
-                  {geometry ? "Keep current shape" : "Back"}
+                  {geometry ? text.keepShape : text.back}
                 </Button>
               </div>
             </>
@@ -640,15 +674,15 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                     <p className="tabular font-mono text-data text-ink">
                       {geometry.coordinates[1].toFixed(4)}, {geometry.coordinates[0].toFixed(4)}
                     </p>
-                    <p className="text-body-sm text-ink-muted">{APPROX_LIMITS}</p>
+                    <p className="text-body-sm text-ink-muted">{text.spotLimits}</p>
                   </>
                 ) : (
                   <>
                     <p className="tabular font-mono text-data text-ink">
-                      {ha === null ? "Area not available" : `${fmtHa(ha)} ha · ${fmtHa(acresFromHa(ha))} acres`}
+                      {ha === null ? text.areaUnavailable : areaText(ha)}
                     </p>
                     <p className="text-body-sm text-ink-muted">
-                      {corners} corners. Results will use this shape. Drag a corner or the whole shape to adjust it.
+                      {text.corners(corners)}
                     </p>
                   </>
                 )}
@@ -663,20 +697,19 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
 
               {isApprox ? (
                 <Button type="button" variant="secondary" icon="outline" onClick={() => chooseMethod("exact")}>
-                  Draw the exact boundary instead
+                  {text.tapCornersInstead}
                 </Button>
               ) : null}
 
-              <div className="grid grid-cols-5 gap-1 border-y border-line py-1" role="group" aria-label="Correct your selection">
-                <ToolButton icon="undo" label="Undo" onClick={undo} disabled={!past.length} />
-                <ToolButton icon="redo" label="Redo" onClick={redo} disabled={!future.length} />
-                <ToolButton icon="edit" label="Edit" onClick={editShape} />
-                <ToolButton icon="reset" label="Redraw" onClick={redraw} />
-                <ToolButton icon="remove" label="Clear" onClick={clearShape} />
+              <div className="grid grid-cols-4 gap-1 border-y border-line py-1" role="group" aria-label={text.correctGroup}>
+                <ToolButton icon="undo" label={text.undo} onClick={undo} disabled={!past.length} />
+                <ToolButton icon="redo" label={text.redo} onClick={redo} disabled={!future.length} />
+                <ToolButton icon="edit" label={text.edit} onClick={editShape} />
+                <ToolButton icon="reset" label={text.redraw} onClick={redraw} />
               </div>
 
               <Button type="button" variant="primary" size="lg" iconEnd="next" disabled={!canContinue} onClick={() => setSheetOpen(true)} block>
-                {isApprox ? "Use this approximate location" : "Confirm boundary"}
+                {isApprox ? text.useThisSpot : text.confirmBoundary}
               </Button>
             </>
           ) : (
@@ -684,18 +717,18 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
             <>
               {hasMap ? (
                 <>
-                  <h2 className="text-headline text-ink">How do you want to mark your field?</h2>
+                  <h2 className="text-headline text-ink">{text.methodTitle}</h2>
                   <div className="flex flex-col gap-2">
                     <MethodCard
                       icon="pin"
-                      title="Select approximate location"
-                      body="Tap one spot on or near your field. Quick, but results are regional."
+                      title={text.spotTitle}
+                      body={text.spotBody}
                       onClick={() => chooseMethod("approx")}
                     />
                     <MethodCard
                       icon="outline"
-                      title="Draw exact boundary"
-                      body="Mark the field's corners. We measure the area and use your field's own shape."
+                      title={text.edgesTitle}
+                      body={text.edgesBody}
                       onClick={() => chooseMethod("exact")}
                     />
                   </div>
@@ -703,18 +736,18 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
               ) : null}
               {hasMap ? (
                 <Button type="button" variant="quiet" icon="coordinates" aria-expanded={coordsOpen} onClick={() => setCoordsOpen((v) => !v)}>
-                  Enter corner coordinates instead
+                  {text.advanced}
                 </Button>
               ) : null}
               {coordsOpen || !hasMap ? (
                 <div className="flex flex-col gap-2">
-                  <p className="m-0 text-body-sm text-ink-muted">Enter the south-west and north-east corners of the field. This draws an exact box.</p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <p className="m-0 text-body-sm text-ink-muted">{text.coordsIntro}</p>
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
                     {[
-                      ["South latitude", south, setSouth, "south"],
-                      ["West longitude", west, setWest, "west"],
-                      ["North latitude", north, setNorth, "north"],
-                      ["East longitude", east, setEast, "east"],
+                      [text.south, south, setSouth, "south"],
+                      [text.west, west, setWest, "west"],
+                      [text.north, north, setNorth, "north"],
+                      [text.east, east, setEast, "east"],
                     ].map(([label, value, set, key]) => (
                       <input
                         key={key as string}
@@ -735,7 +768,7 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
                     </p>
                   ) : null}
                   <Button type="button" icon="box" onClick={placeFromCoordinates}>
-                    Draw box from coordinates
+                    {text.drawFromCoords}
                   </Button>
                 </div>
               ) : null}

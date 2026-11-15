@@ -54,6 +54,7 @@ export function Provenance({ indicator, className }: { indicator: DerivedIndicat
   const missing = i.value === null;
   return (
     <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <span className="inline-flex w-fit items-center rounded-pill border border-line bg-surface-sunken px-2 text-source font-medium text-ink-muted">{copy.provenance.kind[i.kind]}</span>
       <SourceLine dataset={i.product} resolution={i.sourceResolution || undefined} dates={i.periodStart && i.periodEnd ? `${i.periodStart} to ${i.periodEnd}` : undefined} />
       {missing ? <p className="m-0 text-body-sm text-drought">{copy.provenance.unknown}: {missingText(i.missingReason)}</p> : null}
       <details className="group text-body-sm">

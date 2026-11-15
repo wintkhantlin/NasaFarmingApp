@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import { Button } from "@/components/ui/button";
+import { planContextNote } from "@/lib/plan/handoff-note";
 import { adaptPlanToFieldSlot } from "@/lib/plan/refinement-adapter";
 import type { PlanDraft } from "@/lib/store/plan-draft";
 import { useFieldsStore } from "@/lib/store/fields-store";
@@ -37,7 +38,7 @@ export function PlanHandoff({ draft }: { draft: PlanDraft }) {
         irrigation: water === "rain-only" ? "none" : water === "occasional" ? "supplemental" : "full",
         constraints: { ...field.constraints, irrigation: { ...field.constraints?.irrigation, access: water === "rain-only" ? "none" : water === "occasional" ? "supplemental" : "full" } },
         ...(goal !== "unknown" && goal !== "risk" ? { priorities: { order: [goal], weights: { [goal]: 1 } } } : {}),
-        localNotes: `${field.localNotes ?? ""}\n[Plan context]: revision ${draft.revision}; area ${draft.place?.name}; water ${water}; goal ${goal}; residue ${draft.refinements.residue.value}. Local feasibility: ${Object.entries(draft.refinements.feasibility.values).map(([key, value]) => `${key} ${value}`).join(", ")}. Full observations and timing remain in the backed-up Plan draft.`,
+        localNotes: `${field.localNotes ?? ""}\n${planContextNote({ place: draft.place?.name, water, goal, residue: draft.refinements.residue.value, feasibility: draft.refinements.feasibility.values })}`,
       });
       await store.saveRotation({ id: `plan-${fieldId}`, fieldId, label: "Current sequence from Plan", source: "farmer", cycleYears: Math.max(1, cycleYears) as 1 | 2 | 3 | 4,
         slots: [{ ...adapted.slot, id: "plan-main", kind: "crop", irrigated: water !== "rain-only" }] });

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
+import { AnalysisLoading } from "@/components/field/analysis-loading";
+import { NextSteps } from "@/components/field/next-steps";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActionBar } from "@/components/ui/action-bar";
@@ -14,6 +16,7 @@ import { compareRotations, type EvaluatedOption } from "@/lib/engine/compare";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { regionName } from "@/lib/data/regions";
 import { missingText, provenanceLine } from "@/lib/evidence/indicator";
+import { prettifyNoteLine } from "@/lib/plan/handoff-note";
 import { formatPoint } from "@/lib/geo/format";
 import { sequenceText, shortSlotName } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
@@ -40,6 +43,12 @@ function adviserQuestions(options: EvaluatedOption[]): string[] {
   return [...new Set(questions)].slice(0, 8);
 }
 
+/** Decimal coordinate pairs typed into free text ("21.9162, 95.9560" or "21.916° N, 95.956° E") become a neutral phrase. */
+const COORD_PAIR = /-?\d{1,3}\.\d{2,}(?:\s*°)?(?:\s*[NS])?\s*[,;/]\s*-?\d{1,3}\.\d{2,}(?:\s*°)?(?:\s*[EW])?\b/gi;
+export function redactCoordinates(text: string): string {
+  return text.replace(COORD_PAIR, "[location hidden]");
+}
+
 export function ReportView({ fieldId }: { fieldId: string }) {
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
@@ -63,6 +72,9 @@ export function ReportView({ fieldId }: { fieldId: string }) {
   const analysis = useFieldAnalysis(field);
   const { engineData } = analysis;
   const areaUnit = useLocaleStore((s) => s.areaUnit);
+  // Kept in component state: the choice lasts while this report is open and is off by default.
+  const [hideLocation, setHideLocation] = useState(false);
+  const scrub = (text: string) => (hideLocation ? redactCoordinates(text) : text);
 
   const localNotesList = useMemo(() => {
     if (!field?.localNotes) return [];
@@ -70,26 +82,33 @@ export function ReportView({ fieldId }: { fieldId: string }) {
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean)
-      .map((line) => {
-        const match = line.match(/^\[(.*?)\]:\s*(.*)$/);
-        if (match) {
-          return { topic: match[1], text: match[2] };
-        }
-        return { topic: "Field note", text: line };
-      });
-  }, [field]);
+      .map(prettifyNoteLine)
+      .map((n) => (hideLocation ? { ...n, topic: redactCoordinates(n.topic), text: redactCoordinates(n.text) } : n));
+  }, [field, hideLocation]);
 
   const comparison = useMemo(
     () => (engineData && rotations[0] && rotations[0].slots.length > 0 ? compareRotations(engineData, rotations[0]) : null),
     [engineData, rotations],
   );
 
-  if (status === "idle" || status === "loading" || (field && analysis.phase === "loading" && !analysis.conditions)) {
+  if (status === "idle" || status === "loading") {
     return (
       <div role="status" aria-label={copy.home.loading} className="flex flex-col gap-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-40" />
       </div>
+    );
+  }
+  if (field && analysis.phase === "loading" && !analysis.conditions) {
+    return (
+      <>
+        <FieldPageHeader title={copy.report.title} summary={copy.report.subtitle} />
+        <AnalysisLoading
+          title="Getting your summary ready"
+          slow={analysis.slow}
+          crops={(rotations[0]?.slots ?? []).filter((sl) => sl.kind !== "fallow").map((sl) => shortSlotName(sl))}
+        />
+      </>
     );
   }
 
@@ -106,7 +125,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
   if (analysis.phase === "failed") {
     return (
       <EmptyState title="Report data is unavailable" body="Your saved field and rotation remain on this device. Check your connection, then retry; no crop choice has been changed.">
-        <Button variant="primary" onClick={analysis.retry}>Retry data check</Button>
+        <Button variant="primary" onClick={analysis.retry}>Retry data check (uses a little data)</Button>
         <Link href={`/fields/${fieldId}`} className={buttonClass("secondary")}>Back to field</Link>
       </EmptyState>
     );
@@ -136,7 +155,12 @@ export function ReportView({ fieldId }: { fieldId: string }) {
 
   const soil = engineData?.soil;
   const specs: Array<[string, string]> = [
-    ["Location", `${formatPoint(field.centroid)}${field.locationConfirmed ? ", confirmed by you" : ", not confirmed"}`],
+    [
+      "Location",
+      hideLocation
+        ? `${copy.report.locationHidden}`
+        : `${formatPoint(field.centroid)}${field.locationConfirmed ? ", confirmed by you" : ", not confirmed"}`,
+    ],
     ["Region", regionName(field.region)],
     ["Area", field.areaHa === null ? copy.home.pinOnly : formatArea(field.areaHa, areaUnit)],
     ["Water", copy.irrigation[field.irrigation]],
@@ -152,19 +176,36 @@ export function ReportView({ fieldId }: { fieldId: string }) {
         <FieldPageHeader
           title={copy.report.title}
           summary={copy.report.subtitle}
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/fields/${fieldId}/compare`} className={buttonClass("secondary")}>{copy.report.backToCompare}</Link>
+            </div>
+          }
         />
+        <label className="mt-3 flex min-h-tap w-fit cursor-pointer items-start gap-3 text-body-sm text-ink">
+          <input
+            type="checkbox"
+            checked={hideLocation}
+            onChange={(e) => setHideLocation(e.target.checked)}
+            className="mt-0.5 size-5 shrink-0 accent-[var(--color-field)]"
+          />
+          <span className="flex flex-col">
+            <span className="font-medium">{copy.report.hideLocation}</span>
+            <span className="text-ink-muted">{copy.report.hideLocationHelp}</span>
+          </span>
+        </label>
       </div>
 
       <article
-        aria-label={`${copy.report.title}: ${field.name}`}
+        aria-label={`${copy.report.title}: ${scrub(field.name)}`}
         className="flex flex-col gap-7 rounded-lg border border-line bg-surface-raised p-5 sm:p-8 print:gap-5 print:rounded-none print:border-0 print:bg-transparent print:p-0"
       >
         <header className="flex flex-col gap-2 border-b border-line pb-5">
           <p className="m-0 flex flex-wrap items-baseline justify-between gap-x-4 text-body-sm text-ink-muted">
             <span>{copy.app.name}</span>
-            <time className="tabular font-mono text-source">{reportDate}</time>
+            <time className="tabular text-source">{reportDate}</time>
           </p>
-          <h2 className="text-balance text-display text-ink">{field.name}</h2>
+          <h2 className="text-balance text-display text-ink">{scrub(field.name)}</h2>
           <p className="m-0 max-w-measure text-body-sm text-ink-muted">
             Field-informed adviser summary combining the details you confirmed with regional models and historical evidence for a local discussion.
           </p>
@@ -201,7 +242,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
           <h3 id="r-options" className="text-headline text-ink">
             {copy.report.rotationComparison}
           </h3>
-          <ol className="m-0 flex list-none flex-col gap-3 p-0">
+          <ol className="m-0 flex list-none flex-col gap-3 p-0 print:hidden">
             {options.map((opt, i) => (
               <li key={opt.id} className="flex break-inside-avoid flex-col gap-2 rounded-md border border-line bg-surface p-4 print:bg-transparent">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -221,25 +262,52 @@ export function ReportView({ fieldId }: { fieldId: string }) {
                   <dt className="text-ink-muted">Crops in order</dt>
                   <dd className="m-0 text-ink">{sequenceText(opt.rotation, " → ")}</dd>
                   <dt className="text-ink-muted">A crop in the field</dt>
-                  <dd className="tabular m-0 font-mono text-ink">{pct(opt.structure.coveredShare)} of the cycle</dd>
+                  <dd className="tabular m-0 text-ink">{pct(opt.structure.coveredShare)} of the cycle</dd>
                   <dt className="text-ink-muted">Legumes</dt>
-                  <dd className="tabular m-0 font-mono text-ink">{opt.structure.legumeShare === null ? "Unknown" : pct(opt.structure.legumeShare)} of crops</dd>
+                  <dd className="tabular m-0 text-ink">{opt.structure.legumeShare === null ? "Unknown" : pct(opt.structure.legumeShare)} of crops</dd>
                   <dt className="text-ink-muted">Median rain shortfall</dt>
-                  <dd className="tabular m-0 font-mono text-ink">{opt.metrics["water-shortfall"] == null ? "Unknown" : `${Math.round(opt.metrics["water-shortfall"])} mm per crop`}</dd>
+                  <dd className="tabular m-0 text-ink">{opt.metrics["water-shortfall"] == null ? "Unknown" : `${Math.round(opt.metrics["water-shortfall"])} mm per crop`}</dd>
                   <dt className="text-ink-muted">Dry seasons every crop got through</dt>
-                  <dd className="tabular m-0 font-mono text-ink">{opt.dryYear.evaluated === 0 ? "Unknown" : `${opt.dryYear.passes} of ${opt.dryYear.evaluated}`}</dd>
+                  <dd className="tabular m-0 text-ink">{opt.dryYear.evaluated === 0 ? "Unknown" : `${opt.dryYear.passes} of ${opt.dryYear.evaluated}`}</dd>
                   <dt className="text-ink-muted">Erosion exposure</dt>
                   <dd className="m-0 text-ink">{opt.erosion.exposure === "needs-slope-data" ? "Needs slope data" : opt.erosion.exposure.replace("-", " ")}</dd>
                 </dl>
               </li>
             ))}
           </ol>
+          <table className="hidden w-full border-collapse text-left text-source print:table">
+            <caption className="sr-only">{copy.report.rotationComparison}</caption>
+            <thead>
+              <tr className="text-ink-muted">
+                <th scope="col" className="py-1 pr-2 font-normal">Option</th>
+                <th scope="col" className="py-1 pr-2 font-normal">Crops in order</th>
+                <th scope="col" className="py-1 pr-2 font-normal">Crop in field</th>
+                <th scope="col" className="py-1 pr-2 font-normal">Legumes</th>
+                <th scope="col" className="py-1 pr-2 font-normal">Rain shortfall</th>
+                <th scope="col" className="py-1 pr-2 font-normal">Dry seasons passed</th>
+                <th scope="col" className="py-1 font-normal">Erosion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {options.map((opt, i) => (
+                <tr key={opt.id} className="break-inside-avoid border-t border-line align-top">
+                  <th scope="row" className="py-1 pr-2 text-left font-semibold">{i + 1}. {i === 0 ? copy.compare.yourRotationTab : opt.label}<span className="block font-normal text-ink-muted">{copy.compare.fitLabel[opt.fit]}</span></th>
+                  <td className="py-1 pr-2">{sequenceText(opt.rotation, " → ")}</td>
+                  <td className="tabular py-1 pr-2">{pct(opt.structure.coveredShare)}</td>
+                  <td className="tabular py-1 pr-2">{opt.structure.legumeShare === null ? "Unknown" : pct(opt.structure.legumeShare)}</td>
+                  <td className="tabular py-1 pr-2">{opt.metrics["water-shortfall"] == null ? "Unknown" : `${Math.round(opt.metrics["water-shortfall"])} mm`}</td>
+                  <td className="tabular py-1 pr-2">{opt.dryYear.evaluated === 0 ? "Unknown" : `${opt.dryYear.passes} of ${opt.dryYear.evaluated}`}</td>
+                  <td className="py-1">{opt.erosion.exposure === "needs-slope-data" ? "Needs slope data" : opt.erosion.exposure.replace("-", " ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
 
         {analysis.retrieving || analysis.showingCache ? (
           <section role="status" aria-live="polite" className="flex break-inside-avoid flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-sunken p-3 text-body-sm text-ink-muted">
-            <span>{analysis.showingCache ? "Showing saved data while a refresh could not finish." : "Checking optional satellite sources in the background. The summary remains usable."}</span>
-            <Button variant="secondary" onClick={analysis.retry}>Retry check</Button>
+            <span>{analysis.showingCache ? "Showing saved data while a refresh could not finish." : "Checking satellite photos in the background (can use data). The summary remains usable."}</span>
+            <Button variant="secondary" onClick={analysis.retry}>Retry check (uses a little data)</Button>
           </section>
         ) : null}
 
@@ -331,7 +399,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
                 {field.soilObservations?.map((obs) => (
                   <li key={obs.id}>
                     <span className="font-medium text-ink">Soil test ({obs.property}): </span>
-                    <span className="text-ink-muted">{obs.value} {obs.units} (depth {obs.depthCm[0]}&ndash;{obs.depthCm[1]} cm, {obs.method}, from {obs.source})</span>
+                    <span className="text-ink-muted">{obs.value} {obs.units} (depth {obs.depthCm[0]}&ndash;{obs.depthCm[1]} cm, {scrub(obs.method)}, from {scrub(obs.source)})</span>
                   </li>
                 ))}
               </ul>
@@ -459,6 +527,8 @@ export function ReportView({ fieldId }: { fieldId: string }) {
           Print or save as PDF
         </Button>
       </ActionBar>
+
+      <NextSteps fieldId={field.id} current="report" />
     </>
   );
 }

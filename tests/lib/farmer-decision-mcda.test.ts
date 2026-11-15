@@ -280,4 +280,8 @@ describe("PROMPT 6: Farmer Constraints, Safe MCDA & Decision Sensitivity (D-01, 
       expect(comp.explanation).toContain("differed by -53.3%");
     });
   });
+
+  it("preserves an unanswered priority list instead of inventing a default", () => {
+    expect(mapFarmerPrioritiesToMcda([])).toEqual({ order: [], weights: {} });
+  });
 });

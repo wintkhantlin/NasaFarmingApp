@@ -238,7 +238,7 @@ export default function RotationExplorer() {
         <p className="max-w-measure text-body text-ink-muted">
           Start with an approximate area and one crop. No account, GPS, field boundary or planting date is needed.
         </p>
-        <p className="m-0 text-body-sm text-ink-muted">For a detailed five-crop environmental screen, <Link href="/plan/crop-screen" className="text-field underline underline-offset-4">compare next crops with field conditions</Link>.</p>
+        <p className="m-0 text-body-sm text-ink-muted"><Link href="/plan/crop-screen" className="text-field underline underline-offset-4">Check next crops against this field&apos;s weather and soil</Link>.</p>
         <ol aria-label="Plan progress" className="m-0 grid list-none grid-cols-3 gap-2 p-0 text-source text-ink-muted">
           {(["area", "crop", "preview"] as const).map((item, index) => (
             <li key={item} className={cn("border-t-2 pt-2", step === item ? "border-field font-semibold text-field" : "border-line-strong")}>

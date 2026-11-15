@@ -54,7 +54,7 @@ describe("saved field to rotation engine", () => {
   });
 
   test("unsupported previous crops are rejected rather than silently remapped", () => {
-    expect(() => buildFieldRequest(field(), rotation("f1", [slot("x", "groundnut", "2026-01-01", "2026-04-01")]), null, planning)).toThrow(/five-crop/);
+    expect(() => buildFieldRequest(field(), rotation("f1", [slot("x", "groundnut", "2026-01-01", "2026-04-01")]), null, planning)).toThrow(/crops this check covers/);
   });
 
   test("an unsupported priority does not become a balanced ranking", () => {

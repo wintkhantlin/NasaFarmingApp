@@ -36,7 +36,7 @@ export interface SoilOverride {
   testedOn?: string;
 }
 
-export type RegionId = "ayeyarwady" | "magway" | "shan" | "myanmar";
+export type RegionId = "ayeyarwady" | "magway" | "shan" | "yangon" | "myanmar";
 export type PriorityId = "water" | "soil" | "income" | "forage" | "lower-inputs";
 
 export type SoilProperty =

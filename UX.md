@@ -13,6 +13,26 @@ description: User research, interaction patterns and screen structure for a farm
 
 NASA publishes free, global data on soil moisture, rainfall, crop vigour and land temperature, but it arrives as gridded rasters with names like `SMAP L3` and `GPM IMERG`. The gap is translation, not access. Every screen should answer "what should I do on my land, and when?" before it shows the evidence.
 
+## Screen hierarchy contract
+
+Farmers should not have to assemble the answer from a dashboard. Every screen follows **decision → action → reason → evidence → method**.
+
+- **Decision first:** the first meaningful heading states the answer, warning or next task in words a farmer could repeat.
+- **One way forward:** show one primary action for the current decision. Secondary actions must not compete through equal size, colour or placement.
+- **Flat by default:** use a card only for a selectable, actionable or stateful unit. Use whitespace and separators for ordinary sections; never place a card inside another card.
+- **Short before complete:** the initial view contains the consequence and what to do, not paragraphs of explanation.
+- **Science on demand:** keep a compact source, date and scale summary visible. Put formulas, dataset codes, methods, assumptions and full limitations in named expandable sections. Never collapse a warning, decision-changing unknown or required safety information.
+- **Purposeful symbols:** icons identify actions, objects or status. They do not decorate headings or replace words.
+
+### Navigation contract
+
+- The persistent app navigation has two destinations: **My fields** and **Data guide**. The Data guide contains the learning content. This is the only app-level navigation.
+- A field uses one peer-level tab row: **Overview, Farm, Crops, Conditions, Compare**. Do not repeat these destinations as overview cards, progress cards, footer links or another tab set.
+- A detail page reached from a field replaces the tab row with one explicit back destination when keeping the tabs would compete with the task.
+- A segmented control changes the presentation of content on the same page; it does not navigate to another page.
+- **Continue** or **Next** appears only inside a genuinely linear setup flow. It is an action, not an additional navigation system.
+- A screen never combines persistent navigation, a stepper and a row of peer links unless the stepper is inside an active setup task and the other systems are visually subordinate.
+
 ## Who It Is For
 
 These are working assumptions from the brief, not research findings. Validate them with five to eight interviews before committing to the information architecture.
@@ -102,7 +122,7 @@ Home (your fields)
 About the data                   datasets, resolution, methods, limits
 ```
 
-A stepper shows steps 1 to 4 with their state (done, needs input, data loading). People can jump between steps; results recompute and keep earlier inputs.
+During first-time setup only, a stepper may show the four setup states (done, needs input, data loading). Outside that linear task, the field tab row is the sole field-level navigation; do not repeat the steps as cards or links. Results recompute and keep earlier inputs.
 
 ### How each finding is used
 

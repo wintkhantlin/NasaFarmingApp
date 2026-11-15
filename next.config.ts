@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   outputFileTracingRoot: process.cwd(),
+  devIndicators: false,
   turbopack: {
     root: process.cwd(),
     rules: {

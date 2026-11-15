@@ -39,14 +39,20 @@ export function ScreenLead({
   );
 }
 
-/** Marks a typical value the farmer has not confirmed. Links to Farm to change it. */
+/**
+ * Marks a typical value the farmer has not confirmed: a quiet "Assumed" tag, then a plain
+ * "Change" link to Farm. Two small words beside the value, not a second button-sized object.
+ */
 export function AssumedChip({ href, children }: { href: string; children?: ReactNode }) {
   return (
-    <Link
-      href={href}
-      className="inline-flex min-h-tap items-center rounded-pill border border-dashed border-unknown-border bg-unknown-bg px-2.5 text-source font-medium text-unknown-text no-underline hover:underline"
-    >
-      {children ?? copy.path.assumedChange}
-    </Link>
+    <span className="inline-flex items-center gap-1.5 text-source">
+      <span className="rounded-xs bg-unknown-bg px-1.5 py-0.5 font-medium text-unknown-text">{copy.path.assumed}</span>
+      <Link
+        href={href}
+        className="-my-2 inline-flex min-h-tap items-center px-1 font-medium text-field underline underline-offset-4 hover:text-ink"
+      >
+        {children ?? "Change"}
+      </Link>
+    </span>
   );
 }

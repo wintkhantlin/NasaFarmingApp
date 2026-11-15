@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/shell/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/panel";
-import { useAppCopy, useLocaleStore, type Locale } from "@/lib/store/locale-store";
+import { getAppCopy, useAppCopy, useLocaleStore, type Locale } from "@/lib/store/locale-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
 
 const LANGS: Array<{ value: Locale; label: string }> = [
-  { value: "my", label: "မြန်မာ (Myanmar)" },
+  { value: "my", label: "မြန်မာ" },
   { value: "en", label: "English" },
 ];
 
@@ -23,6 +23,8 @@ export function Welcome() {
   const setLocale = useLocaleStore((s) => s.setLocale);
   const accept = useSettingsStore((s) => s.acceptDataNotice);
   const [offline, setOffline] = useState(false);
+  const zawgyiMy = getAppCopy("my").welcome.zawgyi;
+  const zawgyiEn = getAppCopy("en").welcome.zawgyi;
   useEffect(() => hydrateLocale(), [hydrateLocale]);
   useEffect(() => {
     const sync = () => setOffline(!navigator.onLine);
@@ -56,7 +58,7 @@ export function Welcome() {
       </fieldset>
 
       <section aria-labelledby="notice" className="flex flex-col gap-3">
-        <h2 id="notice" className="sr-only">Your data</h2>
+        <h2 id="notice" className="sr-only">{text.welcome.yourData}</h2>
         <div>
           <h3 className="m-0 text-headline text-ink">{text.welcome.staysTitle}</h3>
           <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
@@ -66,16 +68,21 @@ export function Welcome() {
         </div>
         <div>
           <h3 className="m-0 text-headline text-ink">{text.welcome.leavesTitle}</h3>
-          <ul className="m-0 mt-1 list-disc pl-5 text-body text-ink-muted">
-            <li>{text.welcome.leavesLocation}</li>
-          </ul>
+          <p className="m-0 mt-1 text-body text-ink-muted">{text.welcome.consentLine}</p>
+          <details className="mt-1">
+            <summary className="flex min-h-tap cursor-pointer items-center text-label text-field">{text.welcome.more}</summary>
+            <ul className="m-0 list-disc pl-5 text-body-sm text-ink-muted">
+              <li>{text.welcome.leavesLocation}</li>
+              <li>{text.welcome.leavesMap}</li>
+            </ul>
+          </details>
         </div>
         {offline ? <p className="m-0 text-body-sm text-ink-muted">{text.welcome.offline}</p> : null}
-        {locale === "my" ? (
-          <p className="m-0 rounded-md bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
-            {text.welcome.zawgyi}
-          </p>
-        ) : null}
+        {/* Shown in both languages whichever is active: garbled Burmese cannot explain its own fix. */}
+        <div className="flex flex-col gap-1 rounded-md bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
+          <p lang="my" className="m-0">{zawgyiMy}</p>
+          <p lang="en" className="m-0">{zawgyiEn}</p>
+        </div>
         <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">{text.welcome.learnData}</Link>
       </section>
 

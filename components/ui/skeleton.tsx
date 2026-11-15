@@ -7,7 +7,7 @@ export function SkeletonLoader({ className }: { className?: string }) {
       variant="rounded"
       className={cn("bg-surface-sunken", className)}
       sx={{
-        backgroundColor: "var(--color-surface-sunken, #e9e6da)",
+        backgroundColor: "var(--color-surface-sunken)",
         transform: "none",
       }}
     />

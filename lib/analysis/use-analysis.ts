@@ -25,10 +25,15 @@ export interface FieldAnalysis {
   showingCache: boolean;
   /** IMERG or AppEEARS are still being retrieved. */
   retrieving: boolean;
+  /** The first check has been running for more than SLOW_AFTER_MS, so screens can say it is normal to wait. */
+  slow: boolean;
   retry: () => void;
 }
 
 const MAX_POLLS = 100;
+
+/** After this long in the loading phase, screens say the first check is slow. */
+export const SLOW_AFTER_MS = 8_000;
 
 /**
  * Adaptive polling delay: starts snappy at 3s, backoffs to 5s, 8s, 12s, capped at 15s.
@@ -52,6 +57,15 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
   const [phase, setPhase] = useState<AnalysisPhase>("loading");
   const [showingCache, setShowingCache] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [slowAttempt, setSlowAttempt] = useState<number | null>(null);
+
+  // Flag a slow first check so the screen can explain the wait. It ends with the loading phase or a retry.
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const t = setTimeout(() => setSlowAttempt(attempt), SLOW_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [phase, attempt]);
+  const slow = phase === "loading" && slowAttempt === attempt;
 
   const conditionsRef = useRef<ConditionsData | null>(null);
   useEffect(() => {
@@ -229,6 +243,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
     engineData,
     showingCache,
     retrieving,
+    slow,
     retry: () => {
       setPhase("loading");
       setAttempt((a) => a + 1);

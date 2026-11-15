@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
-import { PriorityOrder, orderSummary } from "@/components/field/priority-order";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { topicsForIndicator } from "@/lib/learn/topics";
-import { useFieldsStore } from "@/lib/store/fields-store";
-import { prioritiesSchema } from "@/lib/schemas/field";
 import { SeasonStrip } from "@/components/field/season-strip";
+import { VerdictCard } from "@/components/field/results/verdict-card";
 import { Disclosure } from "@/components/ui/disclosure";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Message } from "@/components/ui/message";
@@ -30,16 +27,6 @@ const mmk = (n: number) => Math.round(n).toLocaleString();
 const span = (r: [number, number] | null, unit: string) => (r ? `${mmk(r[0])} to ${mmk(r[1])} ${unit}` : null);
 const sp = (s: Spread, unit = "mm") => (s.p50 === null ? "not known" : `${Math.round(s.p50)} ${unit} (usually ${Math.round(s.p10 ?? s.p50)} to ${Math.round(s.p90 ?? s.p50)})`);
 
-const SECTIONS = [
-  { id: "overview", label: "Overview" },
-  { id: "compare", label: "Compare" },
-  { id: "water-climate", label: "Water & climate" },
-  { id: "soil", label: "Soil" },
-  { id: "money", label: "Money" },
-  { id: "why", label: "Why" },
-  { id: "unknowns", label: "Unknowns" },
-] as const;
-
 const MISSING_ICON: Record<MissingKind, IconName> = { unknown: "help", "not-measured": "help", "not-available": "info", "not-applicable": "info" };
 
 function MissingTag({ kind }: { kind: MissingKind }) {
@@ -55,53 +42,15 @@ function CellView({ cell }: { cell: Cell }) {
   return (
     <span className="flex min-w-0 flex-col items-start gap-1">
       {cell.missing ? <MissingTag kind={cell.missing} /> : null}
+      {cell.tone === "deficit" ? (
+        <span className="inline-flex min-h-6 items-center gap-1 rounded-pill border border-drought/25 bg-drought-soft px-2 text-source font-medium text-drought">
+          <Icon name="alert" size={14} aria-hidden />
+          Deficit
+        </span>
+      ) : null}
       <span className={cn("text-body-sm", cell.missing ? "text-ink-muted" : "text-ink")}>{cell.text}</span>
       {cell.basis ? <span className="text-source text-ink-muted">{BASIS_WORDS[cell.basis]}</span> : null}
     </span>
-  );
-}
-
-/** Change the priority order after seeing the comparison. Saving rewrites only the order; finer soil and income choices are kept while their priority stays chosen. */
-function PriorityEditor({ field }: { field: Field }) {
-  const update = useFieldsStore((s) => s.update);
-  const saved = field.priorities?.order ?? [];
-  const [open, setOpen] = useState(false);
-  const [order, setOrder] = useState<PriorityId[]>(saved);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const changed = order.join() !== saved.join();
-  const save = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const prev = field.priorities;
-      const priorities = order.length
-        ? prioritiesSchema.parse({ order, weights: {}, soil: order.includes("soil") && prev?.soil?.length ? prev.soil : undefined, income: order.includes("income") && prev?.income?.length ? prev.income : undefined })
-        : undefined;
-      await update(field.id, { priorities });
-      setOpen(false);
-    } catch {
-      setError("Your order could not be saved. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  if (!open) {
-    return (
-      <button type="button" onClick={() => { setOrder(saved); setOpen(true); }} className="inline-flex min-h-tap items-center self-start text-label text-field underline">
-        Change my order
-      </button>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-3 border-t border-line pt-3">
-      <PriorityOrder value={order} onChange={setOrder} />
-      {error ? <p role="alert" className="m-0 text-body-sm text-ink">{error}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" disabled={!changed || busy} onClick={save}>Update comparison</Button>
-        <Button variant="quiet" onClick={() => setOpen(false)}>Cancel</Button>
-      </div>
-    </div>
   );
 }
 
@@ -175,58 +124,23 @@ function DimensionHelp({ d }: { d: Dimension }) {
   );
 }
 
-/* ---------------- A: overview ---------------- */
-
-function Overview({ field, model, focusId }: { field: Field; model: ResultsModel; focusId: string }) {
-  const tone = model.status === "complete" ? "success" : model.status === "partial" ? "needs" : "caution";
-  return (
-    <Section id="overview" title="Comparison overview">
-      <Message tone={tone} title={model.statusTitle} role="status">
-        {model.statusDetail}
-      </Message>
-      <div className="grid gap-3 md:grid-cols-2">
-        <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {model.options.map((o) => (
-            <li key={o.id} className={cn("flex flex-col gap-1.5 rounded-lg border bg-surface-raised p-3", o.id === focusId ? "border-field" : "border-line")}>
-              <span className="text-label font-semibold text-ink-muted">{o.name}</span>
-              <CropLine crops={o.crops} />
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4">
-          <div>
-            <h3 className="m-0 text-label text-ink">What matters to you</h3>
-            {model.priorities.length > 0 && !model.prioritiesAssumed ? (
-              <ol className="m-0 mt-1 flex list-decimal flex-col gap-0.5 pl-5 text-body-sm text-ink">
-                {model.priorities.map((p) => <li key={p.id}>{p.label}</li>)}
-              </ol>
-            ) : (
-              <p className="m-0 mt-1 text-body-sm text-ink-muted">No priority order set. Every priority was weighted equally.</p>
-            )}
-            <p className="m-0 mt-1 text-body-sm text-ink">{orderSummary(model.priorities.map((p) => p.id))}</p>
-            <p className="m-0 mt-1 text-source text-ink-muted">The order changes the comparison: your first priority counts most, each next one a little less. Priorities you did not choose are left out.</p>
-          </div>
-          <p className="m-0 text-body-sm text-ink-muted">{model.period}</p>
-          <PriorityEditor field={field} />
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/fields/${field.id}/profile`} className="inline-flex min-h-tap items-center text-label text-field underline">Edit my priorities</Link>
-            <Link href={`/fields/${field.id}/location`} className="inline-flex min-h-tap items-center text-label text-field underline">Edit field location</Link>
-            <Link href={`/fields/${field.id}/rotation`} className="inline-flex min-h-tap items-center text-label text-field underline">Edit my crops</Link>
-          </div>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
 /* ---------------- B: comparison ---------------- */
+
+const KEY_DIMENSIONS = ["suitability", "water", "climate", "economics"];
 
 function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; focusId: string; setFocus: (id: string) => void }) {
   const yours = model.options[0];
   const focus = model.options.find((o) => o.id === focusId) ?? yours;
+  // The four measures that decide most choices. Every other measure is in "See why" and the adviser table.
+  // A measure that carries a warning (for example a nitrogen deficit) is never tucked away.
+  const keyDimensions = model.dimensions.filter(
+    (d) => KEY_DIMENSIONS.includes(d.id) || Object.values(d.cells).some((c) => c.tone === "deficit"),
+  );
   return (
     <Section id="compare" title="Rotation comparison" intro="Each line says what was found, which way is better, and whether it is an estimate or something you entered.">
-      <Switcher options={model.options} value={focus.id} onChange={setFocus} />
+      <div className="md:hidden">
+        <Switcher options={model.options} value={focus.id} onChange={setFocus} />
+      </div>
 
       {/* Desktop: all rotations side by side */}
       <div className="hidden overflow-x-auto rounded-lg border border-line md:block">
@@ -236,7 +150,7 @@ function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; foc
             <tr>
               <th scope="col" className="w-[22%] bg-surface-raised p-3"><span className="sr-only">Dimension</span></th>
               {model.options.map((o) => (
-                <th key={o.id} scope="col" className={cn("p-3 align-top", o.id === focus.id && "bg-field-soft/50")}>
+                <th key={o.id} scope="col" className="p-3 align-top">
                   <span className="block text-label text-ink">{o.name}</span>
                   <span className="mt-1 block font-normal"><CropLine crops={o.crops} /></span>
                 </th>
@@ -244,7 +158,7 @@ function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; foc
             </tr>
           </thead>
           <tbody>
-            {model.dimensions.map((d) => (
+            {keyDimensions.map((d) => (
               <tr key={d.id} className="border-t border-line align-top">
                 <th scope="row" className="bg-surface-raised p-3 text-left font-normal">
                   <span className="block text-label font-semibold text-ink">{d.label}</span>
@@ -255,7 +169,7 @@ function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; foc
                   </details>
                 </th>
                 {model.options.map((o) => (
-                  <td key={o.id} className={cn("p-3", o.id === focus.id && "bg-field-soft/50")}>
+                  <td key={o.id} className="p-3">
                     <CellView cell={d.cells[o.id]} />
                   </td>
                 ))}
@@ -266,10 +180,10 @@ function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; foc
       </div>
 
       {/* Mobile: one rotation card at a time, with yours underneath each line */}
-      <article aria-label={`${focus.name} compared`} className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4 md:hidden">
+      <article aria-label={`${focus.name} compared`} className="flex flex-col gap-3 md:hidden">
         <CropLine crops={focus.crops} />
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
-          {model.dimensions.map((d) => (
+          {keyDimensions.map((d) => (
             <li key={d.id} className="flex flex-col gap-1.5 border-t border-line pt-3 first:border-0 first:pt-0">
               <span className="text-label font-semibold text-ink">{d.label}</span>
               <CellView cell={d.cells[focus.id]} />
@@ -290,7 +204,7 @@ function CompareSection({ model, focusId, setFocus }: { model: ResultsModel; foc
 
 function WaterBlock({ opt, rows }: { opt: OptionRef; rows: WaterRow[] }) {
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4">
+    <article className="flex flex-col gap-3">
       <h3 className="m-0 text-label font-semibold text-ink">{opt.name}</h3>
       {rows.length === 0 ? (
         <p className="m-0 text-body-sm text-ink-muted"><MissingTag kind="not-available" /> Water results are not available for these crops.</p>
@@ -306,6 +220,11 @@ function WaterBlock({ opt, rows }: { opt: OptionRef; rows: WaterRow[] }) {
                   : `Crop water demand was higher than rainfall in ${r.shortSeasons} of ${r.eligible} past seasons.`}
               {r.irrigated ? " You recorded irrigation; the rain figures ignore it." : ""}
             </p>
+            {r.eligible > 0 && r.shortSeasons > 0 ? (
+              <Message tone="caution" compact title="If rain stops early">
+                In {r.shortSeasons} of the {r.eligible} past seasons checked, rain was below estimated crop demand. Check soil moisture in the field and confirm water access with a local adviser before changing the plan.
+              </Message>
+            ) : null}
             <Disclosure title="Measurements and method">
               <dl className="m-0 grid gap-2 text-body-sm sm:grid-cols-2">
                 <div><dt className="text-ink-muted">Crop water demand (ETc)</dt><dd className="tabular m-0 text-ink">{sp(r.demand)}</dd></div>
@@ -340,7 +259,7 @@ function WaterClimate({ field, model, focusId }: { field: Field; model: ResultsM
   const focus = model.options.find((o) => o.id === focusId) ?? yours;
   const shown = focus.id === yours.id ? [yours] : [yours, focus];
   return (
-    <Section id="water-climate" title="Water and climate" intro="How each rotation would have handled the past seasons in the weather record. This replays history. It is not a forecast of next season.">
+    <Section id="water-climate" title="Water and climate" intro="How each rotation handled past seasons in the weather record. This is not a forecast.">
       <div className="grid gap-4 md:grid-cols-2">
         {shown.map((o) => <WaterBlock key={o.id} opt={o} rows={model.water[o.id] ?? []} />)}
       </div>
@@ -362,9 +281,9 @@ function WaterClimate({ field, model, focusId }: { field: Field; model: ResultsM
 function SoilSection({ model }: { model: ResultsModel }) {
   return (
     <Section id="soil" title="Soil and environment" intro="These describe the plan you entered and crop-library rules. None is a measurement of your soil.">
-      <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-2">
+      <ul className="m-0 grid list-none gap-x-6 gap-y-5 p-0 md:grid-cols-2">
         {model.soil.map((d) => (
-          <li key={d.id} className="flex flex-col gap-2 rounded-lg border border-line bg-surface-raised p-4">
+          <li key={d.id} className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
             <h3 className="m-0 text-label font-semibold text-ink">{d.label}</h3>
             <p className="m-0 text-body-sm text-ink-muted">{d.measures}</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -385,11 +304,67 @@ function SoilSection({ model }: { model: ResultsModel }) {
 
 /* ---------------- E: money ---------------- */
 
-function EconomicsBlock({ opt, rows, total, basisText }: { opt: OptionRef; rows: EconomicsRow[]; total: Cell; basisText: string }) {
+function EconomicsBlock({
+  opt,
+  rows,
+  total,
+  basisText,
+  areaHa,
+  currentMargin,
+}: {
+  opt: OptionRef;
+  rows: EconomicsRow[];
+  total: Cell;
+  basisText: string;
+  areaHa: number | null;
+  currentMargin: [number, number] | null;
+}) {
+  const fieldMargin = opt.option.economics.cycleMarginMmk;
+  const fieldCosts =
+    areaHa !== null && rows.length > 0 && rows.every((row) => row.costMmkHa)
+      ? [
+          rows.reduce((sum, row) => sum + (row.costMmkHa?.[0] ?? 0), 0) * areaHa,
+          rows.reduce((sum, row) => sum + (row.costMmkHa?.[1] ?? 0), 0) * areaHa,
+        ] as [number, number]
+      : null;
+  const changeFromCurrent =
+    !opt.isYours && fieldMargin && currentMargin
+      ? [fieldMargin[0] - currentMargin[1], fieldMargin[1] - currentMargin[0]] as [number, number]
+      : null;
+  const areaText = areaHa !== null ? `${(areaHa * 2.47105).toFixed(1)} acres (${areaHa.toFixed(2)} ha)` : "area not measured";
+  const sources = [...new Set(rows.map((row) => row.basis))];
+  const sourceText =
+    sources.length === 1 && sources[0] === "farmer"
+      ? "Based on values you entered"
+      : sources.includes("farmer")
+        ? "Mix of your values and cited crop benchmarks"
+        : "Based on cited crop benchmarks";
+
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4">
+    <article className="flex flex-col gap-3">
       <h3 className="m-0 text-label font-semibold text-ink">{opt.name}</h3>
       <CellView cell={total} />
+      <dl className="m-0 flex flex-col gap-2 border-t border-line pt-3 text-body-sm">
+        <div>
+          <dt className="text-ink-muted">Field size</dt>
+          <dd className="m-0 text-ink">{areaText}</dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Estimated margin for this field, over the whole cycle</dt>
+          <dd className="tabular m-0 text-ink">{areaHa !== null ? span(fieldMargin, "MMK") ?? "Needs complete yield, price and cost ranges" : "Needs a measured field area"}</dd>
+        </div>
+        <div>
+          <dt className="text-ink-muted">Listed costs for all crops in this cycle</dt>
+          <dd className="tabular m-0 text-ink">{fieldCosts ? span(fieldCosts, "MMK") : "Needs cost ranges for every crop and a measured area"}</dd>
+        </div>
+        {changeFromCurrent ? (
+          <div>
+            <dt className="text-ink-muted">Compared with the crops you grow now</dt>
+            <dd className="tabular m-0 text-ink">{span(changeFromCurrent, "MMK")}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <p className="m-0 text-source text-ink-muted">{sourceText}.</p>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {rows.map((r, i) => (
           <li key={`${r.crop}-${i}`} className="flex flex-col gap-1 border-t border-line pt-2">
@@ -411,13 +386,22 @@ function EconomicsBlock({ opt, rows, total, basisText }: { opt: OptionRef; rows:
   );
 }
 
-function Money({ model }: { model: ResultsModel }) {
+function Money({ model, field }: { model: ResultsModel; field: Field }) {
   const margin = model.dimensions.find((d) => d.id === "economics")!;
+  const currentMargin = model.options[0]?.option.economics.cycleMarginMmk ?? null;
   return (
-    <Section id="money" title="Money" intro="Estimated return after listed costs, shown as a range. It is not promised income.">
-      <div className="grid gap-4 md:grid-cols-3">
+    <Section id="money" title="Money" intro="Illustrative ranges based on entered values or cited crop benchmarks. They are not promised income; the field totals use your saved area.">
+      <div className="grid gap-x-6 gap-y-5 md:grid-cols-3">
         {model.options.map((o) => (
-          <EconomicsBlock key={o.id} opt={o} rows={model.economics[o.id] ?? []} total={margin.cells[o.id]} basisText="Range = lowest yield × lowest price − highest cost, to highest yield × highest price − lowest cost." />
+          <EconomicsBlock
+            key={o.id}
+            opt={o}
+            rows={model.economics[o.id] ?? []}
+            total={margin.cells[o.id]}
+            areaHa={field.areaHa}
+            currentMargin={currentMargin}
+            basisText="Range = lowest yield × lowest price − highest cost, to highest yield × highest price − lowest cost."
+          />
         ))}
       </div>
       {model.benchmarkText ? <p className="m-0 max-w-measure text-body-sm text-ink-muted">{model.benchmarkText}</p> : null}
@@ -447,10 +431,10 @@ function WhySection({ model }: { model: ResultsModel }) {
   const nameOf = (id: string) => model.options.find((o) => o.id === id)?.name ?? id;
   return (
     <Section id="why" title="Why this rotation?" intro="Reasons come straight from the ranking and checks. Where the engine gave no reason, none is made up.">
-      <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4">
+      <div className="flex flex-col gap-3">
         <h3 className="m-0 text-label text-ink">How the options were ordered</h3>
         {model.status === "unresolved" ? (
-          <p className="m-0 text-body text-ink">No fair order yet. Read each choice below instead of looking for a winner.</p>
+          <p className="m-0 text-body text-ink">We can&apos;t pick one best plan yet. Read each choice below instead.</p>
         ) : model.ranking.length === 0 ? (
           <p className="m-0 text-body-sm text-ink-muted">No order was produced for this comparison.</p>
         ) : (
@@ -480,7 +464,7 @@ function WhySection({ model }: { model: ResultsModel }) {
           if (!w) return null;
           const nothing = w.supports.length === 0 && w.tradeOffs.length === 0 && w.similar.length === 0;
           return (
-            <article key={o.id} aria-labelledby={`why-${o.id}`} className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4">
+            <article key={o.id} aria-labelledby={`why-${o.id}`} className="flex flex-col gap-3 border-t border-line pt-4 first:border-0 first:pt-0">
               <div className="flex flex-col gap-1.5">
                 <h3 id={`why-${o.id}`} className="m-0 text-label font-semibold text-ink">{o.name}</h3>
                 <CropLine crops={o.crops} />
@@ -537,9 +521,9 @@ function Unknowns({ model }: { model: ResultsModel }) {
   const kinds: MissingKind[] = ["unknown", "not-measured", "not-available", "not-applicable"];
   return (
     <Section id="unknowns" title="What we still do not know" intro="A missing value is never counted as zero or as good news. It is left out and listed here.">
-      <dl className="m-0 grid gap-2 sm:grid-cols-2">
+      <dl className="m-0 grid gap-x-6 gap-y-3 sm:grid-cols-2">
         {kinds.map((k) => (
-          <div key={k} className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3">
+          <div key={k} className="flex flex-col gap-1">
             <dt><MissingTag kind={k} /></dt>
             <dd className="m-0 text-body-sm text-ink-muted">{MISSING_WORDS[k].meaning}</dd>
           </div>
@@ -553,8 +537,8 @@ function Unknowns({ model }: { model: ResultsModel }) {
             <h3 className="m-0 text-label text-ink">{MISSING_WORDS[k].label} ({items.length})</h3>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
               {items.map((u) => (
-                <li key={`${u.where}-${u.text}`} className="rounded-md border border-dashed border-unknown-border bg-unknown-bg p-3 text-body-sm text-ink">
-                  <span className="text-source font-medium text-unknown-text">{u.where}</span>
+                <li key={`${u.where}-${u.text}`} className="border-t border-line py-2 text-body-sm text-ink first:border-0">
+                  <span className="text-source font-medium text-ink-muted">{u.where}</span>
                   <span className="block">{u.text}</span>
                 </li>
               ))}
@@ -576,6 +560,47 @@ function Unknowns({ model }: { model: ResultsModel }) {
 
 /* ---------------- Hub ---------------- */
 
+/** Everything past the answer lives in one closed group. Opens when a link points at a section inside it. */
+function SeeWhy({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reveal = () => {
+      let id = window.location.hash.slice(1);
+      try { id = decodeURIComponent(id); } catch { /* keep raw hash */ }
+      if (!id) return;
+      if (id === "see-why") { el.open = true; return; }
+      const target = document.getElementById(id);
+      if (target && el.contains(target)) {
+        el.open = true;
+        target.scrollIntoView?.();
+      }
+    };
+    let wasOpen = el.open;
+    const before = () => { wasOpen = el.open; el.open = true; };
+    const after = () => { el.open = wasOpen; };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", after);
+    return () => {
+      window.removeEventListener("hashchange", reveal);
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", after);
+    };
+  }, []);
+  return (
+    <details id="see-why" ref={ref} className="scroll-mt-24 border-t border-line pt-1">
+      <summary className="flex min-h-tap cursor-pointer items-center gap-2 px-4 text-label text-ink">
+        <span>Detailed comparison, methods and limits</span>
+        <span className="text-body-sm font-normal text-ink-muted">Water, soil, income, reasons and unknowns</span>
+      </summary>
+      <div className="flex flex-col gap-8 px-4 pb-4 pt-2">{children}</div>
+    </details>
+  );
+}
+
 export function ComparisonResults({ field, model }: { field: Field; model: ResultsModel }) {
   const firstAlt = model.options.find((o) => !o.isYours) ?? model.options[0];
   const [focusId, setFocus] = useState(firstAlt.id);
@@ -583,22 +608,15 @@ export function ComparisonResults({ field, model }: { field: Field; model: Resul
 
   return (
     <div className="flex flex-col gap-8">
-      <nav aria-label="Results sections" className="sticky top-0 z-20 -mx-4 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface/95 px-4 py-1 backdrop-blur print:hidden">
-        <span className="mr-2 inline-flex shrink-0 items-center gap-1 text-source font-medium text-ink-muted" aria-label={`Status: ${model.statusTitle}`}>
-          <Icon name={model.status === "complete" ? "done" : model.status === "partial" ? "help" : "alert"} size={14} aria-hidden />
-          {model.statusTitle}
-        </span>
-        {SECTIONS.map((s) => (
-          <a key={s.id} href={`#${s.id}`} className="inline-flex min-h-tap shrink-0 items-center px-2 text-label text-field no-underline hover:underline">{s.label}</a>
-        ))}
-      </nav>
-      <Overview field={field} model={model} focusId={focus} />
+      <VerdictCard field={field} model={model} />
       <CompareSection model={model} focusId={focus} setFocus={setFocus} />
-      <WaterClimate field={field} model={model} focusId={focus} />
-      <SoilSection model={model} />
-      <Money model={model} />
-      <WhySection model={model} />
-      <Unknowns model={model} />
+      <SeeWhy>
+        <WaterClimate field={field} model={model} focusId={focus} />
+        <SoilSection model={model} />
+        <Money model={model} field={field} />
+        <WhySection model={model} />
+        <Unknowns model={model} />
+      </SeeWhy>
     </div>
   );
 }

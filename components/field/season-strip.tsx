@@ -111,3 +111,41 @@ export function SeasonStrip({ strip, field }: { strip: StripYear[]; field: Field
     </Panel>
   );
 }
+
+/** A small read-only row of past seasons for one option, so options can be compared at a glance. Tapping a year to recall it stays in the full strip. */
+export function SeasonStripMini({ strip }: { strip: StripYear[] }) {
+  const known = knownCount(strip);
+  if (strip.length === 0) return null;
+  return (
+    <div className="@container flex flex-col gap-1">
+      <p className="m-0 text-source text-ink-muted">
+        {known > 0
+          ? `${stressedCount(strip)} of ${known} past seasons short of rain or too hot`
+          : "Past-season stress not known"}
+      </p>
+      <ol aria-label="Past seasons" className="m-0 grid list-none grid-cols-5 gap-1 p-0 @sm:grid-cols-10">
+        {strip.map((s) => (
+          <li
+            key={s.year}
+            className={cn(
+              "flex min-w-0 flex-col items-center gap-0.5 rounded-sm border px-0.5 py-1",
+              s.stressed === true && "border-stress/40 bg-stress-bg text-stress",
+              s.stressed === false && "border-line bg-surface text-ink",
+              s.stressed === null && "border-dashed border-unknown-border bg-unknown-bg text-unknown-text",
+            )}
+          >
+            <span className="tabular font-mono text-source leading-none">{s.year}</span>
+            {s.stressed === true ? (
+              <Icon name="close" size={12} strokeWidth={2.6} aria-hidden />
+            ) : s.stressed === false ? (
+              <Icon name="done" size={12} strokeWidth={2.6} className="text-healthy" aria-hidden />
+            ) : (
+              <span aria-hidden className="text-source font-semibold leading-3">?</span>
+            )}
+            <span className="sr-only">{s.stressed === true ? "short of rain or too hot" : s.stressed === null ? "not known" : "no stress found"}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}

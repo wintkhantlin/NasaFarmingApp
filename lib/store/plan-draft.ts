@@ -62,7 +62,7 @@ export interface PlanDraft {
   refinements: PlanRefinements;
 }
 
-const REGION_IDS = new Set<RegionId>(["ayeyarwady", "magway", "shan", "myanmar"]);
+const REGION_IDS = new Set<RegionId>(["ayeyarwady", "magway", "shan", "yangon", "myanmar"]);
 
 export function emptyPlanDraft(): PlanDraft {
   return { version: 2, place: null, mainCropId: null, nextPlantingPeriod: "not-sure", priorityOrder: [], updatedAt: new Date(0).toISOString(), revision: 0, refinements: emptyRefinements() };

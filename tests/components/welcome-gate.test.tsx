@@ -7,16 +7,19 @@ import { WelcomeGate } from "@/components/shell/welcome-gate";
 import { useSettingsStore } from "@/lib/store/settings-store";
 
 const mockReplace = vi.fn();
+let mockPathname = "/";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockReplace,
   }),
+  usePathname: () => mockPathname,
 }));
 
 describe("WelcomeGate", () => {
   beforeEach(() => {
     cleanup();
     mockReplace.mockClear();
+    mockPathname = "/";
     localStorage.clear();
     useSettingsStore.setState({ hydrated: false, dataNoticeAcceptedAt: null });
   });
@@ -60,5 +63,23 @@ describe("WelcomeGate", () => {
     );
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByTestId("child-content")).toBeInTheDocument();
+  });
+
+  it("lets the data explanation be read before the notice is accepted", () => {
+    mockPathname = "/about/data";
+    render(
+      <WelcomeGate>
+        <div data-testid="child-content">About the data</div>
+      </WelcomeGate>,
+    );
+    expect(mockReplace).not.toHaveBeenCalled();
+    mockPathname = "/data/weather";
+    cleanup();
+    render(
+      <WelcomeGate>
+        <div>Topic</div>
+      </WelcomeGate>,
+    );
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

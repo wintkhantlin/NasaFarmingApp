@@ -85,7 +85,7 @@ export function rainIndicator(c: Common & { rain: RainSeries }): DerivedIndicato
   const notR = !useR
     ? [
         info.status === "unconfigured"
-          ? "IMERG is not connected (no Earthdata token on the server), so rainfall is NASA POWER PRECTOTCORR."
+          ? "IMERG is not connected, so rainfall is NASA POWER PRECTOTCORR."
           : info.status === "ok"
             ? "IMERG did not cover this period, so rainfall is NASA POWER PRECTOTCORR."
             : "IMERG is unavailable, so rainfall is NASA POWER PRECTOTCORR.",

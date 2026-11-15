@@ -41,6 +41,8 @@ export interface Cell {
   text: string;
   missing?: MissingKind;
   basis?: Basis;
+  /** "deficit": a negative balance. Shown with a warning icon and a stress tone, never the healthy green. */
+  tone?: "deficit";
 }
 
 export interface Dimension {
@@ -195,7 +197,10 @@ function nitrogenCell(o: EvaluatedOption): Cell {
   if (!n.fixedKgHa) return { text: "No legume in this cycle, so no nitrogen fixed", missing: "not-applicable", basis: "library" };
   const fixed = `Legumes fix ${Math.round(n.fixedKgHa[0])} to ${Math.round(n.fixedKgHa[1])} kg N/ha`;
   if (n.removedKgHa === null) return { text: `${fixed}. Grain removal needs your yields.`, basis: "library" };
-  return { text: `${fixed}; grain removes about ${Math.round(n.removedKgHa)} kg N/ha`, basis: "library" };
+  const balance = Math.round((n.fixedKgHa[0] + n.fixedKgHa[1]) / 2 - n.removedKgHa);
+  const base = `${fixed}; grain removes about ${Math.round(n.removedKgHa)} kg N/ha`;
+  if (balance < 0) return { text: `${base}. Takes about ${Math.abs(balance)} kg N/ha more than it puts back.`, basis: "library", tone: "deficit" };
+  return { text: base, basis: "library" };
 }
 
 function pestCell(o: EvaluatedOption): Cell {
@@ -415,13 +420,13 @@ export function buildResultsModel(input: { field: Field; comparison: ComparisonR
   for (const d of [...dimensions, ...soil]) d.matters = MATTERS[d.id] ?? "";
 
   const status: AnalysisStatus = display.state === "comparable" ? "complete" : display.state === "unresolved" ? "unresolved" : "partial";
-  const statusTitle = { complete: "Complete comparison", partial: "Partial evidence", unresolved: "Ranking unresolved" }[status];
+  const statusTitle = { complete: "Complete comparison", partial: "Partial evidence", unresolved: "Too close to call" }[status];
   const statusDetail =
     status === "complete"
       ? "Every option had evidence for the criteria used, so the order below is supported."
       : status === "unresolved"
-        ? "There is not enough matching evidence to put these options in a fair order, so none is called best."
-        : "Some options lack information the others have. They are shown side by side without a forced winner.";
+        ? "We can't pick one best plan yet. There is not enough matching evidence, so look at each plan on its own."
+        : "Some plans lack information the others have. We show them side by side and do not pick a winner.";
 
   const order = field.priorities?.order ?? [];
   const priorities = order.map((id) => ({ id, label: copy.profile.priority[id] }));
@@ -475,5 +480,170 @@ export function buildResultsModel(input: { field: Field; comparison: ComparisonR
     rankingNotes: [c.mcda.note, ...c.mcda.excluded.filter((e) => e.reason !== "no-priority").map((e) => `${e.label}: ${e.detail}`)].filter(Boolean),
     unknowns,
     assumptions,
+  };
+}
+
+/* ---------------- The one-message verdict ---------------- */
+
+export interface VerdictRow {
+  optionId: string;
+  /** Plain name: "What you grow now" or the crops in order, "Groundnut then Green gram". */
+  name: string;
+  isYours: boolean;
+  /** Past seasons with no rain or heat stress, out of the seasons that could be checked. */
+  good: number | null;
+  known: number | null;
+  goodText: string;
+  /** Typical rain shortfall per crop, in mm. */
+  gapMm: number | null;
+  gapText: string;
+  /** Estimated return after listed costs, per hectare over the cycle. */
+  income: [number, number] | null;
+  incomeText: string;
+}
+
+export interface VerdictEvidence {
+  kind: "safety" | "water" | "income" | "nitrogen";
+  text: string;
+}
+
+export interface Verdict {
+  /** What we found, in one sentence. */
+  headline: string;
+  /** The trade-off that decides it, when there is one. */
+  detail: string | null;
+  /** Lines with numbers. Missing values say "not known"; a line with no data at all is left out. */
+  evidence: VerdictEvidence[];
+  /** One honest warning: every plan struggles, or information is missing. */
+  caution: string | null;
+  nextStep: string;
+  rows: VerdictRow[];
+  /** Every plan was short of rain or too hot in at least half of the past seasons. */
+  allStressed: boolean;
+}
+
+const NOT_KNOWN = "Not known";
+
+/** 3790000 -> "3.79M". Smaller values keep their digits. */
+function millions(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `${+(n / 1_000_000).toFixed(2)}M`;
+  return mmk(n);
+}
+
+function plainCrops(crops: string[]): string {
+  return crops.map((c) => c.replace(/\s*\(.*\)\s*$/, "")).filter(Boolean).join(" then ");
+}
+
+function verdictRows(model: ResultsModel): VerdictRow[] {
+  const shown = model.options.filter((o) => !(o.isYours && o.crops.length === 0));
+  const base = shown.map((o) => (o.isYours ? "What you grow now" : plainCrops(o.crops) || o.name));
+  return shown.map((o, i) => {
+    const strip = model.strips[o.id] ?? [];
+    const known = knownCount(strip);
+    const good = known > 0 ? known - stressedCount(strip) : null;
+    const gap = o.option.metrics["water-shortfall"];
+    const income = o.option.economics.cycleMarginMmkHa ?? null;
+    // Two plans can have the same crops in a different order or timing; keep their names apart.
+    const name = base.filter((b) => b === base[i]).length > 1 ? `${base[i]} (${o.name})` : base[i];
+    return {
+      optionId: o.id,
+      name,
+      isYours: o.isYours,
+      good,
+      known: known > 0 ? known : null,
+      goodText: good === null ? NOT_KNOWN : `${good} of ${known}`,
+      gapMm: gap == null ? null : Math.round(gap),
+      gapText: gap == null ? NOT_KNOWN : `${Math.round(gap)} mm`,
+      income,
+      incomeText: income ? `${millions(income[0])} to ${millions(income[1])}` : NOT_KNOWN,
+    };
+  });
+}
+
+const goodShare = (r: VerdictRow) => (r.good === null || !r.known ? null : r.good / r.known);
+const incomeMid = (r: VerdictRow) => (r.income ? (r.income[0] + r.income[1]) / 2 : null);
+
+/**
+ * Turns the numbers the engine already produced into one verdict. It counts, compares and words;
+ * it never makes up a figure, and a value that is missing is called "not known", never zero.
+ */
+export function buildVerdict(model: ResultsModel): Verdict {
+  const rows = verdictRows(model);
+  const subject = (r: VerdictRow) => (r.isYours ? "Your current crops" : r.name);
+  const lower = (r: VerdictRow) => (r.isYours ? "your current crops" : r.name);
+
+  const withSafety = rows.filter((r) => goodShare(r) !== null);
+  const withIncome = rows.filter((r) => incomeMid(r) !== null);
+  // Safest: most good past seasons; a smaller water gap breaks a tie.
+  const safest = [...withSafety].sort(
+    (a, b) => (goodShare(b) as number) - (goodShare(a) as number) || (a.gapMm ?? Infinity) - (b.gapMm ?? Infinity),
+  )[0];
+  const richest = [...withIncome].sort((a, b) => (incomeMid(b) as number) - (incomeMid(a) as number))[0];
+
+  const stressedShares = withSafety.map((r) => 1 - (goodShare(r) as number));
+  const allStressed = withSafety.length > 0 && stressedShares.every((s) => s >= 0.5);
+  const worstFloor = allStressed ? withSafety.reduce((m, r) => ((r.known as number) - (r.good as number) < (m.known as number) - (m.good as number) ? r : m)) : null;
+
+  const top = model.ranking[0];
+  const picked = model.status === "complete" && top && !top.closeToNext ? rows.find((r) => r.optionId === top.optionId) : undefined;
+
+  let headline: string;
+  let detail: string | null = null;
+  const struggled = allStressed ? ", but every plan struggled in past weather" : "";
+
+  if (model.status === "unresolved" || (!safest && !richest)) {
+    headline = "We can't pick one best plan yet. Read the numbers for each plan below.";
+  } else if (picked) {
+    headline = `${subject(picked)} came out first for the goals you chose${struggled}.`;
+    if (safest && safest.optionId !== picked.optionId) {
+      detail = `${subject(safest)} had more good past seasons (${safest.goodText}), so check the rain risk before you decide.`;
+    }
+  } else if (safest && richest && safest.optionId === richest.optionId) {
+    headline = `${subject(safest)} did best on both rain safety (${safest.goodText} good seasons) and income${struggled}.`;
+  } else if (safest) {
+    headline = `${subject(safest)} did best in past weather (${safest.good} good ${safest.good === 1 ? "season" : "seasons"} of ${safest.known})${struggled}.`;
+    const richer = richest && safest ? rows.filter((r) => (incomeMid(r) ?? -Infinity) > (incomeMid(safest) ?? Infinity)) : [];
+    const moreStressed = richer.length > 0 && richer.every((r) => (goodShare(r) ?? 1) < (goodShare(safest) as number));
+    const others = rows.length - 1;
+    const who =
+      richer.length === 0 ? "" : richer.length === others && others > 1 ? `The other ${others === 2 ? "two" : "plans"}` : richer.map((r) => r.name).join(" and ");
+    if (richer.length > 0) {
+      detail = `${who} may earn more${moreStressed ? `, but ${richer.length > 1 ? "were" : "was"} short of rain more often` : ""}. Rain safety and income point to different plans.`;
+    } else if (withIncome.length < rows.length) {
+      detail = "Income is not known for every plan.";
+    }
+  } else if (richest) {
+    headline = `${subject(richest)} may earn the most, but how it handled past weather is not known.`;
+  } else {
+    headline = "We can't pick one best plan yet. Read the numbers for each plan below.";
+  }
+
+  const list = (pick: (r: VerdictRow) => string) => rows.map((r) => `${r.name} ${pick(r)}`).join("; ");
+  const evidence: VerdictEvidence[] = [];
+  if (withSafety.length > 0) evidence.push({ kind: "safety", text: `Good seasons, out of past years checked: ${list((r) => r.goodText)}.` });
+  if (rows.some((r) => r.gapMm !== null)) evidence.push({ kind: "water", text: `Water gap in a typical season, per crop: ${list((r) => r.gapText)}.` });
+  if (withIncome.length > 0) evidence.push({ kind: "income", text: `Return after costs per hectare over the cycle (MMK): ${list((r) => r.incomeText)}.` });
+  const nitrogen = model.dimensions.find((d) => d.id === "nitrogen");
+  const deficit = rows.filter((r) => nitrogen?.cells[r.optionId]?.tone === "deficit");
+  if (deficit.length > 0) {
+    evidence.push({ kind: "nitrogen", text: `Nitrogen deficit: ${deficit.map(lower).join(" and ")} ${deficit.length > 1 ? "take" : "takes"} more nitrogen out of the soil than ${deficit.length > 1 ? "they put" : "it puts"} back.` });
+  }
+
+  let caution: string | null = null;
+  if (worstFloor) {
+    const bad = (worstFloor.known as number) - (worstFloor.good as number);
+    caution = `Every plan was short of rain or too hot in at least ${bad} of ${worstFloor.known} past seasons. Check water access and soil moisture on your land before you decide.`;
+  } else if (model.status !== "complete" || rows.some((r) => r.good === null || r.income === null || r.gapMm === null)) {
+    caution = "Some information is missing, so use this as a guide and not a final answer.";
+  }
+
+  return {
+    headline,
+    detail,
+    evidence,
+    caution,
+    nextStep: "Read your farmer summary, then check water and soil with a local adviser before you change crops.",
+    rows,
+    allStressed,
   };
 }

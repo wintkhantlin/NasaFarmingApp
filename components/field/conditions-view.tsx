@@ -8,27 +8,29 @@ import { MONTHS, RainWaterChart, TemperatureChart } from "@/components/ui/charts
 import { buttonClass, Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
-import { InfoGlyph, ThermometerGlyph } from "@/components/ui/icons";
+import { InfoGlyph } from "@/components/ui/icons";
 import { Panel, PanelHeader } from "@/components/ui/panel";
-import { TermNote } from "@/components/ui/indicator-card";
 import { Reading } from "@/components/ui/reading";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SourceLine } from "@/components/ui/source-line";
+import { AnalysisLoading } from "@/components/field/analysis-loading";
+import { NextSteps } from "@/components/field/next-steps";
 import { CropCalendar } from "@/components/field/crop-calendar";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { TrendsView } from "@/components/field/trends-view";
-import { SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
+import { DryZoneRainNote, SourceStatusPanel, VulnerabilityPanel, WaterUsePanel } from "@/components/field/conditions-panels";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
 import { compareRotations } from "@/lib/engine/compare";
 import { monthlyNormals } from "@/lib/engine/climate";
 import { BASELINE } from "@/lib/engine/data";
 import { getCropById } from "@/lib/data/crops";
+import { regionOfPoint } from "@/lib/data/regions";
 import { shortSlotName } from "@/lib/rotation-format";
 import { isStale } from "@/lib/store/data-cache";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
+import { isDryZone } from "@/lib/validation/source-checks";
 
 const argMax = (a: number[]) => a.indexOf(Math.max(...a));
 const argMin = (a: number[]) => a.indexOf(Math.min(...a));
@@ -136,6 +138,8 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
 
   const dryMonths = rain && et0 ? rain.map((r, i) => (et0[i] > r ? i : -1)).filter((i) => i >= 0) : [];
   const annual = data?.annualRainMm;
+  const regionId = field.region && field.region !== "unsupported" ? field.region : regionOfPoint(field.centroid);
+  const dryZone = isDryZone(regionId);
 
   const headline =
     annual !== undefined && rain
@@ -144,10 +148,10 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
   const reason =
     rain && et0
       ? dryMonths.length === 12
-        ? "Rain falls short of estimated crop water use in every month on average, so most crops here need irrigation or stored soil water."
+        ? "On average, rain falls short of how much water crops would use in every month, so most crops here need irrigation or stored soil water."
         : dryMonths.length > 0
-          ? `Rain falls short of estimated crop water use in ${dryMonths.length} ${dryMonths.length === 1 ? "month" : "months"} (${listMonths(dryMonths)}). Plan water for those months, or time planting to avoid them.`
-          : "On average, rain keeps up with estimated crop water use in every month."
+          ? `Rain falls short of how much water crops would use in ${dryMonths.length} ${dryMonths.length === 1 ? "month" : "months"} (${listMonths(dryMonths)}). Plan water for those months, or time planting to avoid them.`
+          : "On average, rain keeps up with how much water crops would use in every month."
       : rain
         ? "Soil information is below. Temperature and crop water use could not be read."
         : "Your saved crops and soil below still apply. Try again in a moment.";
@@ -162,17 +166,62 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
 
   const hottest = tmax ? argMax(tmax) : -1;
   const coldest = tmin ? argMin(tmin) : -1;
+  // Temperature only earns a place on the first screen when a limit is hit. Otherwise it sits under "More detail".
+  const frostHit = tmin ? tmin[coldest] <= 3 || (crop ? tmin[coldest] <= crop.temp.absMinC : false) : false;
+  const heatHit =
+    tmax && crop ? tmax[hottest] >= crop.temp.absMaxC || (crop.temp.heatFloweringC != null && tmax[hottest] >= crop.temp.heatFloweringC) : false;
+  const tempFirst = frostHit || heatHit;
+  const manyCrops = rotationCrops.length > 3;
+  const supportingSection = "flex flex-col gap-5 border-t border-line py-5 first:border-0 first:pt-0";
+  const cropPicker =
+    rotationCrops.length > 1 ? (
+      <Segmented legend="Show ranges for" value={cropId} onChange={setCropChoice} options={rotationCrops.slice(0, 4)} className="sm:max-w-md" />
+    ) : null;
+  const temperaturePanel =
+    tmax && tmin ? (
+      <section aria-labelledby="heat" className={supportingSection}>
+        <PanelHeader id="heat" title="Hot and cold months" description="The shaded range is what this crop prefers." />
+        {frostHit ? (
+          <div>
+            <RiskChip hazard="frost">
+              Frost possible: nights near {Math.round(tmin[coldest])} °C in {MONTHS[coldest]}
+            </RiskChip>
+          </div>
+        ) : null}
+        {heatHit ? (
+          <div>
+            <RiskChip hazard="heat">
+              Very hot: highs near {Math.round(tmax[hottest])} °C in {MONTHS[hottest]}
+            </RiskChip>
+          </div>
+        ) : null}
+        <TemperatureChart
+          tmax={tmax}
+          tmin={tmin}
+          band={crop ? [crop.temp.optMinC, crop.temp.optMaxC] : undefined}
+          bandLabel={crop ? `${cropName} grows best at ${crop.temp.optMinC} to ${crop.temp.optMaxC} °C` : undefined}
+        />
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">Monthly averages. Check local frost dates before planting.</p>
+      </section>
+    ) : null;
 
   return (
     <>
       <FieldPageHeader title={copy.conditions.title} summary="Rain, heat and soil around this field." />
 
       {phase === "loading" ? (
-        <Panel as="div" role="status" aria-label={copy.conditions.loadingData} className="flex flex-col gap-3 p-5 sm:p-6">
-          <h2 className="m-0 text-headline text-ink">Getting the weather and soil for this field</h2>
-          <p className="m-0 text-body-sm text-ink-muted">A few seconds. Satellite detail can take a few minutes and will appear when ready.</p>
-          <Skeleton className="h-5 w-40" />
-        </Panel>
+        <AnalysisLoading
+          title="Getting the weather and soil for this field"
+          crops={rotationCrops.map((c) => c.label)}
+          slow={analysis.slow}
+          steps={[
+            "Weather and rain for your area: checking now",
+            "Soil map: checking now",
+            analysis.remote?.hls.status === "ok"
+              ? "Field photos from satellite: ready"
+              : "Field photos from satellite: checking in the background, a minute or more (can use data)",
+          ]}
+        />
       ) : null}
 
       {phase === "failed" ? (
@@ -181,7 +230,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           body="Check your connection and try again. Your field and crops are saved."
         >
           <Button variant="primary" onClick={() => setAttempt((n) => n + 1)}>
-            {copy.home.retry}
+            {copy.conditions.retryData}
           </Button>
           <Link href={`/fields/${field.id}/compare`} className={buttonClass("secondary")}>
             {copy.conditions.compareButton}
@@ -204,92 +253,57 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
               <h2 id="summary" className="text-balance text-title text-ink sm:text-display">
                 {headline}
               </h2>
+              {annual !== undefined && rain && dryZone ? <DryZoneRainNote /> : null}
               <p className="max-w-measure text-body text-ink-muted">{reason}</p>
             </div>
-            {rain && tmax && tmin ? (
-              <div className="flex flex-wrap gap-2">
-                <RiskChip hazard="water">Rain {annual} mm a year</RiskChip>
-                <RiskChip hazard="heat">
-                  Hottest: highs near {Math.round(tmax[hottest])} °C in {MONTHS[hottest]}
-                </RiskChip>
-                {tmin[coldest] <= 3 ? (
-                  <RiskChip hazard="frost">
-                    Frost possible: nights near {Math.round(tmin[coldest])} °C in {MONTHS[coldest]}
-                  </RiskChip>
-                ) : (
-                  <RiskChip hazard="neutral" icon={<ThermometerGlyph className="shrink-0" />}>
-                    Coldest nights near {Math.round(tmin[coldest])} °C in {MONTHS[coldest]}
-                  </RiskChip>
-                )}
-              </div>
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.conditions.cellResolutionNote}</p>
+            {analysis.retrieving ? (
+              <p role="status" className="m-0 flex items-center gap-2 text-body-sm text-ink-muted">
+                <InfoGlyph className="shrink-0" />
+                {copy.conditions.checkingPhotos}
+              </p>
             ) : null}
-            <SourceLine
-              dataset={copy.data.sourceNasaPower}
-              resolution="about 0.5° x 0.625°, 50 km"
-              dates="2016 to 2025, daily values averaged by month"
-              stale={stale}
-              detail={copy.conditions.cellResolutionNote}
-              className="border-t border-line pt-3"
-            />
           </Panel>
 
-          {rotationCrops.length > 1 ? (
-            <Segmented
-              legend="Show ranges for"
-              value={cropId}
-              onChange={setCropChoice}
-              options={rotationCrops.slice(0, 4)}
-              className="sm:max-w-md"
-            />
-          ) : null}
+          {manyCrops ? cropPicker : null}
 
           {/* Rain and crop water use */}
-          <Panel as="section" aria-labelledby="rain" className="flex flex-col gap-5 p-4 sm:p-6">
+          <section aria-labelledby="rain" className={supportingSection}>
             <PanelHeader id="rain" title={<span className="inline-flex items-center gap-2"><Icon name="water" />Rain and dry months</span>} description="Usual rain against the water crops may need." />
             {rain ? (
               <RainWaterChart rain={rain} cropUse={et0} />
             ) : (
-              <p className="text-body text-ink-muted">NASA POWER didn&apos;t answer, so there is no rainfall chart yet.</p>
+              <p className="text-body text-ink-muted">Regional NASA weather isn&apos;t available right now, so there is no rainfall chart yet.</p>
             )}
-            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-              Both lines are monthly totals in mm, averaged over past years. Rain is a model estimate for a grid cell about 50 km wide, and crop water use is estimated reference water demand (ET₀) from the same weather. This is the usual pattern, not a forecast.
-            </p>
-            <TermNote term="ET0" kind="model" where="Calculated from NASA POWER weather for a regional grid cell, not measured on your field." />
-            <Disclosure title="About this rainfall" className="border-0 bg-surface-sunken">
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">Monthly totals in mm, averaged over past years. This is the usual pattern, not a forecast.</p>
+            <Disclosure title={copy.conditions.sourceWeatherLine} hint={stale ? <span className="font-medium text-drought">Older than usual</span> : "Details"} className="border-0 bg-surface-sunken">
+              <p className="m-0 max-w-measure text-body-sm text-ink">
+                The dashed line is reference water demand (ET0): how much water a short, well-watered grass would use in this weather. It helps estimate crop water use and is calculated from regional NASA POWER weather, not measured on your field.
+              </p>
               <p className="m-0 text-body-sm text-ink">
                 Satellite rainfall:{" "}
                 {data.imerg?.status === "ok"
                   ? "retrieved for the whole record"
                   : data.imerg?.status === "pending"
                     ? copy.conditions.imergProgress(data.imerg.covered, data.imerg.expected)
-                    : data.imerg?.status === "unavailable"
-                      ? "not available right now"
-                      : "not connected on this server"}
+                    : "not available for your area yet, so NASA weather (about 50 km) is used"}
               </p>
               <p className="m-0 text-body-sm text-ink-muted">{copy.data.rainfallNote}</p>
+              <p className="m-0 text-source text-ink-muted">{copy.conditions.cellResolutionTechnical} Daily values, averaged by month.</p>
             </Disclosure>
-          </Panel>
+          </section>
 
-          {/* Heat and frost */}
-          {tmax && tmin ? (
-            <Panel as="section" aria-labelledby="heat" className="flex flex-col gap-5 p-4 sm:p-6">
-              <PanelHeader id="heat" title="Hot and cold months" description="The shaded range is what this crop prefers." />
-              <TemperatureChart
-                tmax={tmax}
-                tmin={tmin}
-                band={crop ? [crop.temp.optMinC, crop.temp.optMaxC] : undefined}
-                bandLabel={crop ? `${cropName} grows best at ${crop.temp.optMinC} to ${crop.temp.optMaxC} °C` : undefined}
-              />
-              <p className="m-0 max-w-measure text-body-sm text-ink-muted">Monthly averages. Check local frost dates before planting.</p>
-            </Panel>
-          ) : null}
+          {/* Heat and frost: first screen only when a limit is hit */}
+          {tempFirst ? temperaturePanel : null}
 
-          <Disclosure title="More detail" className="border-0 bg-transparent [&>summary]:px-0 [&>div]:px-0">
-          {comparison ? <VulnerabilityPanel comparison={comparison} /> : null}
+          <Disclosure title="Crop, climate and source details" className="border-0 bg-transparent [&>summary]:px-0 [&>div]:px-0">
+            {!manyCrops ? cropPicker : null}
+            {!tempFirst ? temperaturePanel : null}
+            {comparison ? <VulnerabilityPanel comparison={comparison} /> : null}
             {comparison ? <WaterUsePanel comparison={comparison} /> : null}
 
             {comparison ? (
-              <Panel as="section" aria-labelledby="calendar" className="flex flex-col gap-4 p-4 sm:p-6">
+              <section aria-labelledby="calendar" className={supportingSection}>
                 <PanelHeader id="calendar" title={copy.calendar.title} description={copy.calendar.lead} />
                 <CropCalendar option={comparison.current} rainyMonths={rainyMonths} />
                 {comparison.current.lowCover.length > 0 ? (
@@ -301,7 +315,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     ))}
                   </ul>
                 ) : null}
-              </Panel>
+              </section>
             ) : null}
 
             <SourceStatusPanel conditions={data} remote={analysis.remote} />
@@ -311,11 +325,11 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           </Disclosure>
 
           {/* Soil */}
-          <Panel as="section" aria-labelledby="soil" className="flex flex-col gap-4 p-4 sm:p-6">
-            <PanelHeader id="soil" title={<span className="inline-flex items-center gap-2"><Icon name="soil" />Soil around this field</span>} description="Mapped at 250 m. A soil test is more precise." />
+          <section aria-labelledby="soil" className={supportingSection}>
+            <PanelHeader id="soil" title={<span className="inline-flex items-center gap-2"><Icon name="soil" />Soil around this field</span>} description={copy.conditions.soilCaveat} />
 
             {effectivePh === null && effectiveSoc === null && !texture ? (
-              <Panel tone="plain" as="div" className="flex flex-col gap-3 p-4 sm:p-5">
+              <div className="flex flex-col items-start gap-3">
                 <p className="m-0 text-body text-ink">No soil map data here.</p>
                 <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.conditions.soilNullWarning}</p>
                 <div>
@@ -323,7 +337,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     Add a soil test
                   </Link>
                 </div>
-              </Panel>
+              </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {effectivePh !== null ? (
@@ -344,7 +358,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     }
                     source={{
                       dataset: fromFarmer(es?.ph) ? "Your soil value" : soil?.source.dataset ?? "ISRIC SoilGrids v2",
-                      resolution: fromFarmer(es?.ph) ? es?.ph?.note ?? "this field" : "250 m",
+                      resolution: fromFarmer(es?.ph) ? es?.ph?.note ?? "this field" : "map estimate",
                       dates: "0 to 30 cm",
                     }}
                   />
@@ -357,7 +371,7 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     scale={[0, 50]}
                     source={{
                       dataset: fromFarmer(es?.organicCarbonGKg) ? "Your soil value" : soil?.source.dataset ?? "ISRIC SoilGrids v2",
-                      resolution: fromFarmer(es?.organicCarbonGKg) ? es?.organicCarbonGKg?.note ?? "this field" : "250 m",
+                      resolution: fromFarmer(es?.organicCarbonGKg) ? es?.organicCarbonGKg?.note ?? "this field" : "map estimate",
                       dates: "0 to 30 cm",
                     }}
                   />
@@ -368,32 +382,30 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
                     value={data.rootWetnessPct}
                     unit="% full"
                     scale={[0, 100]}
-                    source={{ dataset: "NASA POWER", resolution: "0.5°", dates: "long-term mean" }}
+                    source={{ dataset: "NASA POWER", resolution: "about 50 km", dates: "long-term mean" }}
                   />
                 ) : null}
               </div>
             )}
 
             {texture ? (
-              <Panel as="div" tone="plain" className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-3">
                 <p className="m-0 text-body text-ink">
                   Texture: <span className="font-medium">{texture}</span>
                 </p>
-                {textureFits !== null ? (
-                  <RiskChip hazard={textureFits ? "healthy" : "drought"}>
-                    {textureFits ? `Suits ${cropName}` : `Not a usual fit for ${cropName}`}
-                  </RiskChip>
-                ) : null}
-              </Panel>
+                {textureFits === false ? <RiskChip hazard="drought">{`Not a usual fit for ${cropName}`}</RiskChip> : null}
+              </div>
             ) : null}
 
-            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-              Map values (SoilGrids) are model estimates for a 250 m area and are not a soil test. {data.rootWetnessPct !== undefined ? "Root-zone wetness is a long-term average from NASA POWER, a model for a regional cell, not a reading of your field. " : ""}Soil changes slowly, so these are not forecasts.
-            </p>
-            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-              {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : copy.data.sourceSoilGrids + "."}
-            </p>
-          </Panel>
+            <Disclosure title="About these soil numbers" className="border-0 bg-surface-sunken">
+              <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+                Map values (SoilGrids) are model estimates for a 250 m area and are not a soil test. {data.rootWetnessPct !== undefined ? "Root-zone wetness is a long-term average from NASA POWER, a model for a regional cell, not a reading of your field. " : ""}Soil changes slowly, so these are not forecasts.
+              </p>
+              <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+                {es?.ph?.from === "farmer" || es?.texture?.from === "farmer" || es?.organicCarbonGKg?.from === "farmer" ? copy.conditions.soilOverrideActive : copy.data.sourceSoilGrids + "."}
+              </p>
+            </Disclosure>
+          </section>
 
           <ActionBar>
             <Link href={`/fields/${field.id}/compare`} className={buttonClass("primary", "flex-1", "lg")}>
@@ -401,6 +413,8 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
               <Icon name="next" />
             </Link>
           </ActionBar>
+
+          <NextSteps fieldId={field.id} current="conditions" />
         </>
       ) : null}
     </>

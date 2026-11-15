@@ -67,11 +67,6 @@ export function mapFarmerPrioritiesToMcda(topPriorities: FarmerTopPriority[]): F
     }
   }
 
-  // Ensure default order if empty
-  if (order.length === 0) {
-    order.push("income", "water");
-  }
-
   const weights: Partial<Record<PriorityId, number>> = {};
   if (order.length === 1) {
     weights[order[0]] = 1.0;

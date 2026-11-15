@@ -204,7 +204,7 @@ export const MYANMAR_CROPS: Crop[] = [
   build({
     id: "rice",
     common: "Rice",
-    local: ["ဆန်", "Paddy"],
+    local: ["စပါး", "မိုးစပါး", "Paddy"],
     scientific: "Oryza sativa",
     family: "Poaceae",
     group: "cereal",
@@ -240,7 +240,7 @@ export const MYANMAR_CROPS: Crop[] = [
   build({
     id: "black-gram",
     common: "Black gram",
-    local: ["ပဲမတ်", "Urd bean"],
+    local: ["မတ်ပဲ", "Urd bean"],
     scientific: "Vigna mungo",
     family: "Fabaceae",
     group: "legume",
@@ -277,7 +277,7 @@ export const MYANMAR_CROPS: Crop[] = [
   build({
     id: "green-gram",
     common: "Green gram (mung bean)",
-    local: ["ပဲစင်းငုံ", "Mung bean"],
+    local: ["ပဲတီစိမ်း", "Mung bean"],
     scientific: "Vigna radiata",
     family: "Fabaceae",
     group: "legume",
@@ -421,7 +421,7 @@ export const MYANMAR_CROPS: Crop[] = [
   build({
     id: "pigeon-pea",
     common: "Pigeon pea",
-    local: ["ပဲစောင်းလျား", "Red gram"],
+    local: ["ပဲစင်းငုံ", "Red gram"],
     scientific: "Cajanus cajan",
     family: "Fabaceae",
     group: "legume",

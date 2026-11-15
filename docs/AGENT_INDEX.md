@@ -1,6 +1,7 @@
 # AI Agent Fast Reference & File Index
 
 > **Purpose:** High-density, token-efficient reference for AI agents.  
+> **Master Screen Catalog & Refinement Guide:** See [docs/SCREEN_DIRECTORY.md](docs/SCREEN_DIRECTORY.md) for complete visual screenshots, jobs-to-be-done, and per-screen agent work packages.  
 > **Rule:** Consult this index instead of reading giant documents (`PLAN.md`, `DATASET_RESEARCH_DOSSIER.md`, `UX.md`).
 
 ---

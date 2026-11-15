@@ -15,6 +15,15 @@ function save(locale: Locale, areaUnit: AreaUnit) {
   }
 }
 
+/** Burmese when the phone's language is Burmese (my, my-MM), otherwise English. */
+function phoneLocale(): Locale {
+  try {
+    return typeof navigator !== "undefined" && /^my\b/i.test(navigator.language ?? "") ? "my" : "en";
+  } catch {
+    return "en";
+  }
+}
+
 interface LocaleState {
   locale: Locale;
   areaUnit: AreaUnit;
@@ -31,12 +40,15 @@ export const useLocaleStore = create<LocaleState>((set) => ({
   areaUnit: "ha",
   hydrated: false,
   hydrate: () => {
+    let value: Partial<Pick<LocaleState, "locale" | "areaUnit">> = {};
     try {
-      const value = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Pick<LocaleState, "locale" | "areaUnit">>;
-      set({ locale: value.locale === "my" ? "my" : "en", areaUnit: value.areaUnit === "acre" ? "acre" : "ha", hydrated: true });
+      value = JSON.parse(localStorage.getItem(KEY) ?? "{}") as typeof value;
     } catch {
-      set({ hydrated: true });
+      // Unreadable saved choice: fall back to the phone's language below.
     }
+    // A saved choice always wins. Without one, a phone set to Burmese starts in Burmese.
+    const locale: Locale = value?.locale === "my" || value?.locale === "en" ? value.locale : phoneLocale();
+    set({ locale, areaUnit: value?.areaUnit === "acre" ? "acre" : "ha", hydrated: true });
   },
   setLocale: (locale) => set((s) => { save(locale, s.areaUnit); return { locale }; }),
   setAreaUnit: (areaUnit) => set((s) => { save(s.locale, areaUnit); return { areaUnit }; }),

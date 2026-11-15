@@ -5,7 +5,7 @@ import { Icon } from "@/components/ui/icon";
 import Link from "next/link";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
@@ -18,7 +18,6 @@ import { Panel } from "@/components/ui/panel";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
-import { copy } from "@/lib/copy/en";
 import { CROPS, getCropById, getDefaultTypicalDates } from "@/lib/data/crops";
 import { REGIONS } from "@/lib/data/regions";
 import {
@@ -34,6 +33,7 @@ import {
 } from "@/lib/rotation-format";
 import { rotationSchema, rotationSlotSchema } from "@/lib/schemas/rotation";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
+import { useAppCopy } from "@/lib/store/locale-store";
 import type { DateConfidence, EstablishmentMode, ResidueFate, Rotation, RotationSlot } from "@/lib/types";
 import { evaluateTransition, isRelayPairEligible } from "@/lib/engine/transition";
 import { FarmerGuidedFlow } from "./farmer-guided-flow";
@@ -152,11 +152,7 @@ function RotationCalendarRibbon({
                     return (
                       <span
                         key={i}
-                        className={cn(
-                          "border-line/40",
-                          i > 0 && "border-l",
-                          isMonsoon && "bg-water-soft/25",
-                        )}
+                        className={cn(isMonsoon && "bg-water-soft/25")}
                       />
                     );
                   })}
@@ -260,6 +256,14 @@ const ESTABLISHMENT_LABEL: Record<EstablishmentMode, string> = {
   unknown: "Sowing not set",
 };
 
+/** Botanical family and plain group, shown as a muted helper line under the crop selector (not inside the choice itself). */
+function cropFamilyLine(cropId: string): string | undefined {
+  const crop = getCropById(cropId);
+  if (!crop) return undefined;
+  const group = crop.group.replace(/-/g, " ");
+  return `${crop.family} · ${group.charAt(0).toUpperCase()}${group.slice(1)}`;
+}
+
 const RESIDUE_LABEL: Record<ResidueFate, string> = {
   retain_incorporate: "Ploughed into soil",
   retain_mulch: "Left on the surface",
@@ -268,7 +272,46 @@ const RESIDUE_LABEL: Record<ResidueFate, string> = {
   unknown: "Not sure",
 };
 
+/** How many calendar years the crops cover, from the first sowing to the last harvest (1 to 4). */
+function inferCycleYears(slots: RotationSlot[]): 1 | 2 | 3 | 4 {
+  const dated = slots.filter((s) => /^\d{4}/.test(s.plantDate) && /^\d{4}/.test(s.harvestDate));
+  if (dated.length === 0) return 1;
+  const first = Math.min(...dated.map((s) => Number(s.plantDate.slice(0, 4))));
+  const last = Math.max(...dated.map((s) => Number(s.harvestDate.slice(0, 4))));
+  return Math.min(4, Math.max(1, last - first + 1)) as 1 | 2 | 3 | 4;
+}
+
+/** The given day of the same month as `iso` (or this month when empty), kept inside the month. */
+function dayInSameMonth(iso: string, day: number): string {
+  const now = new Date();
+  const [y, m] = /^\d{4}-\d{2}/.test(iso)
+    ? [Number(iso.slice(0, 4)), Number(iso.slice(5, 7))]
+    : [now.getFullYear(), now.getMonth() + 1];
+  const last = new Date(y, m, 0).getDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(Math.min(day, last)).padStart(2, "0")}`;
+}
+
+type EditorToast = { kind: "saved" } | { kind: "removed"; name: string; previous: RotationSlot[] };
+
+/** A short message pinned above the action bar. Announced politely; "Undo" is a real button. */
+function Toast({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-x-4 bottom-[calc(var(--tabbar-h,0px)+5.5rem)] z-30 mx-auto flex max-w-md items-center justify-between gap-3 rounded-md border border-field/40 bg-surface-raised px-4 py-2 text-label text-ink shadow-md lg:bottom-6"
+    >
+      <span className="flex items-center gap-2">
+        <Icon name="done" size={18} className="shrink-0 text-field" aria-hidden />
+        {children}
+      </span>
+      {action}
+    </div>
+  );
+}
+
 export function RotationEditor({ fieldId }: { fieldId: string }) {
+  const copy = useAppCopy();
   const router = useRouter();
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
@@ -279,14 +322,23 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
   // Edit the farmer's own crops only; a saved plan is kept separately and never overwritten here.
   const ownRotation = currentRotation(rotations);
-  const hasSavedPlan = rotations.some((r) => r.source === "strategy" && r.slots.length > 0);
   const [cycleYears, setCycleYears] = useState<1 | 2 | 3 | 4>(() => ownRotation?.cycleYears ?? 1);
+  // The cycle length follows the dates unless the farmer set it by hand (or a saved rotation chose a different one).
+  const [cycleManual, setCycleManual] = useState(() => (ownRotation ? ownRotation.cycleYears !== inferCycleYears(ownRotation.slots) : false));
   const [slots, setSlots] = useState<RotationSlot[]>(() => ownRotation?.slots ?? []);
-  // Once a plan is saved, the next step is recording current crops, so open the crop list, not the planner again.
-  const [viewMode, setViewMode] = useState<"guided" | "advanced">(() => (ownRotation || hasSavedPlan ? "advanced" : "guided"));
+  // This page records what was grown. Plan ideas are a separate, smaller choice.
+  const [viewMode, setViewMode] = useState<"guided" | "advanced">("advanced");
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [toast, setToast] = useState<EditorToast | null>(null);
+  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  // Crops whose dates the farmer has touched: only then do we ask how sure they are.
+  const [editedDates, setEditedDates] = useState<Set<string>>(() => new Set());
+  // Harvest dates that moved on their own when the sowing date changed, so we can say so.
+  const [harvestMoved, setHarvestMoved] = useState<Record<string, string>>({});
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const hydratedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -294,28 +346,57 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
   useEffect(() => {
     if (!fieldId || !field) return;
+    // Take the saved rotation once per field, so a later field update never wipes edits in progress.
+    if (hydratedFor.current === fieldId) return;
+    hydratedFor.current = fieldId;
     void loadRotations(fieldId).then((loaded) => {
       const own = currentRotation(loaded);
       if (own) {
         setCycleYears(own.cycleYears);
+        setCycleManual(own.cycleYears !== inferCycleYears(own.slots));
         setSlots(own.slots);
       } else {
         const cropId = field.localNotes?.match(/\[Explore context\]:[^\n]*; crop ([^;]+);/)?.[1];
         if (cropId && getCropById(cropId)) {
           const dates = getDefaultTypicalDates(cropId, new Date().getFullYear(), field.region && field.region !== "unsupported" ? field.region : undefined);
           setSlots([{ id: crypto.randomUUID(), kind: getCropById(cropId)?.group === "cover" ? "cover" : "crop", cropId, ...dates, dateConfidence: "typical", irrigated: field.irrigation !== "none" }]);
-          setViewMode("advanced");
         }
       }
-      if (own || loaded?.some((r) => r.source === "strategy" && r.slots.length > 0)) setViewMode("advanced");
     });
   }, [fieldId, field, loadRotations]);
 
+  // Warn before the tab closes or reloads while edits are not saved. (In-app back is not intercepted.)
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // The "removed" message fades after a while; the redirect timer never outlives the page.
+  useEffect(() => {
+    if (toast?.kind !== "removed") return;
+    const t = setTimeout(() => setToast(null), 10000);
+    return () => clearTimeout(t);
+  }, [toast]);
+  useEffect(() => () => clearTimeout(redirectTimer.current), []);
+
   const regionKey = field?.region && field.region !== "unsupported" ? field.region : undefined;
   const regionName = regionKey ? REGIONS[regionKey]?.name : null;
-  const chipCropIds = regionKey ? REGIONS[regionKey].candidateCropIds : CROPS.slice(0, 8).map((c) => c.id);
+  const regionalCropIds = regionKey ? REGIONS[regionKey].candidateCropIds : [];
+  const hasRegionalCatalog = regionalCropIds.length > 0;
+  const chipCropIds = hasRegionalCatalog
+    ? regionalCropIds
+    : CROPS.filter((crop) => crop.scope === "myanmar").map((crop) => crop.id);
+  const effectiveCycle: 1 | 2 | 3 | 4 = cycleManual ? cycleYears : inferCycleYears(slots);
 
-  const markChanged = () => setSaveSuccess(false);
+  const markChanged = () => {
+    setDirty(true);
+    setToast((t) => (t?.kind === "saved" ? null : t));
+  };
 
   const clearError = (id: string) => {
     if (!errors[id]) return;
@@ -330,82 +411,51 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     clearError(id);
   };
 
+  /** Once the farmer sets a date, "App's guess" is no longer true, so it becomes "About this month" until they say otherwise. */
+  const touchedConfidence = (slot: RotationSlot, confidence?: DateConfidence): DateConfidence =>
+    confidence ?? (slot.dateConfidence === "typical" ? "approx" : slot.dateConfidence);
+
   /**
-   * Smart Date Synchronization:
-   * When planting date is updated, keep the crop's duration constant and shift harvest date in lockstep!
+   * When the sowing date changes, keep the crop's duration and move the harvest date with it.
+   * The farmer is told it moved and can still change harvest after.
    */
-  const handlePlantDateChange = (slot: RotationSlot, newPlantDate: string) => {
-    markChanged();
+  const handlePlantDateChange = (slot: RotationSlot, newPlantDate: string, confidence?: DateConfidence) => {
+    if (!newPlantDate) {
+      handleUpdateSlot(slot.id, { plantDate: newPlantDate });
+      return;
+    }
     const currentDur = daysBetween(slot.plantDate, slot.harvestDate);
     const crop = slot.cropId ? getCropById(slot.cropId) : undefined;
     const dur = currentDur > 20 ? currentDur : (crop?.cycleDays.typ ?? 100);
     const newHarvestDate = addDaysToIso(newPlantDate, dur);
 
+    setEditedDates((prev) => new Set(prev).add(slot.id));
+    setHarvestMoved((prev) => {
+      const next = { ...prev };
+      if (newHarvestDate !== slot.harvestDate) next[slot.id] = newHarvestDate;
+      else delete next[slot.id];
+      return next;
+    });
     handleUpdateSlot(slot.id, {
       plantDate: newPlantDate,
       harvestDate: newHarvestDate,
+      dateConfidence: touchedConfidence(slot, confidence),
     });
   };
 
-  /**
-   * Smart Adding of the Next Crop:
-   * Automatically starts 2 weeks after the last crop finishes to avoid collisions!
-   */
-  const handleAddSlot = () => {
-    markChanged();
-    const nextRegion = regionKey;
-    const nextCropId = nextRegion
-      ? (REGIONS[nextRegion].candidateCropIds[slots.length % REGIONS[nextRegion].candidateCropIds.length] ?? "chickpea")
-      : "chickpea";
-
-    let plantDate = "";
-    let harvestDate = "";
-    const baseYear = new Date().getFullYear();
-
-    if (slots.length > 0) {
-      // Find latest harvest date among existing slots
-      const sorted = [...slots].sort((a, b) => a.harvestDate.localeCompare(b.harvestDate));
-      const lastSlot = sorted[sorted.length - 1];
-      plantDate = addDaysToIso(lastSlot.harvestDate, 14);
-      const crop = getCropById(nextCropId);
-      const dur = crop ? crop.cycleDays.typ : 90;
-      harvestDate = addDaysToIso(plantDate, dur);
-
-      // Check if it spills into a new calendar year
-      const firstYear = Math.min(...slots.map((s) => Number(s.plantDate.slice(0, 4)) || baseYear));
-      const endYear = Number(harvestDate.slice(0, 4));
-      const spanYears = Math.min(4, Math.max(1, endYear - firstYear + 1)) as 1 | 2 | 3 | 4;
-      if (spanYears > cycleYears) {
-        setCycleYears(spanYears);
-      }
-    } else {
-      const def = getDefaultTypicalDates(nextCropId, baseYear, nextRegion);
-      plantDate = def.plantDate;
-      harvestDate = def.harvestDate;
-    }
-
-    setSlots([
-      ...slots,
-      {
-        id: crypto.randomUUID(),
-        kind: "crop",
-        cropId: nextCropId,
-        plantDate,
-        harvestDate,
-        dateConfidence: "typical",
-        irrigated: field?.irrigation !== "none",
-      },
-    ]);
+  const handleHarvestDateChange = (slot: RotationSlot, newHarvestDate: string) => {
+    setEditedDates((prev) => new Set(prev).add(slot.id));
+    setHarvestMoved((prev) => {
+      const next = { ...prev };
+      delete next[slot.id];
+      return next;
+    });
+    handleUpdateSlot(slot.id, { harvestDate: newHarvestDate, dateConfidence: touchedConfidence(slot) });
   };
 
-  /** Tapping a quick crop chip adds it sequentially without overlap */
-  const toggleCrop = (cropId: string) => {
+  /** Adds a crop after the last one, starting two weeks after it finishes so the dates do not collide. */
+  const appendSlot = (cropId: string) => {
     markChanged();
-    if (slots.some((x) => x.cropId === cropId)) {
-      setSlots(slots.filter((x) => x.cropId !== cropId));
-      return;
-    }
-
     const baseYear = new Date().getFullYear();
     let plantDate = "";
     let harvestDate = "";
@@ -415,15 +465,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
       const last = sorted[sorted.length - 1];
       plantDate = addDaysToIso(last.harvestDate, 14);
       const crop = getCropById(cropId);
-      const dur = crop ? crop.cycleDays.typ : 90;
-      harvestDate = addDaysToIso(plantDate, dur);
-
-      const firstYear = Math.min(...slots.map((s) => Number(s.plantDate.slice(0, 4)) || baseYear));
-      const endYear = Number(harvestDate.slice(0, 4));
-      const spanYears = Math.min(4, Math.max(1, endYear - firstYear + 1)) as 1 | 2 | 3 | 4;
-      if (spanYears > cycleYears) {
-        setCycleYears(spanYears);
-      }
+      harvestDate = addDaysToIso(plantDate, crop ? crop.cycleDays.typ : 90);
     } else {
       const chosen = getDefaultTypicalDates(cropId, baseYear, regionKey);
       plantDate = chosen.plantDate;
@@ -444,9 +486,30 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     ]);
   };
 
+  /** "Add another crop": picks the next crop in the regional list. The farmer changes it in the card. */
+  const handleAddSlot = () => {
+    const availableCropIds = regionKey ? REGIONS[regionKey].candidateCropIds : chipCropIds;
+    const nextCropId = availableCropIds[slots.length % availableCropIds.length];
+    if (!nextCropId) {
+      setErrors({ _form: "Choose a crop from the list above. There is no regional default for this location." });
+      return;
+    }
+    appendSlot(nextCropId);
+  };
+
+  /** A crop chip only adds. A crop that is already in the list is taken to its card; removing is the card's own button. */
+  const handleChip = (cropId: string) => {
+    const existing = slots.find((x) => x.cropId === cropId);
+    if (!existing) {
+      appendSlot(cropId);
+      return;
+    }
+    const card = document.getElementById(`slot-card-${existing.id}`);
+    card?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  };
+
   /** Applies a seasonal sowing window preset */
   const applySeasonPreset = (slot: RotationSlot, season: "monsoon" | "winter" | "summer") => {
-    markChanged();
     const crop = slot.cropId ? getCropById(slot.cropId) : undefined;
     const dur = crop ? crop.cycleDays.typ : 90;
     const year = parseInt(slot.plantDate.slice(0, 4), 10) || new Date().getFullYear();
@@ -468,13 +531,12 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     });
   };
 
-  /** Resolves an overlap by shifting this slot to start right after previous harvest */
+  /** Resolves an overlap by shifting this slot to start two weeks after the previous harvest */
   const shiftAfterPrevious = (slotId: string, prevHarvestDate: string) => {
-    markChanged();
     const slot = slots.find((s) => s.id === slotId);
     if (!slot) return;
     const dur = daysBetween(slot.plantDate, slot.harvestDate) || 90;
-    const newPlantDate = addDaysToIso(prevHarvestDate, 7);
+    const newPlantDate = addDaysToIso(prevHarvestDate, 14);
     const newHarvestDate = addDaysToIso(newPlantDate, dur);
 
     handleUpdateSlot(slotId, {
@@ -490,18 +552,36 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     }
     const year = parseInt(slot.plantDate.slice(0, 4), 10) || new Date().getFullYear();
     const dates = getDefaultTypicalDates(value, year, regionKey);
+    // The dates are replaced by the usual ones, so they are the app's guess again.
+    setEditedDates((prev) => {
+      const next = new Set(prev);
+      next.delete(slot.id);
+      return next;
+    });
     handleUpdateSlot(slot.id, {
       kind: getCropById(value)?.group === "cover" ? "cover" : "crop",
       cropId: value,
       plantDate: dates.plantDate,
       harvestDate: dates.harvestDate,
+      dateConfidence: "typical",
     });
   };
 
+  /** Removing is explicit, and always offers Undo with the exact list as it was. */
   const handleRemoveSlot = (id: string) => {
+    const target = slots.find((s) => s.id === id);
+    if (!target) return;
     markChanged();
+    setToast({ kind: "removed", name: slotName(target), previous: slots });
     setSlots(slots.filter((s) => s.id !== id));
     clearError(id);
+  };
+
+  const handleUndoRemove = () => {
+    if (toast?.kind !== "removed") return;
+    markChanged();
+    setSlots(toast.previous);
+    setToast(null);
   };
 
   const validate = (): boolean => {
@@ -519,22 +599,28 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
     return Object.keys(next).length === 0;
   };
 
-  const handleSave = async (navigateToConditions = false) => {
+  /** Leaves for the answer after a short pause, so "Saved" is on screen first. */
+  const goToAnswerSoon = () => {
+    setLeaving(true);
+    redirectTimer.current = setTimeout(() => router.push(`/fields/${fieldId}/compare`), 900);
+  };
+
+  const handleSave = async (thenSeeAnswer: boolean) => {
     if (!validate() || !field) return;
     setSaving(true);
-    setSaveSuccess(false);
     try {
       const record: Rotation = {
         id: ownRotation?.id ?? crypto.randomUUID(),
         fieldId: field.id,
         label: `${field.name} rotation`,
-        cycleYears,
+        cycleYears: effectiveCycle,
         slots,
         source: "farmer",
       };
       await saveRotation(rotationSchema.parse(record));
-      setSaveSuccess(true);
-      if (navigateToConditions) router.push(`/fields/${field.id}/compare`);
+      setDirty(false);
+      setToast({ kind: "saved" });
+      if (thenSeeAnswer) goToAnswerSoon();
     } catch (e) {
       setErrors({ _form: e instanceof Error ? e.message : "Couldn't save the rotation. Try again." });
     } finally {
@@ -554,16 +640,27 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
 
   if (!field) {
     return (
-      <EmptyState
-        title="Field not found"
-        body="This field isn't saved in your browser storage. Check your saved fields on the home page."
-      >
+      <EmptyState title={copy.rotation.fieldMissingTitle} body={copy.rotation.fieldMissingBody}>
         <Link href="/" className={buttonClass("primary")}>
-          Back to your fields
+          {copy.rotation.fieldMissingBack}
         </Link>
       </EmptyState>
     );
   }
+
+  const modeButton = (mode: "guided" | "advanced", label: string) => (
+    <button
+      type="button"
+      onClick={() => setViewMode(mode)}
+      aria-pressed={viewMode === mode}
+      className={cn(
+        "min-h-tap cursor-pointer rounded-md px-3 py-1.5 text-body-sm font-medium transition-colors",
+        viewMode === mode ? "bg-surface-raised text-field shadow-sm" : "text-ink-muted hover:bg-surface-raised hover:text-ink",
+      )}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <>
@@ -578,69 +675,39 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
         </Message>
       ) : null}
 
-      <section aria-labelledby="editor-mode" className="flex flex-col gap-2 border-b border-line pb-4">
-        <div className="flex flex-col gap-0.5">
-          <h2 id="editor-mode" className="text-label font-semibold text-ink">How would you like to add crops?</h2>
-          <p className="m-0 text-body-sm text-ink-muted">Start with guided questions, or edit every date and field detail yourself.</p>
-        </div>
-        <div className="grid grid-cols-2 rounded-lg border border-line bg-surface-sunken p-1">
-          <button
-            type="button"
-            onClick={() => setViewMode("guided")}
-            aria-pressed={viewMode === "guided"}
-            className={cn(
-              "flex min-h-tap cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-label font-medium transition-colors",
-              viewMode === "guided"
-                ? "bg-surface-raised text-field shadow-sm"
-                : "text-ink-muted hover:bg-surface-raised hover:text-ink",
-            )}
-          >
-            <Icon name="rotation" size={17} />
-            Guided
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("advanced")}
-            aria-pressed={viewMode === "advanced"}
-            className={cn(
-              "flex min-h-tap cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-label font-medium transition-colors",
-              viewMode === "advanced"
-                ? "bg-surface-raised text-field shadow-sm"
-                : "text-ink-muted hover:bg-surface-raised hover:text-ink",
-            )}
-          >
-            <Icon name="priorities" size={17} />
-            Detailed
-          </button>
-        </div>
-      </section>
+      {/* A small switch: this page records what was grown; plan ideas are the other, smaller job. */}
+      <div role="group" aria-label={copy.rotation.modeLabel} className="inline-flex w-fit max-w-full flex-wrap rounded-lg border border-line bg-surface-sunken p-0.5">
+        {modeButton("advanced", copy.rotation.modeRecord)}
+        {modeButton("guided", copy.rotation.modePlan)}
+      </div>
 
       {viewMode === "guided" ? (
         <FarmerGuidedFlow
           field={field}
           currentSlots={slots}
-          cycleYears={cycleYears}
+          cycleYears={effectiveCycle}
           onApplyPlan={async (newSlots: RotationSlot[], newCycle: 1 | 2 | 3 | 4) => {
             await saveRotation(rotationSchema.parse({
               id: `guided-plan-${field.id}`, fieldId: field.id,
               label: `${field.name} draft plan`, cycleYears: newCycle, slots: newSlots, source: "strategy",
             }));
-            markChanged();
             setSlots(newSlots);
             setCycleYears(newCycle);
-            setSaveSuccess(true);
-            router.push(`/fields/${field.id}/compare`);
+            setCycleManual(newCycle !== inferCycleYears(newSlots));
+            goToAnswerSoon();
           }}
           onSwitchToAdvanced={() => setViewMode("advanced")}
         />
       ) : (
         <>
-          {/* Quick Crop Selector Chips */}
+          {/* Quick Crop Selector Chips: they only add. Removing is the card's own button. */}
           <Panel as="section" aria-labelledby="quick-crops" className="flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 id="quick-crops" className="m-0 text-headline text-ink">{copy.rotation.quickTitle}</h2>
           {regionName ? (
-            <span className="text-source text-ink-muted">Regional crops for {regionName}</span>
+            <span className="text-source text-ink-muted">
+              {hasRegionalCatalog ? `Regional crops for ${regionName}` : `Crop library · no regional comparisons for ${regionName}`}
+            </span>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -651,7 +718,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                 key={id}
                 type="button"
                 aria-pressed={on}
-                onClick={() => toggleCrop(id)}
+                onClick={() => handleChip(id)}
                 className={cn(
                   "inline-flex min-h-tap cursor-pointer items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-label font-medium transition-colors",
                   on ? "bg-field text-on-field" : "border border-line bg-surface text-ink hover:border-line-strong",
@@ -663,24 +730,16 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
             );
           })}
         </div>
-        <p className="m-0 text-body-sm text-ink-muted">
-          Tap a crop to add it to your calendar with typical regional dates. Tap again to remove it.
-        </p>
+        <p className="m-0 text-body-sm text-ink-muted">{copy.rotation.quickHelp}</p>
       </Panel>
 
       {/* Crop Slot Cards List */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col">
-            <h2 className="text-headline text-ink">Crop sequence & dates</h2>
-            <p className="text-body-sm text-ink-muted">
-              Adjust sowing and harvest dates to match your real seasonal practice.
-            </p>
-          </div>
-          <Button variant="secondary" onClick={handleAddSlot} className="w-full sm:w-fit">
-            <PlusGlyph />
-            <span>{slots.length === 1 ? "Add crop 2" : copy.rotation.addCrop}</span>
-          </Button>
+        <div className="flex flex-col">
+          <h2 className="text-headline text-ink">Crop sequence & dates</h2>
+          <p className="text-body-sm text-ink-muted">
+            Adjust sowing and harvest dates to match your real seasonal practice.
+          </p>
         </div>
 
         {slots.length > 0 ? (
@@ -704,20 +763,21 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
             <details className="group rounded-md border border-line bg-surface">
               <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 px-4 text-label font-medium text-field [&::-webkit-details-marker]:hidden">
                 <ChevronRightGlyph className="transition-transform group-open:rotate-90" />
-                Show seasonal timeline and cycle length
-                <span className="ml-auto text-source font-normal text-ink-muted">{copy.rotation.cycleYearsOption(cycleYears)}</span>
+                {copy.rotation.advancedTimeline}
+                <span className="ml-auto text-source font-normal text-ink-muted">{copy.rotation.cycleYearsOption(effectiveCycle)}</span>
               </summary>
               <div className="flex flex-col gap-4 border-t border-line p-4">
           <Panel as="div" className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-label font-medium text-ink">Rotation cycle length</span>
-              <span className="text-body-sm text-ink-muted">How many years does your full crop cycle take to repeat?</span>
+              <span className="text-body-sm text-ink-muted">Worked out from your dates. Change it only if your crops repeat over a different number of years.</span>
             </div>
             <Segmented
               legend={copy.rotation.cycleYearsLabel}
-              value={cycleYears.toString()}
+              value={effectiveCycle.toString()}
               onChange={(val) => {
                 markChanged();
+                setCycleManual(true);
                 setCycleYears(parseInt(val, 10) as 1 | 2 | 3 | 4);
               }}
               options={[1, 2, 3, 4].map((y) => ({ value: String(y), label: copy.rotation.cycleYearsOption(y) }))}
@@ -725,7 +785,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
             />
           </Panel>
 
-          <RotationCalendarRibbon slots={slots} cycleYears={cycleYears} />
+          <RotationCalendarRibbon slots={slots} cycleYears={effectiveCycle} />
 
               </div>
             </details>
@@ -741,10 +801,6 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
               <p className="text-headline text-ink">{copy.rotation.emptyTitle}</p>
               <p className="max-w-measure text-body-sm text-ink-muted">{copy.rotation.emptyNotice}</p>
             </div>
-            <Button variant="primary" onClick={handleAddSlot}>
-              <PlusGlyph />
-              <span>Add your first crop</span>
-            </Button>
           </Panel>
         ) : (
           <ol className="m-0 flex list-none flex-col gap-4 p-0">
@@ -754,6 +810,9 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
               const crop = slot.cropId ? getCropById(slot.cropId) : undefined;
               const duration = daysBetween(slot.plantDate, slot.harvestDate);
               const isSuggested = !isFallow && slot.dateConfidence === "typical";
+              // Ask how sure the dates are only once the farmer has touched them (or a saved answer exists).
+              const showConfidence = !isFallow && (editedDates.has(slot.id) || slot.dateConfidence !== "typical");
+              const plantMonth = MONTH_NAMES[(Number(/^\d{4}-\d{2}/.test(slot.plantDate) ? slot.plantDate.slice(5, 7) : new Date().getMonth() + 1) || 1) - 1];
 
               // Evaluate safe transition rules (Prompt 1, Prompt 4)
               const prevSlot = index > 0 ? slots[index - 1] : null;
@@ -764,7 +823,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
               const regionalCal = regionKey ? crop?.profile?.regionalCalendars[regionKey] : undefined;
 
               return (
-                <li key={slot.id}>
+                <li key={slot.id} id={`slot-card-${slot.id}`}>
                   <Panel
                     as="div"
                     aria-label={`${copy.rotation.slotBadge(index)}: ${slotName(slot)}`}
@@ -798,16 +857,14 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                           ) : null}
                         </div>
                       </div>
-                      {slots.length > 1 ? (
-                        <Button
-                          variant="quiet"
-                          onClick={() => handleRemoveSlot(slot.id)}
-                          className="shrink-0 text-heat hover:bg-heat-soft"
-                          aria-label={`${copy.rotation.removeCrop}: ${slotName(slot)}`}
-                        >
-                          {copy.rotation.removeCrop}
-                        </Button>
-                      ) : null}
+                      <Button
+                        variant="quiet"
+                        onClick={() => handleRemoveSlot(slot.id)}
+                        className="shrink-0 text-heat hover:bg-heat-soft"
+                        aria-label={`${copy.rotation.removeCrop}: ${slotName(slot)}`}
+                      >
+                        {copy.rotation.removeCrop}
+                      </Button>
                     </div>
 
                     {slotError ? (
@@ -835,7 +892,6 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                               type="button"
                               variant="secondary"
                               onClick={() => {
-                                markChanged();
                                 const dur = daysBetween(slot.plantDate, slot.harvestDate) || 90;
                                 const newPlant = addDaysToIso(prevSlot.harvestDate, -7);
                                 handleUpdateSlot(slot.id, {
@@ -846,7 +902,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                               }}
                               className="text-label"
                             >
-                              Snap to Relay (-7d)
+                              {copy.rotation.relayFix(shortSlotName(prevSlot))}
                             </Button>
                           ) : null}
                           <Button
@@ -855,7 +911,7 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                             onClick={() => shiftAfterPrevious(slot.id, prevSlot.harvestDate)}
                             className="text-label"
                           >
-                            Start after {shortSlotName(prevSlot)} (+14d)
+                            {copy.rotation.startAfterFix(shortSlotName(prevSlot))}
                           </Button>
                         </>
                         }
@@ -864,113 +920,33 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                       </Message>
                     ) : null}
 
-                    {/* Crop Selection & Variety */}
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <TextField
-                        select
-                        label={copy.rotation.cropLabel}
-                        value={isFallow ? "fallow" : (slot.cropId ?? "")}
-                        onChange={(e) => handleCropChange(slot, e.target.value)}
-                        size="small"
-                        fullWidth
-                      >
-                        <MenuItem value="" disabled>
-                          {copy.rotation.selectCropPrompt}
-                        </MenuItem>
-                        {CROPS.map((c) => {
-                          const local = c.names.local?.[0] ? ` (${c.names.local[0]})` : "";
-                          const ref = c.scope === "reference-only" ? " (reference only)" : "";
-                          return (
-                            <MenuItem key={c.id} value={c.id}>
-                              <span className="flex items-baseline gap-1.5">
-                                <span>{c.names.common}{local}{ref}</span>
-                                <span className="text-source text-ink-muted">({c.family})</span>
-                              </span>
-                            </MenuItem>
-                          );
-                        })}
-                        <MenuItem value="fallow">{copy.rotation.fallowOption}</MenuItem>
-                      </TextField>
+                    {/* Crop */}
+                    <TextField
+                      select
+                      label={copy.rotation.cropLabel}
+                      value={isFallow ? "fallow" : (slot.cropId ?? "")}
+                      onChange={(e) => handleCropChange(slot, e.target.value)}
+                      size="small"
+                      fullWidth
+                      helperText={!isFallow && slot.cropId ? cropFamilyLine(slot.cropId) : undefined}
+                    >
+                      <MenuItem value="" disabled>
+                        {copy.rotation.selectCropPrompt}
+                      </MenuItem>
+                      {CROPS.map((c) => {
+                        const local = c.names.local?.[0] ? ` · ${c.names.local[0]}` : "";
+                        const ref = c.scope === "reference-only" ? " (reference only)" : "";
+                        return (
+                          <MenuItem key={c.id} value={c.id}>
+                            {c.names.common}{local}{ref}
+                          </MenuItem>
+                        );
+                      })}
+                      <MenuItem value="fallow">{copy.rotation.fallowOption}</MenuItem>
+                    </TextField>
 
-                      {!isFallow ? (
-                        <TextField
-                          label={copy.rotation.varietyLabel}
-                          placeholder={copy.rotation.varietyPlaceholder}
-                          value={slot.variety ?? ""}
-                          onChange={(e) => handleUpdateSlot(slot.id, { variety: e.target.value })}
-                          size="small"
-                          fullWidth
-                        />
-                      ) : null}
-                    </div>
-
-                    {/* Quick Seasonal Presets (Monsoon / Winter / Summer) */}
-                    {!isFallow ? (
-                      <div className="flex flex-col gap-1.5 rounded-md border border-line bg-surface-sunken p-2.5">
-                        <span className="text-source font-medium text-ink-muted">Quick seasonal dates</span>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => applySeasonPreset(slot, "monsoon")}
-                            className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
-                          >
-                            <Icon name="calendar" size={15} />
-                            <span>Monsoon · Jun–Oct</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applySeasonPreset(slot, "winter")}
-                            className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
-                          >
-                            <Icon name="calendar" size={15} />
-                            <span>Winter · Oct–Feb</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applySeasonPreset(slot, "summer")}
-                            className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
-                          >
-                            <Icon name="calendar" size={15} />
-                            <span>Summer · Feb–May</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* Dates Pickers with Synchronized Duration */}
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <TextField
-                        type="date"
-                        label={copy.rotation.plantDateLabel}
-                        value={slot.plantDate}
-                        onChange={(e) => handlePlantDateChange(slot, e.target.value)}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        helperText={isSuggested ? "Suggested from the usual season. Change it to your real date." : "Changing planting date automatically maintains crop duration"}
-                        size="small"
-                        fullWidth
-                      />
-                      <TextField
-                        type="date"
-                        label={copy.rotation.harvestDateLabel}
-                        value={slot.harvestDate}
-                        onChange={(e) => handleUpdateSlot(slot.id, { harvestDate: e.target.value })}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        helperText={`${duration} days total in ground`}
-                        size="small"
-                        fullWidth
-                      />
-                    </div>
-
-                    {/* Regional Agronomic Window Tip if available */}
-                    {regionalCal ? (
-                      <p className="m-0 flex items-start gap-1.5 text-source text-ink-muted">
-                        <Icon name="estimate" size={15} className="mt-0.5 shrink-0" />
-                        <span>Regional calendar for {regionName}: sowing is usually between {formatDay(`2026-${regionalCal.sowWindow[0]}`)} and {formatDay(`2026-${regionalCal.sowWindow[1]}`)} ({regionalCal.durationDays[0]}–{regionalCal.durationDays[1]} days).</span>
-                      </p>
-                    ) : null}
-
-                    {/* Date certainty stays with the dates */}
-                    {!isFallow ? (
+                    {/* How sure the farmer is comes before the dates, and appears once a date has been edited */}
+                    {showConfidence ? (
                       <Segmented
                         legend={copy.rotation.dateConfidenceLabel}
                         value={slot.dateConfidence}
@@ -983,37 +959,135 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                       />
                     ) : null}
 
-                    {/* Field practices, grouped and shown only where they apply */}
+                    {/* Dates Pickers with Synchronized Duration */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <TextField
+                        type="date"
+                        label={copy.rotation.plantDateLabel}
+                        value={slot.plantDate}
+                        onChange={(e) => handlePlantDateChange(slot, e.target.value)}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                        helperText={isSuggested ? "Suggested from the usual season. Change it to your real date." : copy.rotation.plantDateHelp}
+                        size="small"
+                        fullWidth
+                      />
+                      <TextField
+                        type="date"
+                        label={copy.rotation.harvestDateLabel}
+                        value={slot.harvestDate}
+                        onChange={(e) => handleHarvestDateChange(slot, e.target.value)}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                        helperText={`${duration} days total in ground`}
+                        size="small"
+                        fullWidth
+                      />
+                    </div>
+
+                    {harvestMoved[slot.id] && harvestMoved[slot.id] === slot.harvestDate ? (
+                      <p role="status" className="m-0 flex items-center gap-1.5 text-body-sm font-medium text-field">
+                        <Icon name="next" size={15} aria-hidden />
+                        {copy.rotation.harvestMoved(formatDay(slot.harvestDate))}
+                      </p>
+                    ) : null}
+
+                    {/* Month-part chips for farmers who remember "early June", not the day */}
                     {!isFallow ? (
-                      <details className="group rounded-md border border-line" open={transition?.status === "relay" || undefined}>
-                        <summary className="flex min-h-tap cursor-pointer list-none flex-wrap items-center gap-x-2 px-3 text-label font-medium text-field [&::-webkit-details-marker]:hidden">
-                          <ChevronRightGlyph className="transition-transform group-open:rotate-90" />
-                          Field practices
+                      <div role="group" aria-label={copy.rotation.monthPartLabel} className="flex flex-wrap items-center gap-2">
+                        <span className="text-source text-ink-muted">{copy.rotation.monthPartLabel}</span>
+                        {([
+                          [copy.rotation.monthEarly, 5],
+                          [copy.rotation.monthMid, 15],
+                          [copy.rotation.monthLate, 25],
+                        ] as const).map(([label, day]) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => handlePlantDateChange(slot, dayInSameMonth(slot.plantDate, day), "approx")}
+                            className="inline-flex min-h-tap cursor-pointer items-center rounded-pill border border-line bg-surface px-3 text-source font-medium text-ink hover:border-field hover:text-field"
+                          >
+                            {label} {plantMonth}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* Regional Agronomic Window Tip if available */}
+                    {regionalCal ? (
+                      <p className="m-0 flex items-start gap-1.5 text-source text-ink-muted">
+                        <Icon name="estimate" size={15} className="mt-0.5 shrink-0" />
+                        <span>Regional calendar for {regionName}: sowing is usually between {formatDay(`2026-${regionalCal.sowWindow[0]}`)} and {formatDay(`2026-${regionalCal.sowWindow[1]}`)} ({regionalCal.durationDays[0]}–{regionalCal.durationDays[1]} days).</span>
+                      </p>
+                    ) : null}
+
+                    {!isFallow ? (
+                      <div className="flex flex-col">
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={slot.irrigated}
+                              onChange={(e) => handleUpdateSlot(slot.id, { irrigated: e.target.checked })}
+                              color="primary"
+                            />
+                          }
+                          label={<span className="text-label text-ink">{copy.rotation.irrigatedLabel}</span>}
+                        />
+                        <span className="text-body-sm text-ink-muted">{copy.rotation.irrigatedHelp}</span>
+                      </div>
+                    ) : null}
+
+                    {/* Everything optional, in one place */}
+                    <details className="group rounded-md border border-line" open={transition?.status === "relay" || Boolean(slot.notes) || undefined}>
+                      <summary className="flex min-h-tap cursor-pointer list-none flex-wrap items-center gap-x-2 px-3 text-label font-medium text-field [&::-webkit-details-marker]:hidden">
+                        <ChevronRightGlyph className="transition-transform group-open:rotate-90" />
+                        {copy.rotation.moreDetails}
+                        {!isFallow ? (
                           <span className="text-source font-normal text-ink-muted">
                             {[
-                              slot.irrigated ? "Irrigated" : "Rain-fed",
                               ESTABLISHMENT_LABEL[slot.establishmentMode ?? "tillage"],
                               slot.residueFate && slot.residueFate !== "unknown" ? RESIDUE_LABEL[slot.residueFate] : null,
                             ]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
-                        </summary>
-                        <div className="flex flex-col gap-4 border-t border-line p-3">
-                          <div className="flex flex-col">
-                            <FormControlLabel
-                              control={
-                                <Switch
-                                  checked={slot.irrigated}
-                                  onChange={(e) => handleUpdateSlot(slot.id, { irrigated: e.target.checked })}
-                                  color="primary"
-                                />
-                              }
-                              label={<span className="text-label text-ink">{copy.rotation.irrigatedLabel}</span>}
-                            />
-                            <span className="text-body-sm text-ink-muted">{copy.rotation.irrigatedHelp}</span>
-                          </div>
+                        ) : null}
+                      </summary>
+                      <div className="flex flex-col gap-4 border-t border-line p-3">
+                        {!isFallow ? (
+                          <TextField
+                            label={copy.rotation.varietyLabel}
+                            placeholder={copy.rotation.varietyPlaceholder}
+                            value={slot.variety ?? ""}
+                            onChange={(e) => handleUpdateSlot(slot.id, { variety: e.target.value })}
+                            size="small"
+                            fullWidth
+                          />
+                        ) : null}
 
+                        {/* Quick Seasonal Presets (Monsoon / Winter / Summer) */}
+                        {!isFallow ? (
+                          <div className="flex flex-col gap-1.5 rounded-md border border-line bg-surface-sunken p-2.5">
+                            <span className="text-source font-medium text-ink-muted">Quick seasonal dates</span>
+                            <div className="flex flex-wrap gap-2">
+                              {([
+                                ["monsoon", "Monsoon · Jun–Oct"],
+                                ["winter", "Winter · Oct–Feb"],
+                                ["summer", "Summer · Feb–May"],
+                              ] as const).map(([season, label]) => (
+                                <button
+                                  key={season}
+                                  type="button"
+                                  onClick={() => applySeasonPreset(slot, season)}
+                                  className="inline-flex min-h-tap cursor-pointer items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-source font-medium text-ink hover:border-field hover:text-field"
+                                >
+                                  <Icon name="calendar" size={15} />
+                                  <span>{label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {!isFallow ? (
                           <div className="grid gap-3 sm:grid-cols-2">
                             <TextField
                               select
@@ -1046,47 +1120,40 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
                               <MenuItem value="unknown">Not sure</MenuItem>
                             </TextField>
                           </div>
+                        ) : null}
 
-                          {/* Drainage matters when this crop follows flooded paddy */}
-                          {prevSlot?.cropId === "rice" || (slot.farmerObservedDrainage && slot.farmerObservedDrainage !== "adequate") ? (
-                            <TextField
-                              select
-                              label={prevSlot?.cropId === "rice" ? "Drainage after the rice harvest" : "Observed drainage"}
-                              value={slot.farmerObservedDrainage ?? "adequate"}
-                              onChange={(e) =>
-                                handleUpdateSlot(slot.id, {
-                                  farmerObservedDrainage: e.target.value as "waterlogged" | "adequate" | "dry" | "unknown",
-                                })
-                              }
-                              size="small"
-                              fullWidth
-                            >
-                              <MenuItem value="adequate">Drains well</MenuItem>
-                              <MenuItem value="waterlogged">Stays wet or waterlogged</MenuItem>
-                              <MenuItem value="dry">Dries out quickly</MenuItem>
-                              <MenuItem value="unknown">Not sure</MenuItem>
-                            </TextField>
-                          ) : null}
-                        </div>
-                      </details>
-                    ) : null}
+                        {/* Drainage matters when this crop follows flooded paddy */}
+                        {!isFallow && (prevSlot?.cropId === "rice" || (slot.farmerObservedDrainage && slot.farmerObservedDrainage !== "adequate")) ? (
+                          <TextField
+                            select
+                            label={prevSlot?.cropId === "rice" ? "Drainage after the rice harvest" : "Observed drainage"}
+                            value={slot.farmerObservedDrainage ?? "adequate"}
+                            onChange={(e) =>
+                              handleUpdateSlot(slot.id, {
+                                farmerObservedDrainage: e.target.value as "waterlogged" | "adequate" | "dry" | "unknown",
+                              })
+                            }
+                            size="small"
+                            fullWidth
+                          >
+                            <MenuItem value="adequate">Drains well</MenuItem>
+                            <MenuItem value="waterlogged">Stays wet or waterlogged</MenuItem>
+                            <MenuItem value="dry">Dries out quickly</MenuItem>
+                            <MenuItem value="unknown">Not sure</MenuItem>
+                          </TextField>
+                        ) : null}
 
-                    {/* Notes disclosure */}
-                    <details className="group" open={Boolean(slot.notes) || undefined}>
-                      <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-label text-field [&::-webkit-details-marker]:hidden">
-                        <ChevronRightGlyph className="transition-transform group-open:rotate-90" />
-                        {copy.rotation.notesLabel}
-                      </summary>
-                      <TextField
-                        placeholder={copy.rotation.notesPlaceholder}
-                        value={slot.notes ?? ""}
-                        onChange={(e) => handleUpdateSlot(slot.id, { notes: e.target.value })}
-                        multiline
-                        rows={2}
-                        size="small"
-                        fullWidth
-                        slotProps={{ htmlInput: { "aria-label": copy.rotation.notesLabel } }}
-                      />
+                        <TextField
+                          label={copy.rotation.notesLabel}
+                          placeholder={copy.rotation.notesPlaceholder}
+                          value={slot.notes ?? ""}
+                          onChange={(e) => handleUpdateSlot(slot.id, { notes: e.target.value })}
+                          multiline
+                          rows={2}
+                          size="small"
+                          fullWidth
+                        />
+                      </div>
                     </details>
                   </Panel>
                 </li>
@@ -1094,21 +1161,51 @@ export function RotationEditor({ fieldId }: { fieldId: string }) {
             })}
           </ol>
         )}
+
+        {/* The one place to add more crops once there is at least one */}
+        {slots.length > 0 ? (
+          <Button variant="secondary" onClick={handleAddSlot} className="w-full sm:w-fit">
+            <PlusGlyph />
+            <span>{copy.rotation.addAnother}</span>
+          </Button>
+        ) : null}
       </div>
 
-      {/* Save Success Notice */}
-      {saveSuccess ? (
-        <Message tone="success" role="status" title={copy.rotation.savedNotice} />
+      {/* Saved / removed confirmations. Both are announced; Undo is a real button. */}
+      {toast?.kind === "saved" ? <Toast>{copy.rotation.savedNotice}</Toast> : null}
+      {toast?.kind === "removed" ? (
+        <Toast
+          action={
+            <button
+              type="button"
+              onClick={handleUndoRemove}
+              className="min-h-tap shrink-0 cursor-pointer rounded-md px-3 text-label font-semibold text-field hover:bg-field-soft"
+            >
+              {copy.rotation.undo}
+            </button>
+          }
+        >
+          {copy.rotation.removedToast(toast.name)}
+        </Toast>
       ) : null}
+      {dirty && !toast ? <p className="m-0 text-body-sm text-ink-muted">{copy.rotation.unsavedHint}</p> : null}
 
-      {/* Primary Bottom Action Bar */}
+      {/* Bottom action bar: [secondary] [primary] */}
       <ActionBar>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => void handleSave(false)}
+          disabled={saving || leaving || slots.length === 0}
+        >
+          {copy.rotation.saveAndStay}
+        </Button>
         <Button
           variant="primary"
           size="lg"
           iconEnd="next"
           onClick={() => void handleSave(true)}
-          disabled={saving || slots.length === 0}
+          disabled={saving || leaving || slots.length === 0}
         >
           {copy.rotation.saveAndNext}
         </Button>

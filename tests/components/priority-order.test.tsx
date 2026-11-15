@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
-import { PriorityOrder, influenceWords, orderSummary } from "@/components/field/priority-order";
+import { PRIORITY_INFO, PriorityOrder, influenceWords, orderSummary } from "@/components/field/priority-order";
+import { copy } from "@/lib/copy/en";
 import { priorityWeights } from "@/lib/engine/mcda";
 import type { PriorityId } from "@/lib/types";
 
@@ -30,8 +31,16 @@ describe("PriorityOrder", () => {
     expect(latest).toEqual(["water", "income", "soil"]);
     expect((screen.getByRole("button", { name: "Move up: Save water" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("status").textContent).toContain("Earn more is now second");
-    fireEvent.click(screen.getByRole("button", { name: "Remove: Improve soil" }));
+    fireEvent.click(screen.getByRole("button", { name: "Not important: Improve soil" }));
     expect(latest).toEqual(["water", "income"]);
+    expect(screen.getByRole("status").textContent).toContain("Improve soil is now marked not important");
+  });
+
+  test("one priority has one name: the same label the rest of the app uses", () => {
+    render(<Harness start={["lower-inputs"]} />);
+    expect(screen.getByText(copy.profile.priority["lower-inputs"])).toBeTruthy();
+    expect(screen.queryByText("Use less nitrogen fertiliser")).toBeNull();
+    expect(PRIORITY_INFO["lower-inputs"].label).toBe(copy.profile.priority["lower-inputs"]);
   });
 
   test("drag and drop moves a card to the target place", () => {

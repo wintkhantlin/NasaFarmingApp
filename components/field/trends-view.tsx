@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { buttonClass } from "@/components/ui/button";
+import { NextSteps } from "@/components/field/next-steps";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -79,7 +80,8 @@ export function TrendsView({ fieldId, embedded = false }: { fieldId: string; emb
           </Panel>
         ))
       )}
-      <p className="m-0 text-body-sm text-ink-muted">Soil moisture and regional water storage need a NASA Earthdata connection and are not shown.</p>
+      <p className="m-0 text-body-sm text-ink-muted">Soil moisture and regional water storage are not shown for your area yet.</p>
+      {embedded ? null : <NextSteps fieldId={fieldId} current="conditions" />}
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Map, { Layer, Source, type MapRef } from "react-map-gl/mapbox";
+import Map, { Layer, Source, type ErrorEvent, type MapRef } from "react-map-gl/mapbox";
 import {
   TerraDraw,
   TerraDrawModeUndoRedo,
@@ -14,8 +14,10 @@ import {
   type HexColor,
 } from "terra-draw";
 import { TerraDrawMapboxGLAdapter } from "terra-draw-mapbox-gl-adapter";
+import { Button } from "@/components/ui/button";
 import { footprintBox, type Box } from "@/lib/geo/cells";
 import { centroid } from "@/lib/geo/shapes";
+import { useAppCopy } from "@/lib/store/locale-store";
 import type { FieldGeometry, LngLat } from "@/lib/types";
 import { MAPBOX_STYLE } from "./mapbox-config";
 
@@ -114,6 +116,10 @@ export function FieldMap({
   const onChangeRef = useRef(onGeometryChange);
   const onDrawingRef = useRef(onDrawingChange);
   const [ready, setReady] = useState(false);
+  const picker = useAppCopy().picker;
+  // Plain message when the satellite pictures cannot load (no internet, bad token), instead of a blank map.
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     onChangeRef.current = onGeometryChange;
@@ -192,6 +198,40 @@ export function FieldMap({
 
     drawRef.current = draw;
     setReady(true);
+  }, []);
+
+  useEffect(() => {
+    // Offline with the pictures already on screen is fine; offline before they load is not.
+    const onOffline = () => {
+      if (!mapRef.current?.getMap()?.isStyleLoaded()) setFailed(true);
+    };
+    const onOnline = () => setFailed(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (typeof navigator !== "undefined" && navigator.onLine === false) setFailed(true);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
+  }, []);
+
+  const handleError = useCallback((e: ErrorEvent) => {
+    const map = mapRef.current?.getMap();
+    const status = (e.error as { status?: number } | undefined)?.status;
+    // One missed tile is normal on a weak connection. Only a map that cannot draw at all, or is refused, needs a message.
+    if (status === 401 || status === 403 || !map || !map.isStyleLoaded() || navigator.onLine === false) setFailed(true);
+  }, []);
+
+  /** Rebuild the map from scratch; the drawn shape is re-added from `geometry` once it is ready again. */
+  const retry = useCallback(() => {
+    const draw = drawRef.current;
+    drawRef.current = null;
+    if (draw?.enabled) draw.stop();
+    lastEmitted.current = "null";
+    setReady(false);
+    setFailed(false);
+    setAttempt((n) => n + 1);
   }, []);
 
   useEffect(() => {
@@ -280,12 +320,18 @@ export function FieldMap({
   }, [geometry, showFootprints]);
 
   return (
+    <div className="relative size-full">
     <Map
+      key={attempt}
       ref={mapRef}
       mapboxAccessToken={token}
       mapStyle={MAPBOX_STYLE}
       initialViewState={{ longitude: initialCenter[0], latitude: initialCenter[1], zoom: initialZoom }}
-      onLoad={handleLoad}
+      onLoad={() => {
+        setFailed(false);
+        handleLoad();
+      }}
+      onError={handleError}
       style={{ width: "100%", height: "100%" }}
       attributionControl
     >
@@ -308,5 +354,14 @@ export function FieldMap({
         </Source>
       ) : null}
     </Map>
+    {failed ? (
+      <div role="alert" className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface-sunken/95 p-6 text-center lg:pl-[28rem]">
+        <p className="max-w-measure text-title text-ink">{picker.mapDown}</p>
+        <Button type="button" variant="secondary" icon="reset" onClick={retry}>
+          {picker.retry}
+        </Button>
+      </div>
+    ) : null}
+    </div>
   );
 }

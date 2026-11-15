@@ -5,19 +5,19 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
-import { useLocaleStore } from "@/lib/store/locale-store";
+import { useAppCopy, useLocaleStore, type AreaUnit, type Locale } from "@/lib/store/locale-store";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { openQuickQuestions } from "@/lib/engine/questions";
 
-const LINKS: { href: string; label: string; labelMy: string; icon: IconName; match: (p: string) => boolean }[] = [
-  { href: "/", label: "My fields", labelMy: "စိုက်ခင်းများ", icon: "fields", match: (p) => p === "/" || (Boolean(p) && p.startsWith("/fields")) },
-  { href: "/data", label: "Data", labelMy: "ဒေတာ", icon: "learn", match: (p) => Boolean(p) && (p.startsWith("/data") || p.startsWith("/about") || p.startsWith("/learn")) },
+const LINKS: { href: string; label: "fields" | "guide"; icon: IconName; match: (p: string) => boolean }[] = [
+  { href: "/", label: "fields", icon: "fields", match: (p) => p === "/" || (Boolean(p) && p.startsWith("/fields")) },
+  { href: "/data", label: "guide", icon: "learn", match: (p) => Boolean(p) && (p.startsWith("/data") || p.startsWith("/about") || p.startsWith("/learn")) },
 ];
 
 /** Phone: the two primary tab destinations fixed to the bottom, above the safe area. */
 export function TabBar() {
   const pathname = usePathname() ?? "";
-  const locale = useLocaleStore((s) => s.locale);
+  const text = useAppCopy().appNav;
   const fields = useFieldsStore((s) => s.fields);
   const openQuestionsCount = useMemo(() => {
     return fields.reduce((acc, f) => {
@@ -28,7 +28,7 @@ export function TabBar() {
 
   return (
     <nav
-      aria-label="Main"
+      aria-label={text.main}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
     >
       <ul className="mx-auto grid max-w-md grid-cols-2">
@@ -55,7 +55,7 @@ export function TabBar() {
                   <Icon name={l.icon} size={22} strokeWidth={active ? 2.3 : 1.8} />
                   {l.href === "/" && openQuestionsCount > 0 ? (
                     <span
-                      aria-label={`${openQuestionsCount} open questions`}
+                      aria-label={text.openQuestions(openQuestionsCount > 9 ? "9+" : String(openQuestionsCount))}
                       className="absolute -top-1 -right-2.5 grid h-3.5 min-w-3.5 place-items-center rounded-pill bg-unknown-border px-1 font-mono text-[9px] font-bold text-white leading-none shadow-xs"
                     >
                       {openQuestionsCount > 9 ? "9+" : openQuestionsCount}
@@ -63,7 +63,7 @@ export function TabBar() {
                   ) : null}
                 </span>
                 <span className="max-w-full truncate">
-                  {locale === "my" ? l.labelMy : l.label}
+                  {text[l.label]}
                 </span>
               </Link>
             </li>
@@ -77,9 +77,9 @@ export function TabBar() {
 /** From lg: the same destinations as icon links in the header. */
 export function HeaderNav() {
   const pathname = usePathname();
-  const locale = useLocaleStore((s) => s.locale);
+  const text = useAppCopy().appNav;
   return (
-    <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
+    <nav aria-label={text.main} className="hidden items-center gap-1 lg:flex">
       {LINKS.map((l) => {
         const active = l.match(pathname);
         return (
@@ -93,7 +93,7 @@ export function HeaderNav() {
             )}
           >
             <Icon name={l.icon} />
-            {locale === "my" ? l.labelMy : l.label}
+            {text[l.label]}
           </Link>
         );
       })}
@@ -105,11 +105,15 @@ export function HeaderNav() {
 export function SettingsButton() {
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const text = useAppCopy().appNav;
   const locale = useLocaleStore((s) => s.locale);
   const areaUnit = useLocaleStore((s) => s.areaUnit);
   const hydrate = useLocaleStore((s) => s.hydrate);
-  const toggleLocale = useLocaleStore((s) => s.toggleLocale);
-  const toggleAreaUnit = useLocaleStore((s) => s.toggleAreaUnit);
+  const setLocale = useLocaleStore((s) => s.setLocale);
+  const setAreaUnit = useLocaleStore((s) => s.setAreaUnit);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     hydrate();
@@ -118,17 +122,52 @@ export function SettingsButton() {
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+
+      // Trap Tab/Shift+Tab focus inside the dialog so it never escapes to the page behind it.
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  useEffect(() => {
+    // Restore focus to the trigger that opened the dialog once it closes (never on first load).
+    if (open) wasOpen.current = true;
+    else if (wasOpen.current) {
+      wasOpen.current = false;
+      triggerRef.current?.focus();
+    }
   }, [open]);
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Settings"
+        aria-label={text.settings}
+        title={text.settings}
         aria-haspopup="dialog"
         className="inline-flex size-tap items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken"
       >
@@ -140,43 +179,54 @@ export function SettingsButton() {
           <button
             type="button"
             tabIndex={-1}
-            aria-label="Close settings"
+            aria-label={text.closeSettings}
             onClick={() => setOpen(false)}
             className="absolute inset-0 cursor-default bg-ink/40"
           />
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Settings"
+            aria-label={text.settings}
             className="relative w-full max-w-md rounded-t-lg bg-surface-raised pb-[max(1rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-lg"
           >
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
-              <h2 className="text-headline text-ink">Settings</h2>
+              <h2 className="text-headline text-ink">{text.settings}</h2>
               <button
                 ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 className="inline-flex min-h-tap items-center rounded-md px-3 text-label text-field hover:bg-field-soft"
               >
-                Done
+                {text.done}
               </button>
             </div>
             <ul className="m-0 flex list-none flex-col px-4 py-0">
-              <SettingRow
+              <ChoiceRow
                 icon="stack"
-                title="Area unit"
-                value={areaUnit === "ha" ? "Hectares" : "Acres"}
-                onClick={toggleAreaUnit}
+                title={text.areaUnit}
+                name="area-unit"
+                value={areaUnit}
+                options={[
+                  { value: "ha" as AreaUnit, label: text.hectares },
+                  { value: "acre" as AreaUnit, label: text.acres },
+                ]}
+                onChange={setAreaUnit}
               />
-              <SettingRow
+              <ChoiceRow
                 icon="language"
-                title="Language"
-                value={locale === "en" ? "English" : "မြန်မာ"}
-                onClick={toggleLocale}
+                title={text.language}
+                name="language"
+                value={locale}
+                options={[
+                  { value: "en" as Locale, label: "English", lang: "en" },
+                  { value: "my" as Locale, label: "မြန်မာ", lang: "my" },
+                ]}
+                onChange={setLocale}
               />
             </ul>
             <Link href="/settings" onClick={() => setOpen(false)} className="mx-4 mt-2 flex min-h-tap items-center justify-between border-t border-line text-label text-field no-underline hover:underline">
-              More settings, privacy and backup
+              {text.more}
               <Icon name="next" size={16} />
             </Link>
           </div>
@@ -186,29 +236,52 @@ export function SettingsButton() {
   );
 }
 
-function SettingRow({
+/** A labelled radio group: the checked option is the current value, and tapping another one changes it. */
+function ChoiceRow<T extends string>({
   icon,
   title,
+  name,
   value,
-  onClick,
+  options,
+  onChange,
 }: {
   icon: IconName;
   title: string;
-  value: string;
-  onClick: () => void;
+  name: string;
+  value: T;
+  options: Array<{ value: T; label: string; lang?: string }>;
+  onChange: (value: T) => void;
 }) {
   return (
-    <li className="border-t border-line first:border-t-0">
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex min-h-14 w-full items-center gap-3 text-left active:bg-surface-sunken"
-      >
-        <Icon name={icon} className="text-ink-muted" />
-        <span className="flex-1 text-body text-ink">{title}</span>
-        <span className="text-label text-field">{value}</span>
-        <Icon name="next" size={16} className="text-ink-muted" />
-      </button>
+    <li className="border-t border-line py-3 first:border-t-0">
+      <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+        <legend className="flex items-center gap-3 p-0 text-body text-ink">
+          <Icon name={icon} className="text-ink-muted" />
+          {title}
+        </legend>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {options.map((o) => (
+            <label
+              key={o.value}
+              lang={o.lang}
+              className={cn(
+                "flex min-h-tap cursor-pointer items-center gap-2 rounded-md border px-3 text-label text-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-field/40",
+                value === o.value ? "border-field bg-field-soft" : "border-line-strong bg-surface-raised active:bg-surface-sunken",
+              )}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={o.value}
+                checked={value === o.value}
+                onChange={() => onChange(o.value)}
+                className="size-5 shrink-0 accent-[var(--color-field)]"
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
     </li>
   );
 }

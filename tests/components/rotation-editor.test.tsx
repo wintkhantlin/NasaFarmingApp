@@ -2,13 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { RotationEditor } from "@/components/field/rotation-editor";
 import { daysBetween, addDaysToIso, segmentYear } from "@/lib/rotation-format";
 import type { Field, Rotation } from "@/lib/types";
 
+const routerPush = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPush }),
 }));
 
 const mockField: Field = {
@@ -62,6 +63,7 @@ let storeState = {
   load: vi.fn(),
   loadRotations: vi.fn().mockResolvedValue([mockRotation]),
   saveRotation: vi.fn().mockResolvedValue(mockRotation),
+  update: vi.fn(),
 };
 
 vi.mock("@/lib/store/fields-store", () => ({
@@ -108,6 +110,7 @@ describe("RotationEditor Component Calendar UI", () => {
       load: vi.fn(),
       loadRotations: vi.fn().mockResolvedValue([mockRotation]),
       saveRotation: vi.fn().mockResolvedValue(mockRotation),
+      update: vi.fn(),
     };
   });
 
@@ -151,6 +154,7 @@ describe("RotationEditor after a plan is saved", () => {
       load: vi.fn(),
       loadRotations: vi.fn().mockResolvedValue([plan]),
       saveRotation: vi.fn().mockResolvedValue(plan),
+      update: vi.fn(),
     };
   });
 
@@ -158,9 +162,93 @@ describe("RotationEditor after a plan is saved", () => {
 
   it("asks for current crops in the detailed list instead of reopening the planner", () => {
     render(<RotationEditor fieldId={mockField.id} />);
-    expect(screen.getByRole("button", { name: /Detailed/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Tell us what you grew/ })).toHaveAttribute("aria-pressed", "true");
     // the saved plan's crops are not passed off as what grows here now
     expect(screen.queryAllByText(/121 days/)).toHaveLength(0);
   });
 });
 
+
+describe("RotationEditor saving, removing and dates", () => {
+  beforeEach(() => {
+    cleanup();
+    routerPush.mockReset();
+    storeState = {
+      status: "ready",
+      fields: [mockField],
+      rotations: { [mockField.id]: [mockRotation] },
+      load: vi.fn(),
+      loadRotations: vi.fn().mockResolvedValue([mockRotation]),
+      saveRotation: vi.fn().mockResolvedValue(mockRotation),
+      update: vi.fn(),
+    };
+  });
+  afterEach(() => cleanup());
+
+  it("Save and stay saves, says it is saved, and stays on the page", async () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    fireEvent.change(screen.getAllByLabelText("Harvest date")[0], { target: { value: "2026-10-05" } });
+    expect(screen.getByText("You have changes that are not saved yet.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save and stay" }));
+    await waitFor(() => expect(storeState.saveRotation).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Saved on this phone.")).toBeInTheDocument();
+    expect(screen.queryByText("You have changes that are not saved yet.")).toBeNull();
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(routerPush).not.toHaveBeenCalled();
+  });
+
+  it("See my answer shows Saved first, then goes to the answer", async () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    fireEvent.click(screen.getByRole("button", { name: "See my answer" }));
+    expect(await screen.findByText("Saved on this phone.")).toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalled();
+    await waitFor(() => expect(routerPush).toHaveBeenCalledWith(`/fields/${mockField.id}/compare`), { timeout: 3000 });
+  });
+
+  it("crop chips only add; removing is the Remove button, and Undo brings the crop back", () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    const removeButtons = () => screen.queryAllByRole("button", { name: /^Remove crop:/ });
+    expect(removeButtons()).toHaveLength(2);
+
+    // tapping a crop that is already chosen changes nothing
+    fireEvent.click(screen.getByRole("button", { name: "Rice", pressed: true }));
+    expect(removeButtons()).toHaveLength(2);
+
+    fireEvent.click(removeButtons()[0]);
+    expect(removeButtons()).toHaveLength(1);
+    expect(screen.getByText(/removed\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(removeButtons()).toHaveLength(2);
+    expect(screen.queryByText(/removed\./)).toBeNull();
+  });
+
+  it("has one Add another crop button and no duplicate add paths", () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    expect(screen.getAllByRole("button", { name: "Add another crop" })).toHaveLength(1);
+    expect(screen.queryByText("Add crop 2")).toBeNull();
+    expect(screen.queryByText("Add your first crop")).toBeNull();
+  });
+
+  it("asks how sure the dates are only after a date is edited, and says when harvest moved", () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    // rice was saved as exact, black gram is still the app's guess
+    expect(screen.getAllByText("I remember:")).toHaveLength(1);
+    expect(screen.queryByText("Suggested")).toBeNull();
+
+    fireEvent.change(screen.getAllByLabelText("Planting date")[1], { target: { value: "2026-11-01" } });
+    expect(screen.getAllByText("I remember:")).toHaveLength(2);
+    expect(screen.getAllByText("About this month").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Harvest moved to/)).toBeInTheDocument();
+    expect(screen.getAllByText("Harvest moves with it. You can change harvest after.").length).toBeGreaterThan(0);
+  });
+
+  it("keeps variety, seasonal presets and sowing details under More details", () => {
+    render(<RotationEditor fieldId={mockField.id} />);
+    const more = screen.getAllByText("More details (optional)")[0].closest("details")!;
+    expect(more).not.toHaveAttribute("open");
+    expect(more.textContent).toContain("Quick seasonal dates");
+    expect(more.textContent).toContain("Variety");
+  });
+});

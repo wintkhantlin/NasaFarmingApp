@@ -1,6 +1,6 @@
 /* Hallmark · v2.0.0 · redesign: full · scope: app · shape: app screen · posture: restrained · surface: absolute · system: Field Shift locked · light only · signature: field state and next action */
 /* Critique · the field flow had complete data but weak priority; this pass makes progress and the next useful action visible before supporting records. */
-/* Hallmark · waive 7b · locked Field Shift light tokens specify white raised surfaces · outdoor field screens need the measured white contrast on raised surfaces and green actions */
+/* Hallmark · waive 7b · locked Field Shift light tokens specify a white canvas with quiet neutral raised surfaces · outdoor field screens need measured contrast and green actions */
 /* Hallmark · waive 26b · no aria-disabled control appears in the field evidence note · Check locally is static field guidance with no interactive states to style */
 @import "tailwindcss";
 
@@ -14,16 +14,16 @@
 /* static: emit every token as a CSS variable, used by a class yet or not */
 @theme static {
   /* Surfaces */
-  --color-surface: #f4f3ee; /* Parchment: page background */
-  --color-surface-raised: #ffffff; /* Cards, sheets, the recommendation */
-  --color-surface-sunken: #eceae3; /* Inputs, chart plots, map frame */
-  --color-line: #d9d6cc; /* Hairlines; decorative only */
-  --color-line-strong: #8f8c82; /* Control borders, 3:1+ on surfaces */
-  --color-line-high-contrast: #8f8c82;
+  --color-surface: #ffffff; /* Clear white page canvas */
+  --color-surface-raised: #f8faf7; /* Quiet separation for cards, sheets, recommendations */
+  --color-surface-sunken: #f0f3ee; /* Inputs, chart plots, map frame */
+  --color-line: #d8ddd6; /* Hairlines; decorative only */
+  --color-line-strong: #7f877d; /* Control borders, 3:1+ on surfaces */
+  --color-line-high-contrast: #7f877d;
 
   /* Text */
-  --color-ink: #1c1b18; /* Soil: primary text, 13:1+ on every surface */
-  --color-ink-muted: #5a5850; /* Reasons, metadata, source lines, 5.8:1+ */
+  --color-ink: #20241f; /* Graphite: primary text, 15:1+ on raised surfaces */
+  --color-ink-muted: #4f574f; /* Reasons, metadata, source lines, 7:1+ */
 
   /* Accent */
   --color-field: #0e6b4f; /* Field Green: primary actions, active, focus */
@@ -41,8 +41,8 @@
   --color-danger-bg: #fdecea;
   --color-viz-crop: #2f7d5b;
   --color-viz-crop2: #7fb59a;
-  --color-viz-bare: #e7e1d2;
-  --color-ink-tertiary: #6e6c64; /* captions, timestamps */
+  --color-viz-bare: #e7ebe5;
+  --color-ink-tertiary: #646c64; /* captions, timestamps, 5:1+ */
 
   /* Data meaning only (never decorative, never color alone) */
   --color-healthy: #0e6b4f;
@@ -163,13 +163,29 @@ code {
   }
 
   /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3).
-     Enforce on :lang(my), [lang="my"] and their descendants so Tailwind utility line-heights do not clip diacritics. */
+     Enforce on :lang(my), [lang="my"] and their descendants so Tailwind utility line-heights do not clip diacritics.
+     Font cascade falls back through Pyidaungsu/Padauk before the Latin system stack, since those
+     cover Myanmar script on platforms without Noto Sans Myanmar installed. Burmese syllable
+     clusters never justify or uppercase cleanly, so those transforms are reset here too. */
   :lang(my),
   [lang="my"],
   :lang(my) * {
+    font-family: "Noto Sans Myanmar", "Pyidaungsu", "Padauk", var(--font-sans);
     line-height: 1.7 !important;
     overflow-wrap: break-word;
     word-break: break-word;
+    text-transform: none;
+    text-align: left;
+    letter-spacing: normal;
+  }
+
+  /* Chips, badges and segmented controls stack Myanmar vowel signs/medials above and below the
+     baseline; a little extra block padding keeps them from clipping against the pill border. */
+  [lang="my"] .MuiChip-root,
+  :lang(my) .MuiChip-root,
+  [lang="my"] .MuiToggleButton-root,
+  :lang(my) .MuiToggleButton-root {
+    padding-block: 0.15em;
   }
 
   :focus-visible {

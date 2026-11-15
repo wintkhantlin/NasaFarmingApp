@@ -29,7 +29,7 @@ export function buildFieldRequest(field: Field, rotation: Rotation, conditions: 
   const last = lastKnownCrop(rotation);
   if (!last) throw new Error("Add a previous crop to this field before comparing next crops.");
   const previousCrop = choices?.previousCrop ?? engineCropId(last.id);
-  if (!previousCrop) throw new Error(`${last.label} is not in this five-crop screening model yet. Choose a supported previous crop in your rotation.`);
+  if (!previousCrop) throw new Error(`${last.label} is not among the crops this check covers yet. Choose a supported previous crop in your rotation.`);
   const recorded = [...rotation.slots].filter((slot) => slot.kind !== "fallow" && slot.cropId).sort((a, b) => a.harvestDate.localeCompare(b.harvestDate));
   const historyNotApplied = recorded.slice(0, -1).filter((slot) => !engineCropId(slot.cropId!)).map((slot) => slot.cropId!);
   const supportedEarlier = recorded.slice(0, -1).map((slot) => engineCropId(slot.cropId!)).filter((id): id is string => id !== null);

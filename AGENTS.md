@@ -11,9 +11,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Design rules
 
 - Follow `DESIGN_SYSTEM.md` for visual design (tokens, data-display language, components, layout), implemented in `app/globals.css`; change both together. `DESIGN.md` is the older Field Almanac note. `PLAN.md` is the product plan with the work breakdown (section 22).
-- Follow `UX.md` for behaviour: who the app is for, screen structure (Today, Map, Plan, Fields), alert and recommendation formats, and the data-to-plain-language vocabulary.
+- Follow `UX.md` for behaviour: who the app is for, the current My fields/Data guide app navigation and field tabs, alert and recommendation formats, and the data-to-plain-language vocabulary.
 - **Light mode only**, a repo decision that overrides the dark values in `DESIGN_SYSTEM.md`. Don't add dark tokens, `dark:` classes, a `prefers-color-scheme` switch or a theme toggle (DESIGN.md, The Light-Only Rule).
 - Data colors (`water`, `heat`, `drought`, `frost`, `healthy`) mean data only and always come with an icon or words.
+- Follow the `DESIGN_SYSTEM.md` simplicity contract: **decision → action → reason → evidence → method**. The farmer's answer or warning must be understandable before supporting science appears.
+- Default to flat sections. A card must represent a selectable, actionable or stateful unit; never nest cards or give every metric, paragraph or form field its own border.
+- Keep one primary action in the current decision area. Put formulas, dataset codes, detailed methodology and full limitations in a named `Disclosure`, while keeping decision-changing warnings and a compact source/date/scale summary visible.
+- Use only one app-level navigation and one field-level navigation. Tabs navigate between peers, segmented controls switch a local view, and steppers exist only inside linear setup flows; do not duplicate destinations as cards, footer links or another tab row.
+- Icons must communicate an action, object or status. Do not use icons or borders as decoration, and do not make secondary explanations compete visually with the main decision.
 
 ## Agent Token Optimization & Efficiency Rules
 

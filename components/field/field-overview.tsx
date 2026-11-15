@@ -10,6 +10,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import { MAPBOX_TOKEN } from "@/components/map/mapbox-config";
+import { DryZoneRainNote } from "@/components/field/conditions-panels";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,16 +20,15 @@ import { NavLink } from "@/components/ui/nav-link";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScaleBadge } from "@/components/ui/status";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
-import { copy } from "@/lib/copy/en";
 import { REGIONS, regionOfPoint } from "@/lib/data/regions";
-import { openQuickQuestions } from "@/lib/engine/questions";
+import { formatAreaForLocale } from "@/lib/format-area";
 import { formatPoint } from "@/lib/geo/format";
 import { staticMapUrl } from "@/lib/geo/static-map";
 import { formatSpan, plural, sequenceText, slotName, currentRotation } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
-import { DRY_ZONE_POWER_RAIN, WEATHER_CHECK, isDryZone } from "@/lib/validation/source-checks";
+import { useAppCopy, useLocaleStore } from "@/lib/store/locale-store";
+import { isDryZone } from "@/lib/validation/source-checks";
 
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -59,6 +59,9 @@ function wettestSeason(rain?: number[]): string | null {
  */
 export function FieldOverview({ fieldId }: { fieldId: string }) {
   const router = useRouter();
+  const t = useAppCopy();
+  const locale = useLocaleStore((s) => s.locale);
+  const areaUnit = useLocaleStore((s) => s.areaUnit);
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
   const rotations = useFieldRotations(fieldId);
@@ -70,7 +73,6 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
-  const [detail, setDetail] = useState<"simple" | "technical">("simple");
 
   useEffect(() => {
     if (status === "idle") void load();
@@ -85,7 +87,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
   if (status === "idle" || status === "loading") {
     return (
-      <div role="status" aria-label={copy.home.loading} className="flex flex-col gap-4">
+      <div role="status" aria-label={t.home.loading} className="flex flex-col gap-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-44 w-full" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -99,7 +101,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
   if (!field) {
     return (
-      <EmptyState title="This field isn't saved in this browser" body="Fields are stored on the device where you added them.">
+      <EmptyState title="This field isn't saved on this phone" body="Fields are stored on the phone where you added them.">
         <Link href="/" className={buttonClass("primary")}>Back to your fields</Link>
       </EmptyState>
     );
@@ -113,8 +115,6 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
   const regionId = field.region && field.region !== "unsupported" ? field.region : regionOfPoint(field.centroid);
   const regionName = regionId !== "unsupported" ? REGIONS[regionId]?.name : null;
-
-  const questions = openQuickQuestions(field);
 
   // Conditions: only what was actually retrieved or entered.
   const conditions = analysis.conditions;
@@ -136,26 +136,21 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const soilSource = field.soilOverride ? "Your soil test" : "ISRIC SoilGrids";
 
   const primaryEquipment = field.constraints?.equipment?.length
-    ? field.constraints.equipment.map((e) => copy.profile.equipment[e] ?? e).join(", ")
+    ? field.constraints.equipment.map((e) => t.profile.equipment[e] ?? e).join(", ")
     : null;
   const topPriority = field.priorities?.order?.[0];
-  const irrigationAmount = field.constraints?.irrigation?.amountMm;
   const labour = field.constraints?.labour;
   const market = field.constraints?.marketAccess;
   // Farm details saves constraints.irrigation only once the farmer answers; field.irrigation alone is the default.
   const waterSetByFarmer = Boolean(field.constraints?.irrigation);
 
-  const setup = [
-    { label: "Boundary", done: hasBoundary, href: boundaryHref },
-    { label: "Rotation", done: hasRotation, href: `/fields/${field.id}/rotation` },
-    { label: "Soil test", done: isSoilTested, href: `/fields/${field.id}/profile` },
-    { label: "Farm profile", done: Boolean(topPriority || labour || primaryEquipment), href: `/fields/${field.id}/profile` },
-  ];
-  const doneCount = setup.filter((s) => s.done).length;
+  // Optional details that would sharpen the answer. The boundary is reachable from the map and Field options.
+  const optionalLeft = [isSoilTested, Boolean(topPriority || labour || primaryEquipment)].filter((done) => !done).length;
+  const profileHref = `/fields/${field.id}/profile`;
 
   const next = !rotation
-    ? { title: "Record what you grow now", body: "Tap the crops you grow.", href: `/fields/${field.id}/rotation`, cta: "Add my crops", icon: "rotation" as const }
-    : { title: "Your answer is ready", body: `See how ${sequenceText(rotation, " then ")} compares with other plans for this field.`, href: `/fields/${field.id}/compare`, cta: "See my answer", icon: "compare" as const };
+    ? { title: t.path.nextAddCrops, body: t.path.nextAddCropsBody, href: `/fields/${field.id}/rotation`, cta: "Add my crops", icon: "rotation" as const }
+    : { title: t.path.nextAnswerReady, body: t.path.nextAnswerBody(sequenceText(rotation, " then ")), href: `/fields/${field.id}/compare`, cta: t.path.seeAnswer, icon: "compare" as const };
 
   const handleRemove = async () => {
     setRemoving(true);
@@ -165,7 +160,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
       setRemoveOpen(false);
       router.push("/");
     } catch {
-      setRemoveError(copy.overview.removeError);
+      setRemoveError(t.overview.removeError);
     } finally {
       setRemoving(false);
     }
@@ -180,86 +175,37 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const soilOc = field.soilOverride?.ocPct ?? (conditions?.soil?.socGKg ? conditions.soil.socGKg / 10 : null);
   const salinityObs = field.soilObservations?.find((o) => o.property === "salinity");
   const salinity = field.soilOverride?.salinityDsM ?? (salinityObs ? Number(salinityObs.value) : null);
-  const soilWho = field.soilOverride ? "your test" : "satellite estimate";
 
-  const textureMeaning = (t: string) =>
-    /sand/.test(t) && !/clay/.test(t) ? "drains fast, holds little water"
-    : /clay/.test(t) && !/loam/.test(t) ? "holds water, drains slowly"
+  const textureMeaning = (tex: string) =>
+    /sand/.test(tex) && !/clay/.test(tex) ? "drains fast, holds little water"
+    : /clay/.test(tex) && !/loam/.test(tex) ? "holds water, drains slowly"
     : "balanced, holds water and drains";
   const phMeaning = (ph: number) => (ph < 5.5 ? "acidic" : ph > 7.5 ? "alkaline" : "close to neutral");
   const ocMeaning = (oc: number) => (oc < 1 ? "low organic matter" : oc < 2 ? "moderate organic matter" : "good organic matter");
   const salMeaning = (ds: number) => (ds < 2 ? "no salt problem" : ds < 4 ? "slightly salty" : "salty, hurts sensitive crops");
+  const soilLoading = analysis.phase === "loading" || analysis.showingCache;
 
-  type Row = { label: string; simple: string; technical: string; hint?: string };
-  const rows: Row[] = [
-    {
-      label: "Area",
-      simple: field.areaHa === null ? "" : `${field.areaHa.toFixed(1)} ha (${(field.areaHa * 2.471).toFixed(1)} acres)`,
-      technical: field.areaHa === null ? "" : `${field.areaHa.toFixed(2)} ha · ${field.geometry.type}`,
-      hint: "Draw the boundary to measure it",
-    },
-    {
-      label: "Region",
-      simple: regionName ?? "",
-      technical: regionName ? `${regionName} · ${formatPoint(field.centroid)}` : "",
-      hint: "Outside the regions covered so far",
-    },
-    {
-      label: "Water",
-      simple: `${copy.irrigation[field.irrigation]}${waterSetByFarmer ? "" : " (assumed)"}`,
-      technical: `${copy.irrigation[field.irrigation]}${irrigationAmount ? ` · ${irrigationAmount} mm/season` : ""} · ${waterSetByFarmer ? "set by you" : "default, not asked yet"}`,
-    },
-    {
-      label: "Soil type",
-      simple: soilTexture ? `${soilTexture}: ${textureMeaning(soilTexture)}` : "",
-      technical: soilTexture ? `${soilTexture} (USDA) · ${soilWho}` : "",
-      hint: (analysis.phase === "loading" || analysis.showingCache) ? "Loading from soil map…" : "Soil map unavailable right now. Add a test result",
-    },
-    {
-      label: "Acidity",
-      simple: soilPh ? `${phMeaning(Number(soilPh))}` : "",
-      technical: soilPh ? `pH ${soilPh} · ${soilWho}` : "",
-      hint: (analysis.phase === "loading" || analysis.showingCache) ? "Loading from soil map…" : "Soil map unavailable right now. Add a test result",
-    },
-    {
-      label: "Organic matter",
-      simple: soilOc !== null ? ocMeaning(Number(soilOc)) : "",
-      technical: soilOc !== null ? `SOC ${Number(soilOc).toFixed(1)}% · ${soilWho}` : "",
-      hint: (analysis.phase === "loading" || analysis.showingCache) ? "Loading from soil map…" : "Soil map unavailable right now. Add a test result",
-    },
-    {
-      label: "Soil salt",
-      simple: salinity !== null ? salMeaning(salinity) : "Not measured. Satellites can't see salt",
-      technical: salinity !== null ? `EC ${salinity} dS/m · ${field.soilOverride ? "your test" : "recorded"}` : "EC unknown · no satellite layer, test strip needed",
-    },
-    {
-      label: "Top priority",
-      simple: topPriority ? copy.profile.priority[topPriority] : "Balanced across water, soil and income (assumed)",
-      technical: topPriority ? `${copy.profile.priority[topPriority]} · ranked 1 of ${field.priorities?.order?.length ?? 1}` : "Equal weights (assumed, not asked yet)",
-    },
-    {
-      label: "Equipment",
-      simple: primaryEquipment ?? "Hand tools (assumed)",
-      technical: primaryEquipment ?? "Default: hand tools",
-    },
-    {
-      label: "Labour",
-      simple: labour ? copy.profile.levels[labour] : "Typical household labour (assumed)",
-      technical: labour ? `${copy.profile.levels[labour]} (set by you)` : "Default: household labour",
-    },
-    {
-      label: "Market",
-      simple: market ? `${copy.profile.levels[market]} access to buyers` : "",
-      technical: market
-        ? `${copy.profile.levels[market]} market access (set by you)${field.constraints?.canSell?.length ? ` · buyer known for ${field.constraints.canSell.length} ${field.constraints.canSell.length === 1 ? "crop" : "crops"}` : ""}`
-        : "",
-      hint: "Not asked yet. Add it in farm details",
-    },
-  ];
+  // Only rows that have a value. "typical" rows use a default the farmer has not confirmed.
+  type Row = { label: string; value: string; typical?: boolean };
+  const rows: Row[] = [];
+  if (field.areaHa !== null) rows.push({ label: "Area", value: formatAreaForLocale(field.areaHa, areaUnit, locale) });
+  rows.push({ label: "Water", value: t.irrigation[field.irrigation], typical: !waterSetByFarmer });
+  if (soilTexture) rows.push({ label: "Soil type", value: `${soilTexture}: ${textureMeaning(soilTexture)}` });
+  if (soilPh) rows.push({ label: "Acidity", value: phMeaning(Number(soilPh)) });
+  if (soilOc !== null) rows.push({ label: "Organic matter", value: ocMeaning(Number(soilOc)) });
+  if (!soilTexture && !soilPh && soilOc === null) {
+    rows.push({ label: "Soil", value: soilLoading ? "Loading from soil map…" : "Soil map unavailable right now. Add a test result" });
+  }
+  if (salinity !== null) rows.push({ label: "Soil salt", value: salMeaning(salinity) });
+  rows.push({ label: "Top priority", value: topPriority ? t.profile.priority[topPriority] : "Balanced across water, soil and income", typical: !topPriority });
+  rows.push({ label: "Equipment", value: primaryEquipment ?? "Hand tools", typical: !primaryEquipment });
+  rows.push({ label: "Labour", value: labour ? t.profile.levels[labour] : "Typical household labour", typical: !labour });
+  if (market) rows.push({ label: "Market", value: `${t.profile.levels[market]} access to buyers` });
+  const typicalCount = rows.filter((r) => r.typical).length;
 
   // Where a reading here is a guess that local knowledge or a test should settle.
+  const showDryZoneRain = Boolean(annualRainMm) && isDryZone(regionId);
   const conditionCautions: string[] = [];
-  if (annualRainMm && isDryZone(regionId)) conditionCautions.push(`Rain here is probably higher than shown: NASA's figure was about ${Math.round(Math.abs(DRY_ZONE_POWER_RAIN.relBias) * 100)}% below the ${DRY_ZONE_POWER_RAIN.station} weather station (${WEATHER_CHECK.period}).`);
   if (soilTexture && !field.soilOverride) conditionCautions.push("Soil is a map estimate. A soil test from the township agriculture office would settle it.");
 
   const stats: { icon: "water" | "conditions" | "soil"; tone: string; label: string; value: string; note: string }[] = [];
@@ -267,33 +213,33 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   if (maxT !== null && minT !== null) stats.push({ icon: "conditions", tone: "text-heat", label: "Monthly high / low", value: `${Math.round(maxT)}° / ${Math.round(minT)}°C`, note: "NASA POWER" });
   if (soilTexture) stats.push({ icon: "soil", tone: "text-field", label: "Soil", value: `${soilTexture}${soilPh ? ` · pH ${soilPh}` : ""}`, note: soilSource });
 
+  // Once crops are recorded, conditions shrink to one sentence; the cautions stay.
+  const conditionsSentence = [
+    annualRainMm ? `About ${annualRainMm} mm of rain a year${wetSeason ? `, wettest ${wetSeason}` : ""}.` : "",
+    soilTexture ? `Soil: ${soilTexture}${soilPh ? `, pH ${soilPh}` : ""}.` : "",
+  ].filter(Boolean).join(" ");
+  const cautions = (
+    <>
+      {showDryZoneRain ? <DryZoneRainNote /> : null}
+      {conditionCautions.length ? (
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+          {conditionCautions.map((c) => (
+            <li key={c} className="flex items-start gap-1.5 text-body-sm text-ink-muted">
+              <Icon name="info" size={15} className="mt-0.5 shrink-0" />
+              <span>{c}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+
   return (
     <>
-      <FieldPageHeader
-        title={field.name}
-        summary={
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="font-mono">{formatPoint(field.centroid)}</span>
-            {regionName ? (
-              <>
-                <span aria-hidden className="text-line-strong">•</span>
-                <span>{regionName}</span>
-              </>
-            ) : null}
-            <span aria-hidden className="text-line-strong">•</span>
-            <ScaleBadge scale={hasBoundary ? "field" : "village"} />
-          </span>
-        }
-        action={
-          <Link href={boundaryHref} className={buttonClass("secondary", "gap-1.5")}>
-            <Icon name="outline" size={16} />
-            <span>{boundaryLabel}</span>
-          </Link>
-        }
-      />
+      <FieldPageHeader title={field.name} summary={regionName ?? undefined} />
 
-      {/* Next step + setup progress */}
-      <Panel tone="field" radius="lg" className="flex flex-col gap-4 p-4 sm:p-5">
+      {/* Next step, and one line on what else would sharpen the answer */}
+      <Panel tone="field" radius="lg" className="flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-1">
             <span className="text-source font-medium uppercase tracking-wide text-ink-muted">Next step</span>
@@ -305,40 +251,39 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
             <span>{next.cta}</span>
           </Link>
         </div>
-        <div className="flex flex-col gap-2 border-t border-line pt-3">
-          <div className="flex items-center justify-between text-body-sm text-ink-muted">
-            <span>Field setup</span>
-            <span className="tabular">
-              {hasRotation
-                ? doneCount === setup.length
-                  ? "All done"
-                  : `Answer ready · ${setup.length - doneCount} optional ${setup.length - doneCount === 1 ? "detail" : "details"} would sharpen it`
-                : `${doneCount} of ${setup.length} done`}
+        {hasRotation ? (
+          <p role="status" className="m-0 flex items-center gap-2 border-t border-line pt-3 text-body-sm text-ink-muted">
+            <Icon name={analysis.phase === "ready" ? "done" : "info"} size={15} aria-hidden className="shrink-0 text-field" />
+            <span>
+              {analysis.phase === "ready"
+                ? `${t.path.weatherReady}${analysis.retrieving ? `. ${t.path.satelliteLater}` : ""}`
+                : analysis.phase === "failed"
+                  ? t.path.weatherFailed
+                  : analysis.slow
+                    ? t.path.weatherSlow
+                    : t.path.weatherChecking}
             </span>
+          </p>
+        ) : null}
+        {hasRotation ? (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 border-t border-line pt-1 text-body-sm text-ink-muted">
+            <span>{optionalLeft > 0 ? t.path.answerReadyDetails(optionalLeft) : t.path.answerReadyOnly}</span>
+            {optionalLeft > 0 ? (
+              <Link href={profileHref} className="inline-flex min-h-tap items-center px-1 text-label font-medium text-field underline underline-offset-4 hover:text-ink">
+                {t.path.review}
+              </Link>
+            ) : null}
           </div>
-          <ul className="m-0 grid list-none grid-cols-2 gap-x-3 gap-y-2 p-0 sm:grid-cols-4">
-            {setup.map((s) => (
-              <li key={s.label} className="flex flex-col gap-1.5">
-                <span aria-hidden className={`h-1.5 rounded-full ${s.done ? "bg-field" : "bg-line"}`} />
-                <Link href={s.href} className="-my-2.5 inline-flex min-h-tap items-center gap-1 text-body-sm text-ink no-underline hover:underline">
-                  <span aria-hidden className={s.done ? "text-field" : "text-ink-muted"}>{s.done ? "✓" : "○"}</span>
-                  <span>{s.label}</span>
-                  <span className="sr-only">{s.done ? "(done)" : "(not done)"}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        ) : null}
       </Panel>
 
-      {questions.length > 0 ? (
-        <Link
-          href={questions[0].href}
-          className="flex min-h-tap items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3 text-label text-ink no-underline hover:border-line-strong"
-        >
-          <span>{copy.compare.sharpen(questions.length)}</span>
-          <Icon name="next" size={16} className="shrink-0 text-field" />
-        </Link>
+      {/* Conditions is already a field tab; keep only the separate pest outlook task here. */}
+      {rotation?.slots.length ? (
+        <nav aria-label="More about this field" className="-mt-2 flex flex-wrap items-center gap-x-6 gap-y-0">
+          <NavLink href={`/fields/${field.id}/pests`} icon="pest">
+            {t.path.pestsLink}
+          </NavLink>
+        </nav>
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -383,52 +328,35 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                 No crops recorded yet.
               </p>
             )}
-            {rotation?.slots.length ? (
-              <div className="-mb-2 border-t border-line pt-1">
-                <NavLink href={`/fields/${field.id}/pests`} icon="pest">
-                  Pests and diseases
-                </NavLink>
-              </div>
-            ) : null}
           </Panel>
 
-          {/* Conditions: real retrieved values only */}
-          {analysis.phase === "loading" && !conditions ? (
+          {/* Conditions: real retrieved values only. Full panel before crops are added, one sentence after. */}
+          {hasRotation ? (
+            conditionsSentence || showDryZoneRain || conditionCautions.length ? (
+              <section aria-label="Local conditions" className="flex flex-col gap-2">
+                {conditionsSentence ? <p className="m-0 max-w-measure text-body text-ink-muted">{conditionsSentence}</p> : null}
+                {cautions}
+              </section>
+            ) : null
+          ) : analysis.phase === "loading" && !conditions ? (
             <Skeleton className="h-24 w-full" />
           ) : stats.length > 0 ? (
             <Panel as="section" aria-labelledby="overview-conditions" className="flex flex-col gap-3 p-4 sm:p-5">
-              <PanelHeader
-                id="overview-conditions"
-                title="Local conditions"
-              />
+              <PanelHeader id="overview-conditions" title="Local conditions" />
               <dl className="m-0 grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                {stats.map((s) => (
-                  <div key={s.label} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:px-4 sm:py-0 sm:first:pl-0 sm:last:pr-0">
+                {stats.map((st) => (
+                  <div key={st.label} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:px-4 sm:py-0 sm:first:pl-0 sm:last:pr-0">
                     <dt className="flex items-center gap-1.5 text-body-sm text-ink-muted">
-                      <Icon name={s.icon} size={15} className={s.tone} />
-                      {s.label}
+                      <Icon name={st.icon} size={15} className={st.tone} />
+                      {st.label}
                     </dt>
-                    <dd className="m-0 font-mono text-headline text-ink">{s.value}</dd>
-                    <dd className="m-0 text-source text-ink-muted">{s.note}</dd>
+                    <dd className="m-0 font-mono text-headline text-ink">{st.value}</dd>
+                    <dd className="m-0 text-source text-ink-muted">{st.note}</dd>
                   </div>
                 ))}
               </dl>
-              {conditionCautions.length ? (
-                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-                  {conditionCautions.map((c) => (
-                    <li key={c} className="flex items-start gap-1.5 text-body-sm text-ink-muted">
-                      <Icon name="info" size={15} className="mt-0.5 shrink-0" />
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <div className="-mb-2 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-1">
-                <NavLink href={`/fields/${field.id}/conditions`} icon="conditions">
-                  Weather and soil
-                </NavLink>
-                {analysis.showingCache ? <span className="text-source text-ink-muted">Cached data</span> : null}
-              </div>
+              {cautions}
+              {analysis.showingCache ? <span className="text-source text-ink-muted">Cached data</span> : null}
             </Panel>
           ) : null}
         </div>
@@ -456,47 +384,27 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
               )}
             </Link>
             <div className="flex flex-col gap-3 p-4 sm:p-5">
-              <PanelHeader
-                id="overview-details"
-                title="Field details"
-                aside={
-                  <NavLink href={`/fields/${field.id}/profile`} icon="profile" className="-my-3">
-                    Edit details
-                  </NavLink>
-                }
-              />
-              <div role="group" aria-label="Detail level" className="inline-flex self-start rounded-md border border-line bg-surface-sunken p-0.5 text-body-sm">
-                {(["simple", "technical"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    aria-pressed={detail === m}
-                    onClick={() => setDetail(m)}
-                    className={`min-h-8 rounded px-3 capitalize ${detail === m ? "bg-surface-raised font-medium text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+              <PanelHeader id="overview-details" title="Field details" />
               <dl className="m-0 flex flex-col divide-y divide-line">
-                {rows.map((r) => {
-                  const value = detail === "simple" ? r.simple : r.technical;
-                  return (
-                    <div key={r.label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-4 py-2 first:pt-0 last:pb-0">
-                      <dt className="shrink-0 text-body-sm text-ink-muted">{r.label}</dt>
-                      <dd className={`m-0 text-left sm:text-right text-body-sm first-letter:uppercase ${value ? "font-medium text-ink" : "text-ink-muted"}`}>
-                        {value || r.hint}
-                      </dd>
-                    </div>
-                  );
-                })}
+                {rows.map((r) => (
+                  <div key={r.label} className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-4 py-2 first:pt-0 last:pb-0">
+                    <dt className="shrink-0 text-body-sm text-ink-muted">{r.label}</dt>
+                    <dd className="m-0 flex flex-wrap items-baseline gap-x-2 text-left sm:justify-end sm:text-right text-body-sm">
+                      <span className={`first-letter:uppercase ${r.typical ? "text-ink-muted" : "font-medium text-ink"}`}>{r.value}</span>
+                      {r.typical ? <span className="text-source text-ink-muted">({t.path.typical})</span> : null}
+                    </dd>
+                  </div>
+                ))}
               </dl>
+              {/* One line instead of a button on every assumed row */}
+              <p className="m-0 flex flex-wrap items-center gap-x-3 border-t border-line pt-1 text-body-sm text-ink-muted">
+                {typicalCount > 0 ? <span>{t.path.typicalFor(typicalCount)}</span> : null}
+                <Link href={profileHref} className="inline-flex min-h-tap items-center px-1 text-label font-medium text-field underline underline-offset-4 hover:text-ink">
+                  {typicalCount > 0 ? t.path.review : t.path.editDetails}
+                </Link>
+              </p>
             </div>
           </Panel>
-
-          <NavLink href={`/fields/${field.id}/report`} icon="report" className="self-start">
-            Printable report
-          </NavLink>
         </div>
       </div>
 
@@ -507,13 +415,36 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
         <summary className="min-h-tap cursor-pointer content-center text-label text-ink-muted hover:text-ink">
           Field options
         </summary>
-        <div className="flex flex-wrap items-center gap-3 pb-3 pt-2">
-          <Button variant="secondary" icon={field.archivedAt ? "restore" : "archive"} onClick={handleArchive}>
-            {field.archivedAt ? "Restore field" : "Archive field"}
-          </Button>
-          <Button variant="destructive" icon="remove" onClick={() => setRemoveOpen(true)}>
-            {copy.overview.removeTitle}
-          </Button>
+        <div className="flex flex-col gap-3 pb-3 pt-2">
+          <dl className="m-0 flex flex-col gap-1 text-body-sm text-ink-muted">
+            <div className="flex flex-wrap gap-x-2">
+              <dt>Location</dt>
+              <dd className="m-0 font-mono">{formatPoint(field.centroid)}</dd>
+            </div>
+            {field.areaHa !== null ? (
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Measured area</dt>
+                <dd className="m-0">{field.areaHa.toFixed(2)} ha · {field.geometry.type === "Polygon" ? "drawn boundary" : "pin only"}</dd>
+              </div>
+            ) : null}
+            {soilTexture || soilPh ? (
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Soil source</dt>
+                <dd className="m-0">{soilSource}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <NavLink href={boundaryHref} icon="outline" className="self-start">
+            {boundaryLabel}
+          </NavLink>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="secondary" icon={field.archivedAt ? "restore" : "archive"} onClick={handleArchive}>
+              {field.archivedAt ? "Restore field" : "Archive field"}
+            </Button>
+            <Button variant="destructive" icon="remove" onClick={() => setRemoveOpen(true)}>
+              {t.overview.removeTitle}
+            </Button>
+          </div>
         </div>
       </details>
 
@@ -526,18 +457,18 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
         maxWidth="xs"
       >
         <DialogTitle id="remove-dialog-title" sx={{ fontWeight: 600 }}>
-          {copy.overview.removeTitle}
+          {t.overview.removeTitle}
         </DialogTitle>
         <DialogContent>
-          <p className="text-body text-ink">{copy.overview.removePrompt(field.name)}</p>
+          <p className="text-body text-ink">{t.overview.removePrompt(field.name)}</p>
           {removeError ? <Message tone="problem" role="alert" className="mt-4" title="Field removal failed">{removeError}</Message> : null}
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button variant="secondary" onClick={() => setRemoveOpen(false)} disabled={removing}>
-            {copy.overview.removeCancel}
+            {t.overview.removeCancel}
           </Button>
           <Button variant="primary" onClick={handleRemove} disabled={removing}>
-            {copy.overview.removeConfirm}
+            {t.overview.removeConfirm}
           </Button>
         </DialogActions>
       </Dialog>

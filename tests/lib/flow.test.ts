@@ -66,6 +66,9 @@ describe("Flow step states", () => {
     expect(states.location).toBe("done");
     expect(states.rotation).toBe("done");
     expect(states.conditions).toBe("done");
-    expect(states.compare).toBe("done");
+    // Crops alone do not make Compare "done": a comparison has to have been shown.
+    expect(states.compare).toBe("needs-input");
+    expect(deriveStepStates(mockField, [rotation], { compareViewed: true }).compare).toBe("done");
+    expect(deriveStepStates(mockField, [], { compareViewed: true }).compare).toBe("not-started");
   });
 });

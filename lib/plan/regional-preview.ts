@@ -84,6 +84,17 @@ export function resolveRegionalPreview(
   mainCropId: string,
   catalog: RegionalPreviewCatalog = REGIONAL_PREVIEW_CATALOG,
 ): RegionalPreviewResult {
+  if (REGIONS[region].candidateCropIds.length === 0) {
+    return {
+      mode: "regional-preview",
+      availability: "templates-unavailable",
+      catalogVersion: catalog.version,
+      cropLibraryVersion: catalog.cropLibraryVersion,
+      patterns: [],
+      message: `Trusted regional crop comparisons are not available for ${REGIONS[region].name} yet.`,
+    };
+  }
+
   const validCrop = REGIONS[region].candidateCropIds.includes(mainCropId) && getCropById(mainCropId)?.scope === "myanmar";
   if (!validCrop) {
     return {

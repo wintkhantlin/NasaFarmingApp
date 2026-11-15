@@ -233,6 +233,7 @@ export function OptionDetail({
   fieldId,
   region,
   showCalls = true,
+  yearsChecked,
 }: {
   option: EvaluatedOption;
   rainyMonths: number[];
@@ -240,6 +241,8 @@ export function OptionDetail({
   region?: string;
   /** The "Your call" notes are the same for every option, so a page shows them once. */
   showCalls?: boolean;
+  /** How many complete past years were checked in all, so "N of M dry years" has a stated denominator. */
+  yearsChecked?: number;
 }) {
   const o = option;
   const YC = showCalls ? YourCallMarker : NoCall;
@@ -296,7 +299,7 @@ export function OptionDetail({
           ))}
         </div>
         <p className="m-0 text-body-sm text-ink-muted">
-          Dry-season replay: {o.dryYear.evaluated > 0 ? `${ofSeasons(o.dryYear.passes, o.dryYear.evaluated)} met every crop's checks` : "needs complete past dry seasons for these crop windows"}. {o.dryYear.note}
+          Dry-season replay: {o.dryYear.evaluated > 0 ? `Passed ${o.dryYear.passes} of ${o.dryYear.evaluated} severe dry ${o.dryYear.evaluated === 1 ? "year" : "years"}${yearsChecked ? ` (of ${yearsChecked} years checked)` : ""}, meeting every crop's checks` : "needs complete past dry seasons for these crop windows"}. {o.dryYear.note}
           {o.dryYear.label ? ` ${o.dryYear.label}.` : ""}
         </p>
         <YC

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
-import { buttonClass } from "@/components/ui/button";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { Button, buttonClass } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
@@ -12,196 +12,318 @@ import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Evidence } from "@/components/ui/provenance";
 import { RiskChip, type ChipTone } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnalysisLoading } from "@/components/field/analysis-loading";
 import { FieldPageHeader } from "@/components/field/field-page-header";
+import { NextSteps } from "@/components/field/next-steps";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
-import { copy } from "@/lib/copy/en";
 import { BASELINE } from "@/lib/engine/data";
-import { pestOutlook, type CropPestOutlook, type PestOutlook, type WeatherLevel, type WeatherRiskResult } from "@/lib/engine/pest-outlook";
+import type { HostOrganism } from "@/lib/data/crops/host-organisms";
+import { getCropById } from "@/lib/data/crops";
+import { buildPestSummary, pestOutlook, plainPestName, type PestAction, type PestCropRef, type PestOutlook, type PestSummary, type SoilGroup, type WeatherLevel, type WeatherRiskResult } from "@/lib/engine/pest-outlook";
 import { formatDay } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
+import { useAppCopy, useLocaleStore } from "@/lib/store/locale-store";
+import type { AnalysisPhase } from "@/lib/analysis/use-analysis";
 
-const CARRYOVER_WORDS = {
-  "soil-borne": "Lives in the soil",
-  "host-specific-soil": "Lives in the soil, one crop only",
-  "vector-borne": "Spread by insects",
-  "mobile-insect": "Flying insect",
-} as const;
+const LEVEL_TONE: Record<WeatherLevel, ChipTone> = { often: "drought", sometimes: "neutral", rarely: "field", unknown: "neutral" };
 
-const LEVEL: Record<WeatherLevel, { tone: ChipTone; label: (r: WeatherRiskResult) => string }> = {
-  often: { tone: "drought", label: (r) => `Most years · ${r.seasonsFavoured} of ${r.seasonsChecked}` },
-  sometimes: { tone: "neutral", label: (r) => `Some years · ${r.seasonsFavoured} of ${r.seasonsChecked}` },
-  rarely: { tone: "field", label: (r) => `Rarely · ${r.seasonsFavoured} of ${r.seasonsChecked}` },
-  unknown: { tone: "neutral", label: () => "Not enough weather data" },
-};
+type AppCopy = ReturnType<typeof useAppCopy>;
 
-/** Everything a crop is checked for, in the words a farmer would use. Exported for tests. */
-export function PestsContent({ outlook, fieldId }: { outlook: PestOutlook; fieldId: string }) {
+function levelLabel(text: AppCopy, w: WeatherRiskResult): string {
+  const l = text.pests.level;
+  return w.level === "unknown" ? l.unknown : l[w.level](w.seasonsFavoured, w.seasonsChecked);
+}
+
+const MYANMAR_SCRIPT = /[\u1000-\u109F]/;
+const PROPER_NAME = /^(Cercospora|Fusarium|Rhizoctonia|Meloidogyne)/;
+
+/** Crop name in the farmer's language: the Burmese name when there is one, otherwise the English name. */
+function useCropLabel() {
+  const locale = useLocaleStore((s) => s.locale);
+  return (c: PestCropRef, lower = false): string => {
+    if (locale === "my") {
+      const local = getCropById(c.cropId)?.names.local.find((n) => MYANMAR_SCRIPT.test(n));
+      if (local) return local;
+    }
+    return lower ? c.cropName.toLowerCase() : c.cropName;
+  };
+}
+
+/** A pest or disease name inside a sentence: lower case, except names that start with a Latin genus. */
+const inSentence = (name: string) => (PROPER_NAME.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1));
+
+/** The long text behind one finding, closed until a farmer wants it. */
+function Why({ children, id }: { children: ReactNode; id: string }) {
+  const text = useAppCopy().pests;
+  return (
+    <details className="group text-body-sm" data-testid={`why-${id}`}>
+      <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-field marker:hidden [&::-webkit-details-marker]:hidden">
+        <Icon name="info" size={14} />
+        <span className="underline underline-offset-2">{text.why}</span>
+      </summary>
+      <div className="mt-1 flex flex-col gap-2 border-l-2 border-line pl-3 text-ink-muted">{children}</div>
+    </details>
+  );
+}
+
+function Headline({ summary }: { summary: PestSummary }) {
+  const text = useAppCopy().pests;
+  const label = useCropLabel();
+  const h = summary.headline!;
+  const names = text.joinNames(h.crops.map((c) => label(c, true)));
+  const title = h.kind === "weather" ? text.mainThing(inSentence(h.name), label(h.crops[0], true)) : h.kind === "soil" ? text.mainThingSoil(inSentence(h.name)) : text.mainThing(inSentence(h.name), label(h.crops[0], true));
+  const parts: string[] = [];
+  if (h.weather) parts.push(text.detailWeather(h.weather.seasonsFavoured, h.weather.seasonsChecked));
+  if (h.soil) parts.push(text.detailSoil(names));
+  if (h.kind === "return" && h.returnYears !== null && h.minReturnYears !== null) parts.push(text.detailReturn(label(h.crops[0]), h.returnYears, h.minReturnYears));
+  return (
+    <Panel as="section" aria-labelledby="pests-main" className="flex flex-col gap-3 p-4 sm:p-5">
+      <div className="flex flex-col gap-1">
+        <h2 id="pests-main" className="m-0 text-headline text-ink">
+          {title}
+        </h2>
+        {parts.length ? <p className="m-0 text-body text-ink-muted">{parts.join(" ")}</p> : null}
+      </div>
+      {summary.actions.length ? (
+        <div className="flex flex-col gap-1.5">
+          <h3 className="m-0 text-label font-semibold text-ink">{text.whatToDo}</h3>
+          <ol className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label={text.whatToDo}>
+            {summary.actions.map((a, i) => (
+              <li key={i} className="flex items-start gap-2 text-body-sm text-ink">
+                <Icon name={a.kind === "when" || a.kind === "gap" ? "calendar" : a.kind === "look" ? "search" : "done"} size={16} className="mt-0.5 shrink-0 text-field" />
+                <span>{actionText(a, text, label)}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+function actionText(a: PestAction, text: AppCopy["pests"], label: (c: PestCropRef, lower?: boolean) => string): string {
+  switch (a.kind) {
+    case "look":
+      return `${text.lookLabel}${a.text}`;
+    case "help":
+      return `${text.helpLabel}${a.text}`;
+    case "gap":
+      return text.gapLine(a.days, label(a.fromCrop, true), label(a.toCrop, true));
+    case "when":
+      return a.months.length ? text.whenMonths(label(a.crop, true), a.months.join(", "), formatDay(a.plantDate)) : text.whenSeason(label(a.crop, true), formatDay(a.plantDate), formatDay(a.harvestDate));
+  }
+}
+
+/** Organisms that carry between crops, each once with the crops it touches. */
+function SoilPanel({ groups }: { groups: SoilGroup[] }) {
+  const text = useAppCopy().pests;
+  const label = useCropLabel();
+  if (!groups.length) return null;
+  return (
+    <Panel as="section" aria-labelledby="pests-soil" className="flex flex-col gap-3 p-4 sm:p-5">
+      <PanelHeader id="pests-soil" title={text.soilTitle} />
+      <ul className="m-0 flex list-none flex-col divide-y divide-line p-0">
+        {groups.map((g) => (
+          <li key={g.organismId} className="flex flex-col py-2.5 first:pt-0 last:pb-0">
+            <span className="flex flex-wrap items-center gap-x-2 text-body font-semibold text-ink">
+              <Icon name="soil" size={16} className="shrink-0 text-ink-muted" />
+              {plainPestName(g.name)}
+            </span>
+            <span className="text-body-sm text-ink-muted">{text.carryLine[g.carryover](text.joinNames(g.crops.map((c) => label(c, true))))}</span>
+            <Why id={g.organismId}>
+              <p className="m-0">
+                <span className="text-ink">{text.whyScientific}</span>
+                <i>{g.scientific}</i>
+              </p>
+              <p className="m-0">{g.advice}</p>
+              <Evidence scope={g.scope} refText={g.ref} />
+            </Why>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function WeatherRow({ w }: { w: WeatherRiskResult }) {
+  const appCopy = useAppCopy();
+  const text = appCopy.pests;
+  return (
+    <li className="flex flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-body font-semibold text-ink">{plainPestName(w.name)}</span>
+        <RiskChip hazard={LEVEL_TONE[w.level]}>{levelLabel(appCopy, w)}</RiskChip>
+      </div>
+      {w.peakMonths.length && w.level !== "rarely" && w.level !== "unknown" ? <span className="text-body-sm text-ink-muted">{text.mostlyIn(w.peakMonths.join(", "))}</span> : null}
+      <Why id={w.ruleId}>
+        <p className="m-0">
+          <span className="text-ink">{text.whyScientific}</span>
+          <i>{w.scientific}</i>
+        </p>
+        <p className="m-0">
+          <span className="text-ink">{text.whyWeather}</span>
+          {w.weather}.
+        </p>
+        <p className="m-0">{w.advice}</p>
+        <Evidence scope={w.scope} refText={w.ref} />
+      </Why>
+    </li>
+  );
+}
+
+function WeatherPanel({ outlook }: { outlook: PestOutlook }) {
+  const text = useAppCopy().pests;
+  const label = useCropLabel();
+  return (
+    <Panel as="section" aria-labelledby="pests-weather" className="flex flex-col gap-3 p-4 sm:p-5">
+      <PanelHeader id="pests-weather" title={text.weatherByCrop} description={text.weatherByCropDesc} />
+      {outlook.crops.map((c) => (
+        <div key={c.slotId} className="flex flex-col gap-2">
+          <h3 className="m-0 text-label font-semibold text-ink">
+            {label(c)} <span className="font-normal text-ink-muted">· {formatDay(c.plantDate)} to {formatDay(c.harvestDate)}</span>
+          </h3>
+          {c.weather.length === 0 ? (
+            <p className="m-0 text-body-sm text-ink-muted">{text.noRuleShort(label(c, true))}</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {c.weather.map((w) => (
+                <WeatherRow key={w.ruleId} w={w} />
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </Panel>
+  );
+}
+
+/** What waits behind a tap: every other pest the crops can host, each once, with the crops. */
+function OtherPests({ outlook, summary }: { outlook: PestOutlook; summary: PestSummary }) {
+  const text = useAppCopy().pests;
+  const label = useCropLabel();
+  const shown = new Set(summary.soil.map((g) => g.organismId));
+  const rows = new Map<string, { host: HostOrganism; crops: PestCropRef[] }>();
+  for (const c of outlook.crops) {
+    for (const h of c.hosts) {
+      if (shown.has(h.id)) continue;
+      const row = rows.get(h.id) ?? { host: h, crops: [] };
+      row.crops.push({ cropId: c.cropId, cropName: c.cropName });
+      rows.set(h.id, row);
+    }
+  }
+  if (!rows.size) return null;
+  return (
+    <Disclosure title={text.otherAllTitle} hint={`${rows.size}`}>
+      <ul className="m-0 flex list-none flex-col gap-3 p-0 pt-2">
+        {[...rows.values()].map(({ host, crops }) => (
+          <li key={host.id} className="flex flex-col gap-1">
+            <span className="text-body-sm font-semibold text-ink">
+              {plainPestName(host.name)} <span className="font-normal text-ink-muted">· {text.joinNames(crops.map((c) => label(c, true)))}</span>
+            </span>
+            <span className="text-body-sm text-ink-muted">{text.carryover[host.carryover]}</span>
+            <Why id={`other-${host.id}`}>
+              <p className="m-0">
+                <span className="text-ink">{text.whyScientific}</span>
+                <i>{host.scientific}</i>
+              </p>
+              <p className="m-0">{host.advice}</p>
+              <Evidence scope={host.scope} refText={host.ref} />
+            </Why>
+          </li>
+        ))}
+      </ul>
+    </Disclosure>
+  );
+}
+
+/**
+ * The page body: one main message with what to do, then what carries between crops, the weather risk crop by
+ * crop, and the detail behind a tap. Exported for tests. `phase` says whether the weather is still loading
+ * ("loading"), or could not be fetched ("failed"); it only matters when the outlook has no weather.
+ */
+export function PestsContent({ outlook, fieldId, phase, onRetry }: { outlook: PestOutlook; fieldId: string; phase?: AnalysisPhase; onRetry?: () => void }) {
+  const text = useAppCopy().pests;
+  const label = useCropLabel();
+  const summary = useMemo(() => buildPestSummary(outlook), [outlook]);
+  const noWeather = !outlook.weatherYears;
+  const loading = noWeather && phase === "loading";
   return (
     <>
-      <WatchPanel outlook={outlook} />
-      {outlook.returnIntervals.length ? (
+      {loading ? (
+        <AnalysisLoading title={text.loadingTitle} crops={outlook.crops.map((c) => label(c))} />
+      ) : summary.headline ? (
+        <Headline summary={summary} />
+      ) : (
+        <Panel as="section" aria-labelledby="pests-main" className="flex flex-col gap-1 p-4 sm:p-5">
+          <h2 id="pests-main" className="m-0 text-headline text-ink">
+            {text.nothingStands}
+          </h2>
+          <p className="m-0 text-body text-ink-muted">{noWeather ? text.quietNoWeather : text.quietWithWeather}</p>
+        </Panel>
+      )}
+      {noWeather && !loading ? (
+        <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-2 p-4">
+          <p className="m-0 text-body-sm text-ink-muted">{text.weatherFailed}</p>
+          {onRetry ? (
+            <Button onClick={onRetry} icon="reset">
+              {text.tryAgain}
+            </Button>
+          ) : null}
+        </Panel>
+      ) : null}
+      <SoilPanel groups={summary.soil} />
+      {outlook.returnIntervals.length && summary.headline?.kind !== "return" ? (
         <Panel as="section" aria-labelledby="pests-return" className="flex flex-col gap-3 p-4 sm:p-5">
-          <PanelHeader id="pests-return" title="Comes back too soon" description="Some wilts live in the soil for years and attack only one crop." />
+          <PanelHeader id="pests-return" title={text.returnTitle} description={text.returnDesc} />
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {outlook.returnIntervals.map((w) => (
               <li key={`${w.organismId}:${w.cropId}`} className="flex flex-col gap-1.5">
-                <RiskChip hazard="drought">{`${w.cropName} every ${w.returnYears === 1 ? "year" : `${w.returnYears} years`}`}</RiskChip>
-                <p className="m-0 text-body-sm text-ink">{w.text}</p>
-                <Evidence scope={w.scope} refText={w.ref} />
+                <RiskChip hazard="drought">{text.returnEvery(w.cropName, w.returnYears)}</RiskChip>
+                <Why id={`return-${w.organismId}`}>
+                  <p className="m-0">{w.text}</p>
+                  <Evidence scope={w.scope} refText={w.ref} />
+                </Why>
               </li>
             ))}
           </ul>
         </Panel>
       ) : null}
-      {outlook.crops.map((c) => (
-        <CropPanel key={c.slotId} crop={c} weatherYears={outlook.weatherYears} />
-      ))}
-      <Panel as="section" tone="plain" aria-labelledby="pests-limits" className="flex flex-col gap-2 p-4 sm:p-5">
-        <h2 id="pests-limits" className="m-0 text-label font-semibold text-ink">
-          What this page can and can&apos;t tell you
-        </h2>
-        <ul className="m-0 flex flex-col gap-1 pl-5 text-body-sm text-ink-muted">
-          <li>It shows when the weather suited a disease, not whether the disease came. Seed, variety, field history and crop care decide that.</li>
-          <li>Weather comes from NASA POWER daily averages for an area about 50 km across, not the humidity inside your crop.</li>
-          <li>The lists of which crops host which pests are drawn from general research and still need checking against Myanmar plant-protection advice.</li>
-        </ul>
-        <div className="flex flex-wrap gap-x-5">
-          <NavLink href={`/fields/${fieldId}/rotation`} icon="rotation">
-            Edit crops
-          </NavLink>
-          <NavLink href={`/fields/${fieldId}/compare`} icon="compare">
-            Compare plans
-          </NavLink>
+      {!noWeather ? <WeatherPanel outlook={outlook} /> : null}
+      {summary.caveats.length ? (
+        <div className="flex flex-col gap-1" aria-label={text.weatherNoteTitle}>
+          {summary.caveats.map((c) => (
+            <p key={c} className="m-0 flex items-start gap-1.5 text-source text-ink-muted">
+              <Icon name="info" size={14} className="mt-0.5 shrink-0" />
+              {c}
+            </p>
+          ))}
         </div>
-      </Panel>
+      ) : null}
+      <OtherPests outlook={outlook} summary={summary} />
+      <Disclosure title={text.limitsOpen}>
+        <div className="flex flex-col gap-2 pt-2">
+          <ul className="m-0 flex flex-col gap-1 pl-5 text-body-sm text-ink-muted">
+            {text.limits.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-x-5">
+            <NavLink href={`/fields/${fieldId}/rotation`} icon="rotation">
+              {text.editCrops}
+            </NavLink>
+            <NavLink href={`/fields/${fieldId}/compare`} icon="compare">
+              {text.comparePlans}
+            </NavLink>
+          </div>
+        </div>
+      </Disclosure>
     </>
   );
 }
 
-function WatchPanel({ outlook }: { outlook: PestOutlook }) {
-  const top = outlook.watch.slice(0, 4);
-  return (
-    <Panel as="section" aria-labelledby="pests-watch" className="flex flex-col gap-3 p-4 sm:p-5">
-      <PanelHeader
-        id="pests-watch"
-        title={top.length ? `Watch for ${top.length === 1 ? "this" : `these ${top.length}`}` : "Nothing stands out"}
-        description={
-          top.length
-            ? "The pests and diseases most worth checking for in this plan."
-            : outlook.weatherYears
-              ? "No soil disease carries between your crops, and past weather rarely suited the diseases we check. Keep scouting as usual."
-              : "No soil disease carries between your crops. Weather couldn't be checked yet, so keep scouting as usual."
-        }
-      />
-      {top.length ? (
-        <ol className="m-0 flex list-none flex-col divide-y divide-line p-0">
-          {top.map((w) => (
-            <li key={w.id} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
-              <Icon name={w.kind === "weather" ? "conditions" : w.kind === "return" ? "calendar" : "soil"} size={18} className="mt-0.5 shrink-0 text-drought" />
-              <div className="flex min-w-0 flex-col">
-                <span className="text-body font-semibold text-ink">
-                  {w.title} <span className="font-normal text-ink-muted">· {w.cropName}</span>
-                </span>
-                <span className="text-body-sm text-ink-muted">{w.reason}</span>
-              </div>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-    </Panel>
-  );
-}
-
-function CropPanel({ crop, weatherYears }: { crop: CropPestOutlook; weatherYears: PestOutlook["weatherYears"] }) {
-  const id = `pests-${crop.slotId}`;
-  const shown = new Set(crop.carriedIn?.shared.map((s) => s.organismId));
-  const others = crop.hosts.filter((h) => !shown.has(h.id));
-  return (
-    <Panel as="section" aria-labelledby={id} className="flex flex-col gap-4 p-4 sm:p-5">
-      <PanelHeader id={id} title={crop.cropName} description={`${formatDay(crop.plantDate)} to ${formatDay(crop.harvestDate)}`} />
-
-      <div className="flex flex-col gap-2">
-        <h3 className="m-0 flex items-center gap-1.5 text-label font-semibold text-ink">
-          <Icon name="conditions" size={16} className="text-ink-muted" />
-          Weather that suits disease
-        </h3>
-        {!weatherYears ? (
-          <p className="m-0 text-body-sm text-ink-muted">Weather for this field isn&apos;t available yet, so this part can&apos;t be checked.</p>
-        ) : crop.weather.length === 0 ? (
-          <p className="m-0 text-body-sm text-ink-muted">We don&apos;t have a weather rule for {crop.cropName.toLowerCase()} diseases yet.</p>
-        ) : (
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {crop.weather.map((w) => (
-              <li key={w.ruleId} className="flex flex-col gap-1.5 rounded-md bg-surface-sunken p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-body font-semibold text-ink">
-                    {w.name} <i className="font-normal text-ink-muted">{w.scientific}</i>
-                  </span>
-                  <RiskChip hazard={LEVEL[w.level].tone}>{LEVEL[w.level].label(w)}</RiskChip>
-                </div>
-                <p className="m-0 text-body-sm text-ink">
-                  {w.level === "unknown"
-                    ? `Too few seasons of weather to count (${w.seasonsChecked}).`
-                    : `Seasons in ${weatherYears.start}–${weatherYears.end} with ${w.weather}${w.peakMonths.length ? `, mostly in ${w.peakMonths.join(", ")}` : ""}.`}
-                </p>
-                <p className="m-0 text-body-sm text-ink-muted">{w.advice}</p>
-                {w.caveats.map((c) => (
-                  <p key={c} className="m-0 flex items-start gap-1.5 text-source text-ink-muted">
-                    <Icon name="info" size={14} className="mt-0.5 shrink-0" />
-                    {c}
-                  </p>
-                ))}
-                <Evidence scope={w.scope} refText={w.ref} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {crop.carriedIn ? (
-        <div className="flex flex-col gap-2">
-          <h3 className="m-0 flex items-center gap-1.5 text-label font-semibold text-ink">
-            <Icon name="soil" size={16} className="text-ink-muted" />
-            Can carry over from {crop.carriedIn.fromName}
-          </h3>
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {crop.carriedIn.shared.map((h) => (
-              <li key={h.organismId} className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-body font-semibold text-ink">
-                    {h.name} <i className="font-normal text-ink-muted">{h.scientific}</i>
-                  </span>
-                  <RiskChip hazard={h.severity === "caution" ? "drought" : "neutral"}>{CARRYOVER_WORDS[h.carryover]}</RiskChip>
-                </div>
-                <p className="m-0 text-body-sm text-ink-muted">{h.advice}</p>
-                <Evidence scope={h.scope} refText={h.ref} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {others.length ? (
-        <Disclosure title={`Other pests ${crop.cropName.toLowerCase()} can host`} hint={`${others.length}`}>
-          <ul className="m-0 flex list-none flex-col gap-3 p-0 pt-2">
-            {others.map((h) => (
-              <li key={h.id} className="flex flex-col gap-1">
-                <span className="text-body-sm font-semibold text-ink">
-                  {h.name} <i className="font-normal text-ink-muted">{h.scientific}</i>
-                  <span className="font-normal text-ink-muted"> · {CARRYOVER_WORDS[h.carryover]}</span>
-                </span>
-                <p className="m-0 text-body-sm text-ink-muted">{h.advice}</p>
-                <Evidence scope={h.scope} refText={h.ref} />
-              </li>
-            ))}
-          </ul>
-        </Disclosure>
-      ) : null}
-    </Panel>
-  );
-}
-
 export function PestsView({ fieldId }: { fieldId: string }) {
+  const appCopy = useAppCopy();
+  const text = appCopy.pests;
   const status = useFieldsStore((s) => s.status);
   const field = useFieldsStore((s) => s.fields.find((f) => f.id === fieldId));
   const rotations = useFieldRotations(fieldId);
@@ -234,7 +356,7 @@ export function PestsView({ fieldId }: { fieldId: string }) {
 
   if (status === "idle" || status === "loading") {
     return (
-      <div role="status" aria-label={copy.home.loading} className="flex flex-col gap-4">
+      <div role="status" aria-label={appCopy.home.loading} className="flex flex-col gap-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-36" />
       </div>
@@ -243,9 +365,9 @@ export function PestsView({ fieldId }: { fieldId: string }) {
 
   if (!field) {
     return (
-      <EmptyState title="Field not found" body="This field isn't saved in this browser. Please return to your fields list.">
+      <EmptyState title={text.notFoundTitle} body={text.notFoundBody}>
         <Link href="/" className={buttonClass("primary")}>
-          Back to your fields
+          {text.backToFields}
         </Link>
       </EmptyState>
     );
@@ -253,24 +375,18 @@ export function PestsView({ fieldId }: { fieldId: string }) {
 
   return (
     <>
-      <FieldPageHeader title="Pests and diseases" summary="What your crops can catch here, and when to look. Based on past weather and your crop order, not a field survey." />
+      <FieldPageHeader title={text.title} summary={text.summary} />
       {!outlook || outlook.crops.length === 0 ? (
-        <EmptyState title="Add your crops first" body="Pests and diseases depend on which crops you grow and when.">
+        <EmptyState title={text.addCropsTitle} body={text.addCropsBody}>
           <Link href={`/fields/${fieldId}/rotation`} className={buttonClass("primary")}>
-            Add crops
+            {text.addCrops}
           </Link>
         </EmptyState>
       ) : (
-        <>
-          {phase === "loading" && !engineData ? (
-            <Panel as="p" tone="plain" role="status" className="m-0 px-4 py-3 text-body-sm text-ink-muted">
-              Getting past weather for this field. Crop order checks are shown now.
-            </Panel>
-          ) : null}
-          <PestsContent outlook={outlook} fieldId={fieldId} />
-        </>
+        <PestsContent outlook={outlook} fieldId={fieldId} phase={phase} onRetry={analysis.retry} />
       )}
       <JudgmentNote />
+      <NextSteps fieldId={field.id} current="pests" />
     </>
   );
 }

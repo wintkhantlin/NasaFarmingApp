@@ -136,7 +136,7 @@ export function isMissing(i: Pick<DerivedIndicator, "value">): boolean {
 }
 
 const MISSING_TEXT: Record<MissingReason, string> = {
-  "source-unconfigured": "Not connected: this source needs an Earthdata login on the server.",
+  "source-unconfigured": "This detail isn't available for your area yet.",
   "source-unavailable": "The source did not answer.",
   "source-pending": "Still being retrieved.",
   "no-valid-observations": "No clear observations in this period.",

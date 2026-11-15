@@ -98,8 +98,8 @@ export function createRepository(storage: KeyValueStorage) {
       throw new ValidationError("The outline crosses itself. Redraw it so the lines don't cross.");
     }
     const center = centroid(geometry);
-    const moved = patch.geometry !== undefined;
-    const confirmedNow = patch.locationConfirmed === true && !current.locationConfirmed;
+    const moved = patch.geometry !== undefined && JSON.stringify(patch.geometry) !== JSON.stringify(current.geometry);
+    const confirmedNow = patch.locationConfirmed === true && (moved || !current.locationConfirmed);
     const next: Field = {
       ...current,
       ...patch,

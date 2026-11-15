@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within, waitFor } from "@testing-library/react";
 import { FarmProfile } from "@/components/field/farm-profile";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { resetFormDrafts } from "@/lib/store/form-drafts";
@@ -45,28 +45,95 @@ describe("FarmProfile forms", () => {
     resetFormDrafts();
   });
 
-  it("keeps the pump and paddy settings folded away when nothing is filled in", () => {
+  it("keeps 'More about my farm' closed until the farmer has answered something in it", () => {
     setStore();
     render(<FarmProfile fieldId={field.id} />);
-    const summary = screen.getByText("Advanced water and paddy settings").closest("summary");
-    expect(summary).not.toBeNull();
-    expect(summary!.closest("details")).not.toHaveAttribute("open");
+    const more = screen.getByText("More about my farm").closest("details");
+    expect(more).not.toBeNull();
+    expect(more).not.toHaveAttribute("open");
+    // The two everyday water and work questions stay outside it.
+    expect(more!.contains(screen.getByText("Water for crops"))).toBe(false);
+    expect(more!.contains(screen.getByText("Labour at busy times"))).toBe(false);
+    expect(more!.contains(screen.getByText("Equipment"))).toBe(true);
+    expect(more!.contains(screen.getByText("Market access"))).toBe(true);
+    // The on-page nav is gone.
+    expect(screen.queryByRole("navigation", { name: "On this page" })).toBeNull();
   });
 
-  it("asks for the date, method and source of a soil measurement by name, and keeps the defaults blank", () => {
+  it("opens 'More about my farm' when a value in it is already set", () => {
+    useFieldsStore.setState({
+      status: "ready",
+      fields: [{ ...field, constraints: { marketAccess: "good" } }],
+      rotations: { [field.id]: [] },
+      load: vi.fn(),
+      loadRotations: vi.fn(),
+    });
+    render(<FarmProfile fieldId={field.id} />);
+    expect(screen.getByText("More about my farm").closest("details")).toHaveAttribute("open");
+  });
+
+  it("hides pump, soil dryness and paddy figures until the farmer says they have a record", () => {
+    setStore();
+    render(<FarmProfile fieldId={field.id} />);
+    expect(screen.queryByLabelText(/Pump output/)).toBeNull();
+    expect(screen.queryByLabelText(/Soil dryness at planting/)).toBeNull();
+    expect(screen.queryByLabelText(/Paddy bund height/)).toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "I have a pump record" }));
+    expect(screen.getByLabelText(/Soil dryness at planting/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("switch", { name: "I know my paddy bund and seepage" }));
+    expect(screen.getByLabelText(/Paddy bund height/)).toBeInTheDocument();
+  });
+
+  it("only needs the value to add a soil measurement; date, method and source have defaults", () => {
     const update = setStore();
     render(<FarmProfile fieldId={field.id} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Use my own test" }));
     const addButton = screen.getByRole("button", { name: "Add measurement" });
+    fireEvent.click(addButton);
+    expect(screen.getByText("Enter the ph you measured.")).toBeInTheDocument();
+
     fireEvent.change(screen.getByLabelText(/Value/, { selector: "input" }), { target: { value: "6.2" } });
     fireEvent.click(addButton);
-    expect(screen.getByText("Pick the date the soil was measured.")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText(/Date measured/),{ target: { value: "2026-03-01" } });
-    fireEvent.click(addButton);
-    expect(screen.getByText("Choose how it was measured: lab, field kit, map or your own estimate.")).toBeInTheDocument();
-
+    expect(screen.queryByRole("alert")).toBeNull();
+    const row = screen.getByRole("button", { name: "Remove" }).closest("li")!;
+    expect(row.textContent).toContain("My own estimate");
+    expect(row.textContent).toContain("My own test");
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("offers Undo after removing a soil measurement", () => {
+    setStore();
+    render(<FarmProfile fieldId={field.id} />);
+    fireEvent.click(screen.getByRole("button", { name: "Use my own test" }));
+    fireEvent.change(screen.getByLabelText(/Value/, { selector: "input" }), { target: { value: "6.2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add measurement" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.getByText("Removed pH.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+  });
+
+  it("shows the save bar only after a change, and Save and stay keeps the farmer here with a saved note", async () => {
+    const update = setStore();
+    render(<FarmProfile fieldId={field.id} />);
+    expect(screen.queryByRole("button", { name: "Save and stay" })).toBeNull();
+    expect(screen.getByRole("link", { name: /See my answer/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Low" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and stay" }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    expect(await screen.findByText("Saved on this phone")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save and stay" })).toBeNull();
+  });
+
+  it("names the limits toggle 'Add this limit' and shows its fields only when it is on", () => {
+    setStore();
+    render(<FarmProfile fieldId={field.id} />);
+    expect(screen.getByText("Limits (optional)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pick crops")).toBeNull();
+    fireEvent.click(screen.getAllByRole("switch", { name: "Add this limit" })[0]);
+    expect(screen.getByLabelText("Pick crops")).toBeInTheDocument();
   });
 
   it("explains a day that does not exist in the chosen month", () => {
@@ -81,6 +148,7 @@ describe("FarmProfile forms", () => {
   it("keeps typed answers when the form is left and opened again in the same session", () => {
     setStore();
     const first = render(<FarmProfile fieldId={field.id} />);
+    fireEvent.click(screen.getByRole("button", { name: "Use my own test" }));
     fireEvent.change(screen.getByLabelText("Soil salinity (dS/m)"), { target: { value: "3.5" } });
     first.unmount();
 

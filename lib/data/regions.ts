@@ -2,7 +2,9 @@ import { pointInPolygon } from "../geo/shapes";
 import type { FieldGeometry, LngLat, RegionId } from "../types";
 import { REGION_BOUNDARIES } from "./region-boundaries";
 import nationalBoundary from "./myanmar-boundary.json";
+import yangonBoundary from "./yangon-boundary.json";
 
+// Simplified 2019 ADM1 geometry from geoBoundaries MMR, gbOpen (CC BY 4.0).
 export interface RegionInfo {
   id: RegionId;
   name: string;
@@ -39,17 +41,26 @@ export const REGIONS: Record<RegionId, RegionInfo> = {
     candidateCropIds: ["maize", "soybean", "lablab", "sunn-hemp"],
     resolvedCategories: { "cover crops": ["lablab", "sunn-hemp"] },
   },
+  yangon: {
+    id: "yangon",
+    name: "Yangon Region",
+    focus: "Location recognized; no trusted regional crop comparison catalog yet",
+    candidateCropIds: [],
+  },
 };
 
-export const REGION_IDS: RegionId[] = ["ayeyarwady", "magway", "shan", "myanmar"];
+export const REGION_IDS: RegionId[] = ["ayeyarwady", "magway", "shan", "yangon", "myanmar"];
 
 export type ResolvedRegion = RegionId | "unsupported";
 
 const asRings = (polygon: number[][][]): LngLat[][] => polygon as unknown as LngLat[][];
 
 export function regionOfPoint(point: LngLat): ResolvedRegion {
+  for (const polygon of yangonBoundary.coordinates) {
+    if (pointInPolygon(point, asRings(polygon))) return "yangon";
+  }
   for (const id of REGION_IDS) {
-    if (id === "myanmar") continue;
+    if (id === "myanmar" || id === "yangon") continue;
     for (const polygon of REGION_BOUNDARIES[id]) {
       if (pointInPolygon(point, asRings(polygon))) return id;
     }

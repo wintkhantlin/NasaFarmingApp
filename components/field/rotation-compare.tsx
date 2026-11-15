@@ -18,7 +18,6 @@ import { JudgmentNote } from "@/components/ui/judgment-note";
 import { Message } from "@/components/ui/message";
 import { Panel } from "@/components/ui/panel";
 import { RiskChip } from "@/components/ui/risk-chip";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
 import { getCropById } from "@/lib/data/crops";
@@ -26,6 +25,11 @@ import { monthlyNormals } from "@/lib/engine/climate";
 import { compareRotations, type EvaluatedOption } from "@/lib/engine/compare";
 import { BASELINE } from "@/lib/engine/data";
 import { ComparisonResults } from "@/components/field/results/comparison-results";
+import { AnalysisLoading } from "@/components/field/analysis-loading";
+import { NextSteps } from "@/components/field/next-steps";
+import { useCompareViewedStore } from "@/lib/store/compare-viewed";
+import { useAppCopy, useLocaleStore } from "@/lib/store/locale-store";
+import { OfflineBanner, ResultBlocker, resolveBlocker, useOnline } from "@/components/field/result-blocker";
 import { buildResultsModel } from "@/lib/plan/results-model";
 import { adaptComparison } from "@/lib/plan/engine-display";
 import { CRITERIA } from "@/lib/engine/mcda";
@@ -37,6 +41,9 @@ const unknown = "Not known";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const fmt = (n: number | null | undefined, d = 0) => (n === null || n === undefined ? unknown : n.toFixed(d));
 const mmk = (n: number) => Math.round(n).toLocaleString();
+const FARMER_DATE = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+const farmerDate = (date: string) =>
+  FARMER_DATE.format(new Date(`${date}T00:00:00Z`));
 
 function plainSourceStatus(status: string | undefined): string {
   if (status === "ok" || status === "available") return "available";
@@ -58,7 +65,9 @@ function placeName(region: string) {
   if (region === "ayeyarwady") return "Ayeyarwady";
   if (region === "magway") return "Magway";
   if (region === "shan") return "Shan State";
-  return "this place";
+  if (region === "yangon") return copy.compare.blocker.regionName.yangon;
+  if (region === "myanmar") return copy.compare.blocker.regionName.myanmar;
+  return copy.compare.blocker.regionName.unsupported;
 }
 
 /** The crop sequence as large pills joined by arrows: readable without parsing a sentence. */
@@ -91,7 +100,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const load = useFieldsStore((s) => s.load);
   const loadRotations = useFieldsStore((s) => s.loadRotations);
   const [scenario, setScenario] = useState<Scenario>(NO_SCENARIO);
-  const [keepingMine, setKeepingMine] = useState(false);
+  const text = useAppCopy();
+  const locale = useLocaleStore((s) => s.locale);
+  const online = useOnline();
   /** Sliders stay responsive while the options catch up on the same past seasons. */
   const testScenario = useDeferredValue(scenario);
   const testPending = testScenario !== scenario;
@@ -135,8 +146,17 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const revision = `${field?.updatedAt ?? ""}:${JSON.stringify(savedRotation ?? null)}`;
   const display = adaptComparison({
     mode: "field", phase: analysis.phase, field, rotation: savedRotation, data: effectiveEngineData,
-    comparison, inputRevision: revision, resultRevision: testPending ? "pending" : comparison ? revision : null,
+    // While What-if sliders move, the previous result stays on screen (the sliders show their own pending state).
+    comparison, inputRevision: revision, resultRevision: comparison ? revision : null, locale,
   });
+  const blocker = resolveBlocker(display, comparison, field, { copy: text, online, retry: analysis.retry });
+  const offlineBanner = !online ? <OfflineBanner text={text.compare.blocker.offlineBanner} /> : null;
+  // Tick the Compare step only once a result has really been shown (not while stale or unavailable).
+  const markCompareViewed = useCompareViewedStore((s) => s.markViewed);
+  const comparisonShown = Boolean(comparison) && display.state !== "stale" && display.state !== "data-unavailable";
+  useEffect(() => {
+    if (comparisonShown && fieldId) markCompareViewed(fieldId);
+  }, [comparisonShown, fieldId, markCompareViewed]);
   const whatIf = useMemo(
     () => (baseComparison && comparison && !isNeutral(testScenario) ? whatIfResult(baseComparison, comparison, { includeCurrent: hasOwnRotation }) : null),
     [baseComparison, comparison, testScenario, hasOwnRotation],
@@ -186,13 +206,12 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     [engineData],
   );
 
+  const cropNames = (savedRotation?.slots ?? []).filter((slot) => slot.kind === "crop").map((slot) => slotName(slot).replace(/\s*\(.*\)\s*$/, ""));
+
   if (status === "idle" || status === "loading") {
     return (
-      <div role="status" aria-label={copy.home.loading} className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-28" />
-        <Skeleton className="h-64" />
-        <p className="text-body-sm text-ink-muted">{copy.conditions.loadingData}</p>
+      <div aria-label={copy.home.loading} className="flex flex-col gap-4">
+        <AnalysisLoading title="Getting your crop comparison ready" crops={cropNames} />
       </div>
     );
   }
@@ -209,43 +228,48 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     );
   }
 
+  if (!comparison && analysis.phase === "loading") {
+    return (
+      <div className="flex flex-col gap-4">
+        {offlineBanner}
+        <AnalysisLoading title="Checking your crops against 10 years of weather" crops={cropNames} />
+      </div>
+    );
+  }
+
   if (!comparison || display.state === "stale" || display.state === "data-unavailable") {
-    const needsLocation = display.state === "field-incomplete" && !field.locationConfirmed;
+    const earlyBlocker = blocker ?? resolveBlocker({ ...display, state: "error" }, comparison, field, { copy: text, online, retry: analysis.retry });
     const needsCurrentCrops = display.state === "field-incomplete" && field.locationConfirmed;
     return (
-      <Panel as="section" role="status" className="flex flex-col items-start gap-4 p-5 sm:p-6">
-        <h1 className="m-0 text-title text-ink">{display.headline}</h1>
-        <p className="m-0 max-w-measure text-body text-ink-muted">{display.detail}</p>
-        {needsCurrentCrops ? (
-          <Message tone="needs" title="Add what grows here">
-            Choose the crops grown on this field and give the timing you remember. A month range or “not sure” is enough.
-          </Message>
+      <div className="flex flex-col gap-4">
+        {offlineBanner}
+        {earlyBlocker ? <ResultBlocker blocker={earlyBlocker} heading="h1" reasonsTitle={text.compare.blocker.limitsReasonsTitle} /> : null}
+        {earlyBlocker?.kind === "refreshing" && display.gaps.length > 0 ? (
+          <ul className="m-0 list-disc space-y-2 pl-5 text-body-sm text-ink-muted">
+            {display.gaps.map((gap) => <li key={gap}>{gap}</li>)}
+          </ul>
         ) : null}
-        {display.gaps.length > 0 ? <ul className="m-0 list-disc space-y-2 pl-5 text-body-sm text-ink-muted">{display.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul> : null}
-        {comparison && display.state === "data-unavailable" ? <>
-          <Link href={`/fields/${field.id}/location`} className={buttonClass("secondary")}>Check field location</Link>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("primary")}>Review crops and dates</Link>
-          <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Review water and field details</Link>
-        </> : null}
-        {display.state === "field-incomplete" ? (
-          <Link href={needsLocation ? `/fields/${field.id}/location` : `/fields/${field.id}/rotation`} className={buttonClass("primary")}>
-            {needsLocation ? "Confirm field location" : "Tell us what grows here now"}
-          </Link>
-        ) : display.state === "stale" ? null : (
-          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>Try loading again</button>
-        )}
-        {savedPlan && needsCurrentCrops ? <p className="m-0 text-body-sm text-ink-muted">Your saved plan stays in this browser while you add this information.</p> : null}
-      </Panel>
+        {savedPlan && needsCurrentCrops ? <p className="m-0 text-body-sm text-ink-muted">{text.compare.blocker.planSavedNote}</p> : null}
+      </div>
     );
   }
 
   const alternatives = display.options.filter((o) => o.kind === "alternative").map((o) => o.engine);
-  const bestId: string | undefined = undefined;
   const rankOrder = new Map(comparison.mcda.ranking.map((r, i) => [r.rotationId, i]));
   const orderedAlternatives = [...alternatives].sort(
     (a, b) => (rankOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rankOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
   );
   const displayOptions: EvaluatedOption[] = [comparison.current, ...orderedAlternatives];
+  const bestId =
+    display.state === "comparable" && !display.tiedFirst
+      ? comparison.mcda.ranking[0]?.rotationId
+      : undefined;
+  const bestOption = displayOptions.find((option) => option.id === bestId);
+  const nextCrop = bestOption?.rotation.slots.filter((slot) => slot.kind === "crop").at(-1);
+  const suggestedSowDate =
+    nextCrop?.dateConfidence === "typical" && nextCrop.plantDate >= new Date().toISOString().slice(0, 10)
+      ? farmerDate(nextCrop.plantDate)
+      : null;
   const place = placeName(comparison.region);
   const weatherLoading = analysis.phase === "loading";
   const weatherMissing = !weatherLoading && engineData?.power.status !== "ok";
@@ -263,8 +287,14 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         ? copy.compare.summaryWith(place, alternatives.length, pastSeasons)
         : copy.compare.summaryWithout(place, pastSeasons);
 
-  const answerHeadline = display.headline;
-  const answerReason = display.detail;
+  const answerHeadline = bestOption
+    ? bestOption.id === comparison.current.id
+      ? "Your current crops best match the priorities you chose."
+      : "This option ranks highest among the choices we checked."
+    : display.headline;
+  const answerReason = bestOption
+    ? `${bestOption.rotation.slots.map((slot) => slotName(slot)).join(" → ")} ranks highest for your selected priorities.${suggestedSowDate ? ` Suggested sow date for the last crop: ${suggestedSowDate}.` : ""} This is not a guarantee; check dates, water and local conditions before planting.`
+    : display.detail;
 
 
   const row = (label: string, cell: (o: EvaluatedOption) => ReactNode) => ({ label, cell });
@@ -299,8 +329,13 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           if (o.nitrogen.fixedKgHa && o.nitrogen.removedKgHa !== null) {
             const midFix = (o.nitrogen.fixedKgHa[0] + o.nitrogen.fixedKgHa[1]) / 2;
             const balance = Math.round(midFix - o.nitrogen.removedKgHa);
-            if (balance >= 0) return <RiskChip hazard="healthy">Puts back about {balance} kg N/ha more than it takes</RiskChip>;
-            return <RiskChip hazard="drought">Takes about {Math.abs(balance)} kg N/ha more than it puts back</RiskChip>;
+            if (balance > 0) return <RiskChip hazard="healthy">Puts back about {balance} kg N/ha more than it takes</RiskChip>;
+            if (balance === 0) return <RiskChip hazard="neutral">Puts back about as much as it takes</RiskChip>;
+            return (
+              <RiskChip hazard="drought" icon={<Icon name="alert" size={14} className="shrink-0" />}>
+                Takes about {Math.abs(balance)} kg N/ha more than it puts back
+              </RiskChip>
+            );
           }
           if (o.nitrogen.fixedKgHa) return `${fmt(o.nitrogen.fixedKgHa[0])} to ${fmt(o.nitrogen.fixedKgHa[1])} kg N/ha fixed`;
           return "No legume nitrogen in this cycle";
@@ -317,7 +352,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       group: copy.compare.groupWater,
       items: [
         row(copy.compare.measureRain, (o) => (o.metrics["water-shortfall"] == null ? unknown : `${fmt(o.metrics["water-shortfall"])} mm`)),
-        row(copy.compare.measureDry, (o) => (o.dryYear.evaluated === 0 ? unknown : `${o.dryYear.passes} of ${o.dryYear.evaluated} passed`)),
+        row(copy.compare.measureDry, (o) => (o.dryYear.evaluated === 0 ? unknown : `Passed ${o.dryYear.passes} of ${o.dryYear.evaluated} severe dry ${o.dryYear.evaluated === 1 ? "year" : "years"} (of ${pastSeasons} ${pastSeasons === 1 ? "year" : "years"} checked)`)),
       ],
     },
     {
@@ -349,26 +384,25 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
 
   return (
     <>
-      <FieldPageHeader title={copy.compare.title} summary={summary} />
+      {offlineBanner}
+      <FieldPageHeader title={copy.compare.title} summary={hasAlternatives && !blocker ? undefined : summary} />
 
       <WhatIfBanner scenario={testScenario} recorded={field.irrigation} onReset={() => setScenario(NO_SCENARIO)} />
 
-      {/* 1. The short answer, in one place */}
+      {/* 1. The short answer. With choices to compare it is the verdict card inside the results below; a dead end shows one blocker card here instead, never two. */}
+      {blocker ? (
+        <ResultBlocker blocker={blocker} reasonsTitle={text.compare.blocker.limitsReasonsTitle} />
+      ) : !hasAlternatives ? (
       <section aria-label="Comparison summary" className="flex flex-col gap-3 rounded-lg border border-field/30 bg-field-soft/40 p-4 sm:p-5">
         <h2 className="m-0 text-headline text-ink">{answerHeadline}</h2>
         <p className="m-0 max-w-measure text-body text-ink">{answerReason}</p>
-        {hasOwnRotation && comparison.mcda.assumedPriorities ? (
-          <Message
-            tone="needs"
-            title={copy.compare.assumedPriorities}
-            action={
-              <Link href={`/fields/${field.id}/questions/priority`} className={buttonClass("secondary")}>
-                {copy.compare.assumedChange}
-              </Link>
-            }
-          />
+        {bestOption && locale === "my" ? (
+          <p lang="my" className="m-0 text-body-sm text-ink-muted">
+            သင်ရွေးထားသော ဦးစားပေးချက်များအရ ဤအစီအစဉ်သည် စစ်ဆေးထားသော ရွေးချယ်စရာများအနက် အဆင့်အမြင့်ဆုံးဖြစ်သည်။ မစိုက်မီ ရက်၊ ရေနှင့် ဒေသအခြေအနေများကို စစ်ဆေးပါ။
+          </p>
         ) : null}
       </section>
+      ) : null}
 
       {!hasOwnRotation && hasAlternatives ? (
         <Message
@@ -387,37 +421,15 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       {hasOwnRotation && comparison.shortfall && hasAlternatives ? (
         <Message
           tone="caution"
-          title={comparison.region === "unsupported" ? copy.compare.unsupported : copy.compare.shortfallTitle}
+          title={text.compare.shortfallTitle}
           action={
-            comparison.region !== "unsupported" && hasAlternatives ? (
-              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
-                {copy.compare.shortfallAction}
-              </Link>
-            ) : null
+            <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+              {text.compare.shortfallAction}
+            </Link>
           }
         >
-          {comparison.region === "unsupported" ? copy.compare.unsupportedBody : copy.compare.shortfallBody}
+          {text.compare.shortfallBody}
         </Message>
-      ) : null}
-
-      {!hasAlternatives ? (
-        comparison.region === "unsupported" ? (
-          <Link href={`/fields/${field.id}/conditions`} className={buttonClass("secondary", "self-start")}>
-            {copy.compare.unsupportedAction}
-          </Link>
-        ) : (
-          <Message
-            tone="info"
-            title={copy.compare.noAlternativesTitle}
-            action={
-              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
-                {copy.compare.shortfallAction}
-              </Link>
-            }
-          >
-            {copy.compare.noAlternativesBody(place)}
-          </Message>
-        )
       ) : null}
 
       {weatherLoading ? (
@@ -451,31 +463,19 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </section>
       ) : null}
 
-      {/* 3. What to do next, straight after the choices */}
-      <section aria-labelledby="next-step" className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4 sm:p-5 print:hidden">
-        <h2 id="next-step" className="m-0 text-headline text-ink">What would you like to do?</h2>
-        <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
-          <Icon name="report" />
-          See my farmer summary
-        </Link>
-        <div className="grid gap-2 sm:flex sm:flex-wrap">
-          {hasOwnRotation ? (
-            <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary", "w-full sm:w-auto")}>
-              <Icon name="done" />
-              Keep my current crops
-            </button>
-          ) : null}
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary", "w-full sm:w-auto")}>
-            <Icon name="rotation" />
+      {/* 3. Without choices to compare there is no verdict card, so the way on sits here. */}
+      {!hasAlternatives ? (
+        <section aria-labelledby="next-step" className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4 sm:p-5 print:hidden">
+          <h2 id="next-step" className="m-0 text-headline text-ink">What would you like to do?</h2>
+          <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
+            <Icon name="report" />
+            See my farmer summary
+          </Link>
+          <Link href={`/fields/${field.id}/rotation`} className="inline-flex min-h-tap items-center self-start text-label text-field underline hover:text-ink">
             Change my crops
           </Link>
-        </div>
-        {keepingMine ? (
-          <Message tone="success" role="status" title="Your current crops are unchanged">
-            You can come back and change them later.
-          </Message>
-        ) : null}
-      </section>
+        </section>
+      ) : null}
 
       <Disclosure title="Before planting: questions to check locally">
         <CheckLocally
@@ -499,6 +499,10 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           <p className="m-0 text-body-sm text-ink-muted">You do not need these to decide. They show how the choices were checked.</p>
         </div>
 
+        <Link href={`/plan/crop-screen?fieldId=${encodeURIComponent(field.id)}`} className="inline-flex min-h-tap items-center self-start text-label text-field underline hover:text-ink">
+          Check next crops against this field&apos;s weather and soil
+        </Link>
+
         <Disclosure title="How we checked these choices" hint={display.state === "comparable" ? "Ready" : "Some information is missing"}>
           <p className="m-0 max-w-measure text-body-sm text-ink-muted">
             We replayed {display.replay?.completeYears ?? 0} complete past years from 2016–2025 to compare how each choice handled the same weather.
@@ -512,19 +516,18 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           </ul>
           {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">More information is still loading. You can review what is ready now.</p> : null}
           {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">You are seeing previously saved information because a refresh is not available.</p> : null}
-          {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Try loading again</button> : null}
         </Disclosure>
       {hasAlternatives && display.state === "comparable" ? (
-        <details className="rounded-md border border-line bg-surface">
-          <summary className="min-h-tap cursor-pointer p-4 text-label text-ink">{copy.compare.measures}</summary>
+        <details className="border-t border-line">
+          <summary className="min-h-tap cursor-pointer py-3 text-label text-ink">{copy.compare.measures}</summary>
           {/* Mobile: vertically organized comparison without wide tables */}
-          <div className="flex flex-col divide-y divide-line border-t border-line md:hidden">
+          <div className="flex flex-col divide-y divide-line md:hidden">
             {tableRows.map((g) => (
-              <div key={g.group} className="flex flex-col gap-3 p-4">
-                <h4 className="m-0 text-source font-semibold uppercase tracking-wider text-ink-muted">{g.group}</h4>
-                <div className="flex flex-col gap-3">
+              <div key={g.group} className="flex flex-col gap-3 py-3">
+                <h4 className="m-0 text-label font-semibold text-ink">{g.group}</h4>
+                <div className="flex flex-col gap-4">
                   {g.items.map((it) => (
-                    <div key={it.label} className="flex flex-col gap-2 rounded-md border border-line bg-surface-raised p-3">
+                    <div key={it.label} className="flex flex-col gap-2">
                       <span className="text-body-sm font-semibold text-ink">{it.label}</span>
                       <div className="flex flex-col gap-2">
                         {displayOptions.map((o) => (
@@ -597,7 +600,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             {displayOptions.map((o, i) => (
               <div key={o.id} className="flex flex-col gap-3">
                 <h3 className="m-0 text-headline text-ink">{optionName(o)}</h3>
-                <OptionDetail option={o} rainyMonths={rainyMonths} fieldId={field.id} region={field.region} showCalls={i === 0} />
+                <OptionDetail option={o} rainyMonths={rainyMonths} fieldId={field.id} yearsChecked={pastSeasons} region={field.region} showCalls={i === 0} />
               </div>
             ))}
           </div>
@@ -610,7 +613,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             <div className="flex flex-col items-start gap-2">
               <p className="m-0 max-w-measure text-body text-ink">{copy.compare.rankingNone}</p>
               <p className="m-0 max-w-measure text-body-sm text-ink-muted">{copy.compare.rankingNoneBody}</p>
-              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+              <Link href={`/fields/${field.id}/questions/priority`} className={buttonClass("secondary")}>
                 {copy.compare.needProfile}
               </Link>
             </div>
@@ -727,6 +730,8 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       ) : null}
 
       </section>
+
+      <NextSteps fieldId={field.id} current="compare" />
     </>
   );
 }

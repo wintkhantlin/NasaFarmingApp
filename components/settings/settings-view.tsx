@@ -1,10 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { downloadJson } from "@/lib/download";
 import { useFieldsStore } from "@/lib/store/fields-store";
-import { useLocaleStore, type AreaUnit, type Locale } from "@/lib/store/locale-store";
+import { useAppCopy, useLocaleStore, type AreaUnit, type Locale } from "@/lib/store/locale-store";
+
+const LAST_BACKUP_KEY = "farm_fields_last_backup_at";
+const BACKUP_EVENT = "fieldshift-backup-recorded";
+
+function subscribeBackupTime(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(BACKUP_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(BACKUP_EVENT, onChange);
+  };
+}
+
+function readBackupTime(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_BACKUP_KEY);
+  } catch {
+    return null;
+  }
+}
 
 const bilingual = {
   language: "Language / ဘာသာစကား",
@@ -22,11 +42,23 @@ export function SettingsView() {
   const setAreaUnit = useLocaleStore((s) => s.setAreaUnit);
   const exportBackup = useFieldsStore((s) => s.exportBackup);
   const importBackup = useFieldsStore((s) => s.importBackup);
+  const t = useAppCopy();
   const [message, setMessage] = useState<string | null>(null);
+  const lastBackupAt = useSyncExternalStore(subscribeBackupTime, readBackupTime, () => null);
   const [busy, setBusy] = useState<"export" | "restore" | null>(null);
   const restoreInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => hydrateLocale(), [hydrateLocale]);
+
+  const recordBackupTime = () => {
+    const now = new Date().toISOString().slice(0, 10);
+    try {
+      window.localStorage.setItem(LAST_BACKUP_KEY, now);
+      window.dispatchEvent(new Event(BACKUP_EVENT));
+    } catch {
+      // storage unavailable
+    }
+  };
 
   const exportData = async () => {
     setBusy("export");
@@ -34,9 +66,10 @@ export function SettingsView() {
     try {
       const backup = await exportBackup();
       downloadJson(`field-shift-backup-${new Date().toISOString().slice(0, 10)}.json`, backup);
-      setMessage("Backup download started. Keep the file somewhere private.");
+      recordBackupTime();
+      setMessage(t.home.backupDownloaded);
     } catch {
-      setMessage("Could not create a backup. Check browser storage and try again.");
+      setMessage(t.home.backupExportError);
     } finally {
       setBusy(null);
     }
@@ -48,7 +81,8 @@ export function SettingsView() {
     setMessage(null);
     try {
       const result = await importBackup(JSON.parse(await file.text()));
-      setMessage(`Restored ${result.fields} fields and ${result.rotations} rotations on this device.`);
+      recordBackupTime();
+      setMessage(t.home.backupRestored(result.fields, result.rotations));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not restore that backup. Choose a Field Shift JSON backup and try again.");
     } finally {
@@ -61,7 +95,7 @@ export function SettingsView() {
     <div className="flex max-w-2xl flex-col gap-7">
       <header className="flex flex-col gap-1">
         <h1 className="text-title text-ink sm:text-display">Settings</h1>
-        <p className="max-w-measure text-body text-ink-muted">Choose how Field Shift is shown and keep a private copy of work saved in this browser.</p>
+        <p className="max-w-measure text-body text-ink-muted">Choose how Field Shift is shown and keep a private copy of work saved on this phone.</p>
       </header>
 
       <section aria-labelledby="language-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
@@ -77,23 +111,24 @@ export function SettingsView() {
 
       <section aria-labelledby="backup-settings" className="flex flex-col gap-3 rounded-md border border-line bg-surface-raised p-4 sm:p-5">
         <h2 id="backup-settings" className="text-headline text-ink">{bilingual.backup}</h2>
-        <p className="m-0 max-w-measure text-body-sm text-ink-muted">Version 3 backups include fields, saved rotations and your Plan draft. Restore adds records and replaces matching IDs and the included Plan draft. Keep the file private.</p>
+        <p className="m-0 max-w-measure text-body-sm text-ink-muted">A backup has your fields, saved rotations and your Plan draft. Restoring adds them back and replaces any that match. Keep the file private.</p>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2">
           <Button variant="secondary" onClick={() => void exportData()} disabled={busy !== null} icon="download" className="w-full sm:w-auto justify-center">
-            {busy === "export" ? "Preparing backup…" : "Export backup (JSON)"}
+            {busy === "export" ? "Preparing backup…" : t.home.exportBackup}
           </Button>
           <Button variant="secondary" onClick={() => restoreInput.current?.click()} disabled={busy !== null} icon="restore" className="w-full sm:w-auto justify-center">
-            {busy === "restore" ? "Restoring…" : "Restore backup"}
+            {busy === "restore" ? "Restoring…" : t.home.restoreBackup}
           </Button>
-          <input ref={restoreInput} type="file" accept=".json,application/json" className="sr-only" aria-label="Choose a backup file" onChange={(event) => void restore(event.target.files?.[0])} />
+          <input ref={restoreInput} type="file" accept=".json,application/json" className="sr-only" aria-label={t.home.chooseBackup} onChange={(event) => void restore(event.target.files?.[0])} />
         </div>
+        {lastBackupAt ? <p className="m-0 text-source text-ink-muted">{t.home.lastBackupAt(lastBackupAt)}</p> : null}
         {message ? <p role="status" className="m-0 text-body-sm text-ink-muted">{message}</p> : null}
       </section>
 
       <section aria-labelledby="privacy-settings" className="flex flex-col gap-3 rounded-md bg-surface-sunken p-4 sm:p-5">
         <h2 id="privacy-settings" className="text-headline text-ink">{bilingual.privacy}</h2>
         <ul className="m-0 flex max-w-measure list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
-          <li>Field names, crop history and preferences stay in this browser. Clearing browser data or using a shared device can expose or remove them.</li>
+          <li>Field names, crop history and preferences stay on this phone. Clearing data on the phone, or sharing the phone, can expose or remove them.</li>
           <li>Location or field outlines may be sent to map and data providers only when a feature needs them. This settings page sends nothing.</li>
           <li>No account and no server backup are used. Export a backup before changing or clearing a device.</li>
         </ul>

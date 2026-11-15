@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CheckGlyph, ClockGlyph } from "@/components/ui/icons";
 import { Panel } from "@/components/ui/panel";
+import { DataLegend } from "@/components/ui/data-legend";
 import { SourceLine } from "@/components/ui/source-line";
 import { cn } from "@/lib/cn";
 import { copy } from "@/lib/copy/en";
@@ -8,7 +9,7 @@ import { earthdataConfigured } from "@/lib/nasa/earthdata";
 
 export const metadata: Metadata = { title: "About the data" };
 
-type Status = "Connected adapter" | "Credentials configured; unverified" | "Needs Earthdata login" | "Not connected" | "Proposed";
+type Status = "Connected adapter" | "Credentials configured; unverified" | "Not available yet" | "Not connected" | "Proposed";
 
 interface SourceItem {
   name: string;
@@ -42,7 +43,7 @@ function getSources(): SourceItem[] {
       gives: "How green the field was on clear days, with cloud, shadow, snow and water removed.",
       detail: { dataset: "USGS Landsat Collection 2 Level-2 via Microsoft Planetary Computer", resolution: "30 m", dates: "available clear days" },
       status: "Connected adapter",
-      note: "Surface reflectance, NDVI and NDMI retrieved on demand from Microsoft Planetary Computer COGs. Open access, no Earthdata login required. AppEEARS HLS is a credentials-gated fallback. Result availability depends on valid clear observations.",
+      note: "Surface reflectance, NDVI and NDMI retrieved on demand from Microsoft Planetary Computer COGs. Open access, no login needed. Result availability depends on valid clear observations.",
     },
     {
       name: "Regional vegetation history (optional)",
@@ -55,26 +56,26 @@ function getSources(): SourceItem[] {
       name: "Satellite rainfall",
       gives: "Daily rain estimated from satellites, used as the main rainfall once it covers the whole record.",
       detail: { dataset: "GPM IMERG Final daily V07", resolution: "0.1°", dates: "2016 to 2025" },
-      status: imergOk ? "Credentials configured; unverified" : "Needs Earthdata login",
+      status: imergOk ? "Credentials configured; unverified" : "Not available yet",
       note: imergOk
         ? "Credentials are configured for NASA GES DISC OPeNDAP DAP4. This does not prove successful retrieval; inspect each result's status and coverage."
-        : "The search for files works. Reading values needs an Earthdata token (EARTHDATA_TOKEN) on the server. When unconfigured, rainfall safely falls back to NASA POWER PRECTOTCORR.",
+        : "Detailed satellite rain is not available for your area yet. Until it is, rainfall safely falls back to NASA POWER weather.",
     },
     {
       name: "Soil moisture from satellite",
       gives: "How wet the surface and the top metre of soil were, as regional context.",
       detail: { dataset: "SMAP L4 (SPL4SMGP v008)", resolution: "9 km, three-hourly", dates: "through 2025" },
-      status: appeearsOk ? "Credentials configured; unverified" : "Needs Earthdata login",
+      status: appeearsOk ? "Credentials configured; unverified" : "Not available yet",
       note: appeearsOk
         ? "Credentials are configured for NASA AppEEARS. Successful retrieval is checked per result. SMAP is 9 km regional context."
-        : "A 9 km model value, larger than most fields. Retrieved via NASA AppEEARS, which requires EARTHDATA_USERNAME and EARTHDATA_PASSWORD on the server.",
+        : "A 9 km model value, larger than most fields. Not available for your area yet.",
     },
     {
       name: "Terrain",
       gives: "Ground height, and from it the slope of the field.",
       detail: { dataset: "SRTMGL1", resolution: "about 30 m", dates: "February 2000" },
-      status: appeearsOk ? "Credentials configured; unverified" : "Needs Earthdata login",
-      note: "Slope needs neighbouring cells, so a single pin has none. This is credentials-gated through NASA AppEEARS and is not assumed available from configuration alone.",
+      status: appeearsOk ? "Credentials configured; unverified" : "Not available yet",
+      note: "Slope needs neighbouring cells, so a single pin has none. This is not available for your area yet and is never assumed to be there.",
     },
     {
       name: "Surface temperature and water use (optional)",
@@ -89,7 +90,7 @@ function getSources(): SourceItem[] {
 const STATUS_ICON = {
   "Connected adapter": <CheckGlyph className="text-healthy" />,
   "Credentials configured; unverified": <ClockGlyph className="text-ink-muted" />,
-  "Needs Earthdata login": <ClockGlyph className="text-drought" />,
+  "Not available yet": <ClockGlyph className="text-drought" />,
   "Not connected": <ClockGlyph className="text-ink-muted" />,
   Proposed: <ClockGlyph className="text-ink-muted" />,
 } satisfies Record<Status, React.ReactNode>;
@@ -110,6 +111,8 @@ export default function AboutDataPage() {
           {connected} of {sources.length} sources have connected open-access adapters. This catalog describes implementation, not live service health or field validation.
         </p>
       </div>
+
+      <DataLegend />
 
       <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">
         {sources.map((s) => (
