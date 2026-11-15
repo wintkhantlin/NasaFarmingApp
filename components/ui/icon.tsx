@@ -90,6 +90,7 @@ const ICONS = {
   compare: Scale,
   conditions: CloudSun,
   coordinates: Keyboard,
+  provenance: FileText,
   locate: LocateFixed,
   outline: Pentagon,
   pin: MapPin,
