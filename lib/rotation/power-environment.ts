@@ -71,5 +71,9 @@ export function powerEnvironment(weather: DailyWeather, startDate: string, endDa
   if (weather.source.resolution) sourceParts.push(weather.source.resolution);
   if (retrievedAt) sourceParts.push(`retrieved ${retrievedAt}`);
   const synthetic = /synthetic|demo/i.test([weather.source.dataset, weather.source.resolution, weather.source.version].join(" "));
-  return { source: sourceParts.join(" · "), basis: synthetic ? "synthetic" : "historical_normals", spatial_resolution_km: null, monthly };
+  return {
+    source: sourceParts.join(" · "), basis: synthetic ? "synthetic" : "historical_normals",
+    observation_period: weather.dates.length ? { start_date: weather.dates[0], end_date: weather.dates.at(-1)! } : undefined,
+    units: { temp_c: "C", rain_mm: "mm" }, spatial_resolution_km: null, monthly,
+  };
 }

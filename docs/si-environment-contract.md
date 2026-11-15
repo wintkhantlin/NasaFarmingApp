@@ -19,6 +19,8 @@ The endpoint must return the standardized monthly conditions expected by the Typ
 {
   "source": "Dataset name · version · retrieval or pass date",
   "basis": "historical_normals",
+  "observation_period": { "start_date": "2020-01-01", "end_date": "2025-12-31" },
+  "units": { "temp_c": "C", "rain_mm": "mm", "soil_moisture_anomaly": "unitless" },
   "spatial_resolution_km": null,
   "monthly": [
     { "month": "2026-11", "temp_c": null, "rain_mm": null, "soil_moisture_anomaly": null }
@@ -26,7 +28,7 @@ The endpoint must return the standardized monthly conditions expected by the Typ
 }
 ```
 
-`basis` must be `observed`, `historical_normals`, `forecast`, or `synthetic`. Each `monthly` row must name a future planning month. Put `null` where a value is unavailable; never fill it from another location or season. Historical normals must be mapped to the intended future month and labeled as normals, not forecasts. The engine reports missing months and does not calculate a water balance from rainfall alone. The SI service should include precise product and date in `source`. A failing or malformed SI response returns an error to the farmer instead of silently switching to demo climate.
+`basis` must be `observed`, `historical_normals`, `forecast`, or `synthetic`. `observation_period` is the actual source-data or forecast period, distinct from the planning dates. `units` must declare Celsius and millimetres; declare `soil_moisture_anomaly: "unitless"` when supplying that value. `spatial_resolution_km` must be positive, or explicitly `null` if unknown. Each `monthly` row must name a planning month, be unique, and supply `temp_c` and `rain_mm` as numbers or `null`. Put `null` where a value is unavailable; never fill it from another location or season. Historical normals must be mapped to the intended future month and labeled as normals, not forecasts. Observed/forecast rows must fall within their stated period. The engine reports missing months and does not calculate a water balance from rainfall alone. The SI service should include precise product and date in `source`; a synthetic source must say so, and cannot be declared observed or forecast. A failing or malformed SI response returns an error to the farmer instead of silently switching to demo climate. The app checks metadata consistency but cannot independently authenticate a dataset name or scientific quality.
 
 ## Location search
 
@@ -44,4 +46,4 @@ Without this endpoint, the search uses the app's Mapbox geocoder when `NEXT_PUBL
 
 ## Demonstration and unsupported objectives
 
-Selecting a demonstration farm explicitly loads its bundled synthetic climate. A real farm never receives synthetic values as fallback. NASA POWER derived values are complete-month historical averages, labeled `historical_normals`, and are not a forecast of the planting period. Missing days cause that historical month to be excluded; if no complete historical month exists for a planning month, its temperature and rainfall are `null`. The source line carries the available daily date range, API version, resolution, and retrieval time. Soil pH and drainage remain optional; missing values stay unknown. Equipment notes are accepted by the form but are not scored by the current engine. Income and water conservation are farmer priorities, but the engine does not rank them without comparable, externally sourced metrics. The interface explains that limitation rather than treating the first candidate as a winner.
+Selecting a demonstration farm explicitly loads its bundled synthetic climate. A real farm never receives synthetic values as fallback. NASA POWER derived values are complete-month historical averages, labeled `historical_normals`, and are not a forecast of the planting period. Missing days cause that historical month to be excluded; if no complete historical month exists for a planning month, its temperature and rainfall are `null`. The source line carries the available daily date range, API version, resolution, and retrieval time; exact field-scale resolution is unknown. Soil pH and drainage remain optional; missing values stay unknown. Equipment notes are accepted by the form but are not scored by the current engine. Priorities are recorded but no scientific score is calculated. Candidates are grouped by hard exclusions and otherwise listed alphabetically; water, income and soil benefits remain unevaluated.

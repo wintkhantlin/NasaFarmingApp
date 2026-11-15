@@ -35,6 +35,15 @@ describe("saved field to rotation engine", () => {
     expect(result.scenarios.some((item) => item.missing_information.some((reason) => /temperature|rainfall/i.test(reason)))).toBe(true);
   });
 
+  test("passes the saved previous crop's residue record into conditional sequence reasoning", () => {
+    const saved = history();
+    saved.slots[1].residue = "retained";
+    const built = buildFieldRequest(field(), saved, null, planning);
+    expect(built.request.farm.previous_residue).toBe("retained");
+    const sesame = recommend(built.request).scenarios.find((item) => item.proposed_crops.join() === "sesame");
+    expect(sesame?.sequence_reasoning[0].benefits.join(" ")).toMatch(/may help cover soil/);
+  });
+
   test("synthetic test weather is explicitly labeled and never shown as NASA observations", () => {
     const f = field();
     const weather = syntheticWeather({ startYear: 2025, endYear: 2025 });
