@@ -18,7 +18,7 @@
 | `components/ui/` | Reusable design tokens & primitives | `button.tsx`, `panel.tsx`, `reading.tsx`, `risk-chip.tsx`, `status.tsx`, `icon.tsx`, `stepper.tsx`, `judgment-note.tsx` |
 | `lib/engine/` | Agronomic calculations & MCDA | `mcda.ts` (Rank-sum scoring), `limits.ts` (Boundary checks), `questions.ts` (Unknowns), `scenario.ts` (What-If), `trend.ts` (Mann-Kendall) |
 | `lib/store/` | Zustand client-side state stores | `fields-store.ts` (Fields & Rotations), `settings-store.ts` (Consent), `locale-store.ts` (en/my) |
-| `lib/nasa/` & `lib/soil/` | External API clients & adapters | `nasa-sources.ts`, `soil-grids.ts`, `remote-sensing.ts` |
+| `lib/nasa/` & `lib/soil/` | External API clients & adapters | POWER, IMERG, AppEEARS (SMAP/HLS/SRTM/MODIS/ECOSTRESS), Planetary Computer (Landsat/MODIS), SoilGrids; orchestration in `lib/server/remote-sensing.ts` |
 | `lib/geo/` | Geospatial math & static maps | `format.ts`, `static-map.ts`, `field-clip.ts` |
 | `lib/validation/` | Ground-truth checks of inputs (`npm run validate:weather`, network) | `metrics.ts`, `ghcn.ts`, `weather.ts`, `report.ts`; findings in `docs/validation/README.md` |
 

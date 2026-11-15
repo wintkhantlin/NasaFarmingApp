@@ -15,7 +15,7 @@ Field Shift is a browser-based tool that lets a farmer mark a field, record the 
 
 It is an aid to a conversation between a farmer and a local adviser. It does not forecast the coming season, predict yield or income, or tell a farmer what to do.
 
-**What is built, and what is not.** The comparison engine, the weather and soil sources, and the satellite-vegetation route run today and are covered by 543 automated tests across 61 test suites (plus empirical weather validation against 10 years of NOAA GHCN-Daily Myanmar stations). Rainfall from satellite (GPM IMERG), soil moisture (SMAP) and terrain (SRTM) need NASA Earthdata credentials that the project has not yet used end to end. Surface temperature (ECOSTRESS) and MODIS vegetation are not wired in. No agronomic yield or soil-probe model has been compared with field trials. Section 5 gives the full status, and Section 6 describes a demonstration that has been designed but not yet run.
+**What is built, and what is not.** The comparison engine and all nine listed environmental data routes are implemented and covered by automated tests (plus empirical weather validation against 10 years of NOAA GHCN-Daily Myanmar stations). GPM IMERG, SMAP, SRTM, HLS and ECOSTRESS still require server-side NASA Earthdata credentials and have not been authenticated against the live archive in the project's verification record. MODIS uses the public Planetary Computer route first and AppEEARS as a fallback. No agronomic yield or soil-probe model has been compared with field trials. Section 5 gives the full status, and Section 6 describes a demonstration that has been designed but not yet run.
 
 ---
 
@@ -77,8 +77,8 @@ Each source answers a specific part of the comparison, and its scale decides wha
 | M | NASA SMAP L4 | Modelled surface and root-zone soil moisture | $9\text{ km}$ | Regional wetness context only; never shown as the field's soil water |
 | V | Landsat Collection 2 (and HLS) | Surface reflectance, hence greenness (NDVI) and moisture index | $30\text{ m}$ | Cloud-screened vegetation timeline for the field; flags possible low-cover periods |
 | T | NASA SRTM | Elevation, hence slope | About $30\text{ m}$ | Terrain screen for erosion exposure |
-| E | NASA ECOSTRESS | Surface temperature, modelled ET | About $70\text{ m}$ | Proposed, optional |
-| G | MODIS NDVI | Regional vegetation history | $250\text{ m}$ | Proposed, optional |
+| E | NASA ECOSTRESS | Surface temperature, modelled ET | About $70\text{ m}$ | Implemented; Earthdata-gated |
+| G | MODIS NDVI | Regional vegetation history | $250\text{ m}$ | Implemented; public primary route |
 
 Soil texture, pH, carbon and water retention come from **ISRIC SoilGrids**, a $250\text{ m}$ model. It is not a NASA product and is labelled as such. Landsat scenes are read through Microsoft's Planetary Computer.
 
@@ -96,10 +96,10 @@ Statuses: **Implemented** (runs in the application and is tested), **Partially i
 | ISRIC SoilGrids | Implemented | Model estimate; used when the farmer has no soil test |
 | Landsat vegetation (Planetary Computer) | Implemented | Checked on live scenes for one test polygon; not compared with ground cover |
 | Rotation comparison, water, exposure, ranking | Implemented | 3-zone soil column, dynamic FAO depletion fraction, post-paddy drainage window, species-level pathogen carryover, wilt return intervals, and regional benchmark income anchoring |
-| GPM IMERG rainfall | Partially implemented | Needs `EARTHDATA_TOKEN`; no end-to-end retrieval yet; Final V07 ends September 2025 |
-| SMAP soil moisture, SRTM slope, HLS vegetation | Partially implemented | Need an Earthdata login for AppEEARS; not run live |
-| MODIS NDVI | Proposed | Code exists but nothing calls it |
-| ECOSTRESS | Proposed | Screening helper only |
+| GPM IMERG rainfall | Implemented; connection-gated | CMR discovery, bounded per-cell backfill, completeness checks and POWER fallback are wired and tested; needs `EARTHDATA_TOKEN`; Final V07 ends September 2025 |
+| SMAP soil moisture, SRTM slope, HLS vegetation | Implemented; connection-gated | AppEEARS jobs, polling, parsing, QA and provenance are wired and tested; need an Earthdata login |
+| MODIS NDVI | Implemented | Public Planetary Computer extraction with AppEEARS fallback; 250 m QA-screened regional history |
+| ECOSTRESS | Implemented; connection-gated | Separate LST and ET AppEEARS jobs, cloud/water and conservative LST-QA screening, native-unit summaries and provenance; needs an Earthdata login |
 | Economics & Water Response | Implemented with real-world market benchmarks | Interval arithmetic on farmer-entered values or loaded regional commodity benchmarks (DOA, Bayintnaung, MPBMSMA 2024–2026); optional water-stress yield discount via FAO-33 / FAO-66 with strict uncalibrated guards |
 
 When a source is not connected, the app falls back (for rainfall, to POWER) or reports *unknown*, and says so in the report. The appendix (Implementation Status) gives the detail.

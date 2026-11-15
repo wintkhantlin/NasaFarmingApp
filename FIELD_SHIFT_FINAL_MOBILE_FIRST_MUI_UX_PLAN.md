@@ -115,9 +115,10 @@ Status below reflects the uploaded **v3.2 whitepaper and appendix**, not an inde
 | Nitrogen, residue fate, living cover, erosion, crop family recurrence | Screening models implemented | Soil & crop health | Not measured nitrogen gain, soil loss, or disease diagnosis |
 | Weighted MCDA, historical replay, regret | Implemented | Comparison, Why, past-year evidence | Scores match stated preferences; not calibrated prediction |
 | Economic margin intervals and optional FAO Ky | Implemented with guards | Cost/markets | Only calibrated crop factors; estimates conditional on inputs/benchmarks |
-| GPM IMERG rainfall | Partially implemented, credential/live retrieval gated | Rain source detail | Fallback/source mix disclosed; no false satellite-rain success |
-| SMAP L4, SRTM, HLS via AppEEARS | Partially implemented | Regional moisture, terrain, satellite | Gate each source until genuinely retrieved/quality checked |
-| MODIS NDVI, ECOSTRESS | Proposed | Methods / future availability only | Never show as computed evidence |
+| GPM IMERG rainfall | Implemented, credential/live retrieval gated | Rain source detail | Fallback/source mix disclosed; no false satellite-rain success |
+| SMAP L4, SRTM, HLS via AppEEARS | Implemented, credential/live retrieval gated | Regional moisture, terrain, satellite | Gate each source until genuinely retrieved/quality checked |
+| MODIS NDVI | Implemented | Regional 250 m vegetation history | Public primary route with AppEEARS fallback; never crop identity |
+| ECOSTRESS LST and ET | Implemented, credential/live retrieval gated | Optional surface-temperature and ET context | Preserve native meanings and units; never air temperature or measured crop water use |
 | GRACE / GRACE-FO | Challenge dataset, not evidenced as active in this app | Educational context only | No fabricated field-scale groundwater trends |
 
 **Evidence hierarchy:** measured local soil tests / farmer-reported practices → appropriately applied modeled estimates → regional templates, each explicitly labeled. A farmer's report should be retained and prioritized as local input **within supported rules**, but not mistaken for laboratory-validated measurements.

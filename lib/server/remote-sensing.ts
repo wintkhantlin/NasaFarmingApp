@@ -15,7 +15,7 @@ import { ecostressEtTask, ecostressLstTask, hlsAreaTask, modisAreaTask, smapPoin
 import { summariseHls, type HlsPixelSeries, type ObservationSummary } from "../nasa/derive/ndvi";
 import { slopeGrid, slopeStats, type SlopeStats } from "../nasa/derive/slope";
 import { ingestPlanetaryComputerLandsat, ingestPlanetaryComputerModisVi, LANDSAT_EXTRACTION, type ModisViResult, type PlanetaryComputerResult } from "../nasa/planetary-computer";
-import { viUsable } from "../nasa/qa/modis-vi";
+import { viIsInlandWater, viUsable } from "../nasa/qa/modis-vi";
 import { ecostressClear, ecostressLstUsable, kelvinToCelsius } from "../nasa/qa/ecostress";
 import type { FieldGeometry, LngLat } from "../types";
 import { cacheKey, serverCache, type ServerCache } from "./cache";
@@ -338,15 +338,17 @@ async function readModisResults<T>(taskId: string, files: BundleFile[], opts: Cl
     const count = Math.min(values.length, qaRaster.values.length, reliabilityRaster.values.length);
     const valid: number[] = [];
     let total = 0;
+    let water = 0;
     for (let i = 0; i < count; i++) {
       const value = values[i];
       const qa = Number(qaRaster.values[i]);
       const reliability = Number(reliabilityRaster.values[i]);
       if (value === null || !Number.isFinite(qa) || !Number.isFinite(reliability)) continue;
       total++;
+      if (viIsInlandWater(qa)) water++;
       if (viUsable(qa, reliability)) valid.push(value);
     }
-    if (total > 0) observations.push({ date, ndviMedian: median(valid), ndmiMedian: null, validPixels: valid.length, totalPixels: total, waterPixels: 0, coverage: valid.length / total });
+    if (total > 0) observations.push({ date, ndviMedian: median(valid), ndmiMedian: null, validPixels: valid.length, totalPixels: total, waterPixels: water, coverage: valid.length / total });
   }
   return { observations } as T;
 }
@@ -377,16 +379,19 @@ async function readEcostressResults<T>(kind: "ecostress-lst" | "ecostress-et", t
     const count = Math.min(values.length, map.cloud.values.length, map.water.values.length, ...(map.QC ? [map.QC.values.length] : []));
     const valid: number[] = [];
     const errors: number[] = [];
+    let total = 0;
     for (let i = 0; i < count; i++) {
       const cloud = Number.isFinite(Number(map.cloud.values[i])) ? Number(map.cloud.values[i]) : null;
       const water = Number.isFinite(Number(map.water.values[i])) ? Number(map.water.values[i]) : null;
       const qc = map.QC && Number.isFinite(Number(map.QC.values[i])) ? Number(map.QC.values[i]) : null;
+      if (values[i] === null) continue;
+      total++;
       const usable = kind === "ecostress-lst" ? ecostressLstUsable(qc, cloud, water) : ecostressClear(cloud, water);
-      if (!usable || values[i] === null) continue;
+      if (!usable) continue;
       valid.push(kind === "ecostress-lst" ? kelvinToCelsius(values[i]!) : values[i]!);
       if (uncertainty[i] !== null && uncertainty[i] !== undefined) errors.push(uncertainty[i]!);
     }
-    observations.push({ date, median: median(valid), medianUncertainty: median(errors), validPixels: valid.length, totalPixels: count });
+    observations.push({ date, median: median(valid), medianUncertainty: median(errors), validPixels: valid.length, totalPixels: total });
   }
   return { observations } as T;
 }
