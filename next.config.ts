@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/**/*": ["./data/predownload/**/*", "./lib/data/**/*"],
   },
+  async redirects() {
+    return [{ source: "/learn", destination: "/data", permanent: true }];
+  },
   experimental: {
     agentFeedback: true,
   },

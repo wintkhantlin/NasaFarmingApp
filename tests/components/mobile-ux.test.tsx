@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
+import Link from "next/link";
 import { TabBar } from "@/components/shell/app-nav";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClass } from "@/components/ui/button";
@@ -39,34 +40,39 @@ describe("Mobile UX & Responsive Design Audit", () => {
     expect(secondaryClass).toContain("min-h-tap");
   });
 
-  it("renders TabBar with 2 active routes, flexible min-height and accessible labels", () => {
+  it("renders TabBar with 3 active routes, flexible min-height and accessible labels", () => {
     render(<TabBar />);
     const tabNav = screen.getByRole("navigation", { name: "Main" });
     expect(tabNav).toBeTruthy();
 
     const links = within(tabNav).getAllByRole("link");
-    expect(links.length).toBe(2);
+    expect(links.length).toBe(3);
 
     // First tab is My fields (/)
     expect(links[0].getAttribute("href")).toBe("/");
     expect(links[0].textContent).toContain("My fields");
 
-    // Second tab is Data (/data)
-    expect(links[1].getAttribute("href")).toBe("/data");
-    expect(links[1].textContent).toContain("Data");
+    // Second tab is Plan (/plan)
+    expect(links[1].getAttribute("href")).toBe("/plan");
+    expect(links[1].textContent).toContain("Plan");
+
+    // Third tab is Data guide (/data)
+    expect(links[2].getAttribute("href")).toBe("/data");
+    expect(links[2].textContent).toContain("Data guide");
 
     // Must have safe-area padding class and flexible minimum height
     expect(tabNav.className).toContain("pb-[env(safe-area-inset-bottom)]");
     expect(links[0].className).toContain("min-h-14");
     expect(links[1].className).toContain("min-h-14");
+    expect(links[2].className).toContain("min-h-14");
   });
 
   it("renders EmptyState action buttons with mobile full-width responsive classes", () => {
     const { container } = render(
       <EmptyState title="No fields yet" body="Add a field to get started.">
-        <a href="/fields/new" className={buttonClass("primary")}>
+        <Link href="/fields/new" className={buttonClass("primary")}>
           Add a field
-        </a>
+        </Link>
       </EmptyState>,
     );
 

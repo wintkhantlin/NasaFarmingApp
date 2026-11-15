@@ -116,5 +116,4 @@ describe("LocationPicker farmer inputs", () => {
     // Corner entry is the only way in without a map, so it is open here.
     expect(screen.getByLabelText("South latitude")).toBeInTheDocument();
   });
-
 });

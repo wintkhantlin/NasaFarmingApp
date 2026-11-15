@@ -70,6 +70,7 @@ export const copyMy = {
   appNav: {
     main: "အဓိကမီနူး",
     fields: "စိုက်ခင်းများ",
+    plan: "အစီအစဉ်",
     guide: "အချက်အလက် လမ်းညွှန်",
     openQuestions: (count: string) => `ဖြေရန်ကျန်သော မေးခွန်း ${count} ခု`,
     settings: "ဆက်တင်",

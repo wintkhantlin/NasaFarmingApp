@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
 import { Panel } from "@/components/ui/panel";
@@ -37,17 +37,20 @@ const UI = {
   },
 } as const;
 
+const subscribeToBrowserCapability = () => () => {};
+const browserCanSpeak = () => "speechSynthesis" in window;
+const serverCannotSpeak = () => false;
+
 /** One farmer question, with its introduction, expandable definitions, comparison links and supporting dataset names. */
 export function LearnTopicView({ topicId }: { topicId: string }) {
   const locale = useLocaleStore((s) => s.locale);
   const ui = UI[locale];
+  const canSpeak = useSyncExternalStore(subscribeToBrowserCapability, browserCanSpeak, serverCannotSpeak);
   const topic = getTopic(topicId);
   if (!topic) return null;
   const theme = getTheme(topic.theme);
   const related = topicsInTheme(topic.theme).filter((t) => t.id !== topic.id);
-  // Read aloud only where the browser can speak. Checked after mount so server and client render the same HTML.
-  const [canSpeak, setCanSpeak] = useState(false);
-  useEffect(() => setCanSpeak("speechSynthesis" in window), []);
+  // Read aloud only where the browser can speak, after hydration.
 
   return (
     <article className="flex flex-col gap-5">

@@ -9,12 +9,13 @@ import { useAppCopy, useLocaleStore, type AreaUnit, type Locale } from "@/lib/st
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { openQuickQuestions } from "@/lib/engine/questions";
 
-const LINKS: { href: string; label: "fields" | "guide"; icon: IconName; match: (p: string) => boolean }[] = [
+const LINKS: { href: string; label: "fields" | "plan" | "guide"; icon: IconName; match: (p: string) => boolean }[] = [
   { href: "/", label: "fields", icon: "fields", match: (p) => p === "/" || (Boolean(p) && p.startsWith("/fields")) },
+  { href: "/plan", label: "plan", icon: "rotation", match: (p) => Boolean(p) && p.startsWith("/plan") },
   { href: "/data", label: "guide", icon: "learn", match: (p) => Boolean(p) && (p.startsWith("/data") || p.startsWith("/about") || p.startsWith("/learn")) },
 ];
 
-/** Phone: the two primary tab destinations fixed to the bottom, above the safe area. */
+/** Phone: the primary tab destinations fixed to the bottom, above the safe area. */
 export function TabBar() {
   const pathname = usePathname() ?? "";
   const text = useAppCopy().appNav;
@@ -31,7 +32,7 @@ export function TabBar() {
       aria-label={text.main}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-2">
+      <ul className="mx-auto grid max-w-md grid-cols-3">
         {LINKS.map((l) => {
           const active = l.match(pathname);
           return (
