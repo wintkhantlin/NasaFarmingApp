@@ -1,9 +1,10 @@
 "use client";
 
 import { Message } from "@/components/ui/message";
+import { EmptyState } from "@/components/ui/empty-state";
 import TextField from "@mui/material/TextField";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Panel } from "@/components/ui/panel";
@@ -78,6 +79,8 @@ function normalizeSearchResponse(data: SearchResponse): PlaceOption[] {
 }
 
 export default function RotationExplorer() {
+  const locale = useLocaleStore((s) => s.locale);
+  const isMy = locale === "my";
   const [draft, setDraft] = useState<PlanDraft>(emptyPlanDraft);
   const [step, setStep] = useState<Step>("area");
   const [hydrated, setHydrated] = useState(false);
@@ -116,25 +119,28 @@ export default function RotationExplorer() {
     return () => window.clearTimeout(timer);
   }, [draft, hydrated]);
 
-  const crops = draft.place ? supportedCrops(draft.place.region) : [];
+  const crops = useMemo(
+    () => (draft.place ? supportedCrops(draft.place.region) : []),
+    [draft.place?.region],
+  );
   const preview = useMemo(
     () => (draft.place && draft.mainCropId ? resolveRegionalPreview(draft.place.region, draft.mainCropId) : null),
     [draft.mainCropId, draft.place],
   );
 
-  function selectPlace(place: PlanDraftPlace) {
+  const selectPlace = useCallback((place: PlanDraftPlace) => {
     setDraft((current) => ({ ...current, place, mainCropId: null, revision: current.revision + 1 }));
     setManualRegion(place.region);
     setQuery(place.name);
     setResults([]);
     setAreaMessage(null);
     setStep("crop");
-  }
+  }, []);
 
   async function searchArea(event: FormEvent) {
     event.preventDefault();
     if (query.trim().length < 2) {
-      setAreaMessage("Enter at least two letters, or choose a region and use the typed place.");
+      setAreaMessage(isMy ? "အနည်းဆုံး စာလုံးနှစ်လုံး ရိုက်ထည့်ပါ သို့မဟုတ် တိုင်းဒေသကြီးကို ရွေးပါ။" : "Enter at least two letters, or choose a region and use the typed place.");
       return;
     }
     setSearching(true);
@@ -146,14 +152,14 @@ export default function RotationExplorer() {
       const options = normalizeSearchResponse(data);
       setResults(options);
       if (options.length === 0) {
-        setAreaMessage("No matching place was returned. Choose a region below to continue with the name you typed—GPS is not required.");
+        setAreaMessage(isMy ? "ကိုက်ညီသော နေရာ မတွေ့ပါ။ အောက်တွင် တိုင်းဒေသကြီးကို ရွေးချယ်ပြီး ဆက်သွားနိုင်ပါသည်။" : "No matching place was returned. Choose a region below to continue with the name you typed—GPS is not required.");
       }
     } catch (error) {
       setResults([]);
       setAreaMessage(
         error instanceof Error
-          ? `${error.message} Choose a region below to continue with the name you typed.`
-          : "Place search is unavailable. Choose a region below to continue with the name you typed.",
+          ? `${error.message} ${isMy ? "အောက်တွင် တိုင်းဒေသကြီး ရွေးချယ်၍ ဆက်သွားပါ။" : "Choose a region below to continue with the name you typed."}`
+          : (isMy ? "နေရာ ရှာမရပါ။ အောက်တွင် တိုင်းဒေသကြီး ရွေးချယ်၍ ဆက်သွားပါ။" : "Place search is unavailable. Choose a region below to continue with the name you typed."),
       );
     } finally {
       setSearching(false);
@@ -162,7 +168,7 @@ export default function RotationExplorer() {
 
   function chooseSearchResult(place: PlaceOption) {
     if (place.region === "unsupported") {
-      setAreaMessage("This place resolves outside Myanmar. Check the search result or type a Myanmar village or township.");
+      setAreaMessage(isMy ? "ဤနေရာသည် မြန်မာနိုင်ငံပြင်ပ ဖြစ်နေပါသည်။ မြန်မာနိုင်ငံရှိ ရွာ သို့မဟုတ် မြို့နယ်ကို ရိုက်ထည့်ပါ။" : "This place resolves outside Myanmar. Check the search result or type a Myanmar village or township.");
       return;
     }
     selectPlace({
@@ -189,7 +195,7 @@ export default function RotationExplorer() {
 
   function useGps() {
     if (typeof window === "undefined" || !("geolocation" in window.navigator) || !window.navigator.geolocation) {
-      setAreaMessage("GPS is not available on this device. Search or type your village/township instead.");
+      setAreaMessage(isMy ? "ဤဖုန်းတွင် GPS မရပါ။ ရွာ သို့မဟုတ် မြို့နယ်ကို ရိုက်ထည့်ပါ။" : "GPS is not available on this device. Search or type your village/township instead.");
       return;
     }
     setLocating(true);
@@ -199,20 +205,20 @@ export default function RotationExplorer() {
         const [option] = disambiguatePlaces([
           {
             id: "gps",
-            name: "Current area",
-            context: "From this device",
+            name: isMy ? "လက်ရှိနေရာ" : "Current area",
+            context: isMy ? "ဤဖုန်းမှ" : "From this device",
             lat: position.coords.latitude,
             lon: position.coords.longitude,
           },
         ]);
         setLocating(false);
         if (option.region === "unsupported") {
-          setAreaMessage("Your location resolves outside Myanmar. Type a Myanmar village or township instead.");
+          setAreaMessage(isMy ? "သင့်တည်နေရာသည် မြန်မာနိုင်ငံပြင်ပ ဖြစ်နေပါသည်။ မြန်မာနိုင်ငံရှိ ရွာ သို့မဟုတ် မြို့နယ်ကို ရိုက်ထည့်ပါ။" : "Your location resolves outside Myanmar. Type a Myanmar village or township instead.");
           return;
         }
         selectPlace({
           id: "gps",
-          name: "Current area",
+          name: isMy ? "လက်ရှိနေရာ" : "Current area",
           context: REGIONS[option.region].name,
           region: option.region,
           source: "gps",
@@ -222,46 +228,66 @@ export default function RotationExplorer() {
       },
       () => {
         setLocating(false);
-        setAreaMessage("Location permission was not available. Search or type your village/township instead—GPS is optional.");
+        setAreaMessage(isMy ? "တည်နေရာခွင့်ပြုချက် မရပါ။ ရွာ သို့မဟုတ် မြို့နယ်ကို ရိုက်ထည့်ပါ—GPS မလိုအပ်ပါ။" : "Location permission was not available. Search or type your village/township instead—GPS is optional.");
       },
       { enableHighAccuracy: false, timeout: 10_000 },
     );
   }
 
-  function chooseCrop(cropId: string) {
+  const chooseCrop = useCallback((cropId: string) => {
     if (!draft.place) return;
     const result = resolveRegionalPreview(draft.place.region, cropId);
     if (result.availability === "invalid-crop") {
       setAreaMessage(result.message);
       return;
     }
-    setDraft((current) => ({ ...current, mainCropId: cropId, revision: current.revision + 1, refinements: { ...current.refinements, sequence: { ...current.refinements.sequence, transition: undefined, state: "draft" }, residue: current.mainCropId === cropId ? current.refinements.residue : { value: "unknown", state: "unknown" } } }));
+    setDraft((current) => ({
+      ...current,
+      mainCropId: cropId,
+      revision: current.revision + 1,
+      refinements: {
+        ...current.refinements,
+        sequence: { ...current.refinements.sequence, transition: undefined, state: "draft" },
+        residue: current.mainCropId === cropId ? current.refinements.residue : { value: "unknown", state: "unknown" },
+      },
+    }));
     setStep("preview");
-  }
+  }, [draft.place, draft.mainCropId]);
 
   if (!hydrated) {
-    return <p role="status" className="py-12 text-center text-body text-ink-muted">Opening your saved Plan draft…</p>;
+    return <p role="status" className="py-12 text-center text-body text-ink-muted">{isMy ? "သိမ်းဆည်းထားသော အစီအစဉ်ကို ဖွင့်နေသည်…" : "Opening your saved Plan draft…"}</p>;
   }
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <h1 className="max-w-3xl text-title text-ink sm:text-display">Explore what could follow your main crop</h1>
-        <p className="max-w-measure text-body text-ink-muted">
-          Start with an approximate area and one crop. No account, GPS, field boundary or planting date is needed.
+        <h1 className="max-w-3xl text-balance text-title text-ink sm:text-display">
+          {isMy ? "သင့်အဓိကသီးနှံအပြီး စိုက်ပျိုးနိုင်မည့် သီးနှံများကို လေ့လာပါ" : "Explore what could follow your main crop"}
+        </h1>
+        <p className="max-w-measure text-pretty text-body text-ink-muted">
+          {isMy
+            ? "ခန့်မှန်းခြေ ဒေသနှင့် အဓိကသီးနှံတစ်ခုဖြင့် စတင်ပါ။ အကောင့်ဖွင့်ရန်၊ GPS၊ စိုက်ခင်းနယ်နိမိတ် သို့မဟုတ် စိုက်ရက် မလိုအပ်ပါ။"
+            : "Start with an approximate area and one crop. No account, GPS, field boundary or planting date is needed."}
         </p>
-        <p className="m-0 text-body-sm text-ink-muted"><Link href="/plan/crop-screen" className="text-field underline underline-offset-4">Check next crops against this field&apos;s weather and soil</Link>.</p>
-        <ol aria-label="Plan progress" className="m-0 grid list-none grid-cols-3 gap-2 p-0 text-body-sm text-ink-muted">
+        <p className="m-0 text-body-sm text-ink-muted">
+          <Link href="/plan/crop-screen" className="text-field underline underline-offset-4">
+            {isMy ? "ဤစိုက်ခင်း၏ မိုးလေဝသနှင့် မြေဆီလွှာအပေါ် အခြေခံ၍ နောက်သီးနှံကို စစ်ဆေးပါ" : "Check next crops against this field's weather and soil"}
+          </Link>
+          .
+        </p>
+        <ol aria-label="Plan progress" className="m-0 grid list-none grid-cols-3 gap-2 p-0 text-body-sm text-ink-muted tabular-nums">
           {(["area", "crop", "preview"] as const).map((item, index) => (
             <li key={item} className={cn("border-t-2 pt-2", step === item ? "border-field font-semibold text-field" : "border-line-strong")}>
-              {index + 1}. {item === "area" ? "Area" : item === "crop" ? "Main crop" : "Regional examples"}
+              {index + 1}. {item === "area" ? (isMy ? "ဒေသ" : "Area") : item === "crop" ? (isMy ? "အဓိကသီးနှံ" : "Main crop") : (isMy ? "သီးလှည့်နမူနာများ" : "Regional examples")}
             </li>
           ))}
         </ol>
       </header>
 
       {storageWarning ? (
-        <Message tone="caution" title="This draft may not be kept">This browser blocked local storage. You can continue, but the draft may not be here when you return.</Message>
+        <Message tone="caution" title={isMy ? "မူကြမ်းကို သိမ်းမထားနိုင်ပါ" : "This draft may not be kept"}>
+          {isMy ? "ဤဘရောက်ဇာသည် local storage ကို ပိတ်ထားပါသည်။" : "This browser blocked local storage. You can continue, but the draft may not be here when you return."}
+        </Message>
       ) : null}
 
       {step === "area" ? (
@@ -337,30 +363,45 @@ function AreaStep({
   onUseTyped: () => void;
   onUseGps: () => void;
 }) {
+  const locale = useLocaleStore((s) => s.locale);
+  const isMy = locale === "my";
+
   return (
     <Panel as="section" radius="lg" className="flex flex-col gap-6 p-4 sm:p-6" aria-labelledby="area-heading">
       <div className="flex flex-col gap-1">
-        <h2 id="area-heading" className="text-title text-ink">Where do you grow crops?</h2>
-        <p className="max-w-measure text-body text-ink-muted">A village or township is enough. We use it only to choose a regional catalog.</p>
+        <h2 id="area-heading" className="text-balance text-title text-ink">
+          {isMy ? "သီးနှံစိုက်ပျိုးသည့် ဒေသကို ရွေးပါ" : "Where do you grow crops?"}
+        </h2>
+        <p className="max-w-measure text-pretty text-body text-ink-muted">
+          {isMy
+            ? "ရွာ သို့မဟုတ် မြို့နယ်အမည် ထည့်ရုံဖြင့် ဒေသဆိုင်ရာ သီးနှံလမ်းညွှန်ကို ရွေးချယ်ပေးပါမည်။"
+            : "A village or township is enough. We use it only to choose a regional catalog."}
+        </p>
       </div>
 
       <form onSubmit={onSearch} className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <TextField
-          label="Village or township"
+          label={isMy ? "ရွာ သို့မဟုတ် မြို့နယ်" : "Village or township"}
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           autoComplete="address-level2"
           fullWidth
-          helperText="Search if connected, or type a place and choose its region below."
+          helperText={
+            isMy
+              ? "အင်တာနက်ရပါက ရှာဖွေပါ၊ သို့မဟုတ် အမည်ရိုက်ထည့်ပြီး အောက်တွင် တိုင်းဒေသကြီး ရွေးပါ။"
+              : "Search if connected, or type a place and choose its region below."
+          }
         />
         <Button type="submit" icon="search" disabled={searching} className="sm:mt-1 sm:shrink-0">
-          {searching ? "Searching…" : "Search"}
+          {searching ? (isMy ? "ရှာနေသည်…" : "Searching…") : (isMy ? "ရှာရန်" : "Search")}
         </Button>
       </form>
 
       {results.length > 0 ? (
         <div className="flex flex-col gap-2" aria-live="polite">
-          <h3 className="text-headline text-ink">Choose the matching place</h3>
+          <h3 className="text-balance text-headline text-ink">
+            {isMy ? "ကိုက်ညီသော နေရာကို ရွေးပါ" : "Choose the matching place"}
+          </h3>
           <ul className="m-0 divide-y divide-line border-y border-line p-0">
             {results.map((place) => (
               <li key={place.id} className="list-none">
@@ -384,8 +425,14 @@ function AreaStep({
 
       <div className="flex flex-col gap-3 border-t border-line pt-5">
         <div className="flex flex-col gap-1">
-          <h3 className="text-headline text-ink">Continue without GPS or search</h3>
-          <p className="max-w-measure text-body-sm text-ink-muted">Choose the region for the place you typed. We will not turn the town center into a field location.</p>
+          <h3 className="text-balance text-headline text-ink">
+            {isMy ? "GPS သို့မဟုတ် ရှာဖွေမှုမပါဘဲ ဆက်လက်လုပ်ဆောင်ရန်" : "Continue without GPS or search"}
+          </h3>
+          <p className="max-w-measure text-pretty text-body-sm text-ink-muted">
+            {isMy
+              ? "သင်ရိုက်ထည့်ခဲ့သော နေရာအတွက် တိုင်းဒေသကြီးကို ရွေးပါ။ မြို့လယ်ကို စိုက်ခင်းအဖြစ် သတ်မှတ်မည် မဟုတ်ပါ။"
+              : "Choose the region for the place you typed. We will not turn the town center into a field location."}
+          </p>
         </div>
         <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="Region">
           {REGION_IDS.map((regionId) => (
@@ -405,16 +452,18 @@ function AreaStep({
           ))}
         </div>
         <Button variant="primary" size="lg" block onClick={onUseTyped} disabled={!region || query.trim().length < 2} iconEnd="next">
-          Use this typed place
+          {isMy ? "ဤရိုက်ထည့်ထားသော နေရာကို သုံးမည်" : "Use this typed place"}
         </Button>
       </div>
 
       {message ? <Message tone="info" title={message} /> : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-        <p className="m-0 text-body-sm text-ink-muted">GPS is optional and never blocks the preview.</p>
+        <p className="m-0 text-pretty text-body-sm text-ink-muted">
+          {isMy ? "GPS သည် စိတ်ကြိုက်သာဖြစ်ပြီး မဖြစ်မနေ သုံးရန် မလိုပါ။" : "GPS is optional and never blocks the preview."}
+        </p>
         <Button variant="quiet" icon="locate" onClick={onUseGps} disabled={locating}>
-          {locating ? "Checking location…" : "Use my location"}
+          {locating ? (isMy ? "တည်နေရာ စစ်ဆေးနေသည်…" : "Checking location…") : (isMy ? "ကျွန်ုပ်ရှိရာနေရာကို သုံးမည်" : "Use my location")}
         </Button>
       </div>
     </Panel>
@@ -493,24 +542,35 @@ function PreviewStep({
   onEditArea: () => void;
   onEditCrop: () => void;
 }) {
+  const locale = useLocaleStore((s) => s.locale);
+  const isMy = locale === "my";
   const mainCrop = getCropById(mainCropId);
+
   return (
     <section className="flex flex-col gap-6" aria-labelledby="preview-heading">
       <div className="flex flex-col gap-3 border-b border-line pb-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h2 id="preview-heading" className="text-title text-ink">Regional examples near {place.name}</h2>
-            <p className="max-w-measure text-body text-ink-muted">
-              Based only on {REGIONS[place.region].name} and {mainCrop?.names.common ?? mainCropId}. {draft.refinements.sequence.state === "confirmed" ? "Your reported sequence is saved separately; these regional examples are not calculated for your field." : "We do not know your actual rotation or field conditions."}
+            <h2 id="preview-heading" className="text-balance text-title text-ink">
+              {isMy ? `${place.name} အနီးရှိ ဒေသဆိုင်ရာ သီးလှည့်နမူနာများ` : `Regional examples near ${place.name}`}
+            </h2>
+            <p className="max-w-measure text-pretty text-body text-ink-muted">
+              {isMy
+                ? `${REGIONS[place.region].name} နှင့် ${mainCrop?.names.local[0] ?? mainCrop?.names.common ?? mainCropId} ကို အခြေခံထားသည်။ ${draft.refinements.sequence.state === "confirmed" ? "သင့်အစီအစဉ်ကို သီးခြားသိမ်းဆည်းထားပြီး ဤနမူနာများသည် သင့်စိုက်ခင်းအတွက် တွက်ချက်ထားခြင်း မဟုတ်ပါ။" : "သင့်လက်တွေ့ သီးလှည့်နှင့် စိုက်ခင်းအခြေအနေများကို မသိရှိပါ။"}`
+                : `Based only on ${REGIONS[place.region].name} and ${mainCrop?.names.common ?? mainCropId}. ${draft.refinements.sequence.state === "confirmed" ? "Your reported sequence is saved separately; these regional examples are not calculated for your field." : "We do not know your actual rotation or field conditions."}`}
             </p>
           </div>
           <span className="inline-flex min-h-8 items-center rounded-pill border border-field bg-field-soft px-3 text-body-sm font-medium text-field">
-            Regional preview
+            {isMy ? "ဒေသဆိုင်ရာ နမူနာ" : "Regional preview"}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" icon="location" onClick={onEditArea}>Edit area</Button>
-          <Button variant="secondary" icon="rotation" onClick={onEditCrop}>Edit main crop</Button>
+          <Button variant="secondary" icon="location" onClick={onEditArea}>
+            {isMy ? "ဒေသ ပြင်ဆင်ရန်" : "Edit area"}
+          </Button>
+          <Button variant="secondary" icon="rotation" onClick={onEditCrop}>
+            {isMy ? "အဓိကသီးနှံ ပြင်ဆင်ရန်" : "Edit main crop"}
+          </Button>
         </div>
       </div>
 
@@ -523,39 +583,47 @@ function PreviewStep({
           {preview.patterns.map((pattern, index) => (
             <li key={pattern.id}>
               <Panel as="article" radius="lg" className="flex flex-col gap-5 p-4 sm:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-body-sm font-medium text-field">Regional example {index + 1}</span>
-                    <h3 className="flex flex-wrap items-center gap-2 text-headline text-ink">
-                      {pattern.crops.map((crop, cropIndex) => (
-                        <span key={`${pattern.id}-${crop.id}`} className="inline-flex items-center gap-2">
-                          {cropIndex > 0 ? <Icon name="next" size={16} className="text-ink-muted" /> : null}
-                          <span>{crop.english} <span lang="my" className="font-normal text-ink-muted">({crop.local})</span></span>
-                        </span>
-                      ))}
-                    </h3>
-                  </div>
-                  <span className="inline-flex min-h-7 items-center gap-1.5 rounded-pill bg-surface-sunken px-2.5 text-body-sm text-ink">
-                    <Icon name="stack" size={15} /> Catalog example
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-balance flex flex-wrap items-center gap-2 text-headline font-semibold text-ink">
+                    {pattern.crops.map((crop, cropIndex) => (
+                      <span key={`${pattern.id}-${crop.id}`} className="inline-flex items-center gap-2">
+                        {cropIndex > 0 ? <Icon name="next" size={16} className="text-ink-muted" /> : null}
+                        <span>{isMy ? (crop.local || crop.english) : crop.english}</span>
+                      </span>
+                    ))}
+                  </h3>
+                  <span className="inline-flex min-h-7 items-center gap-1.5 rounded-pill bg-field-soft px-2.5 text-body-sm font-semibold text-field tabular-nums">
+                    <Icon name="stack" size={15} />
+                    {isMy ? `ဒေသဆိုင်ရာ နမူနာ ${index + 1}` : `Regional example ${index + 1}`}
                   </span>
                 </div>
 
                 <dl className="m-0 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-body-sm font-medium text-ink-muted">Why it is in the catalog</dt>
-                    <dd className="m-0 mt-1 text-body text-ink">{pattern.rationale}</dd>
+                    <dt className="text-body-sm font-medium text-ink-muted">
+                      {isMy ? "လမ်းညွှန်တွင် ထည့်သွင်းထားရသည့် အကြောင်းရင်း" : "Why it is in the catalog"}
+                    </dt>
+                    <dd className="m-0 mt-1 text-pretty text-body text-ink">{pattern.rationale}</dd>
                   </div>
                   <div>
-                    <dt className="text-body-sm font-medium text-ink-muted">Limitation</dt>
-                    <dd className="m-0 mt-1 text-body text-ink">{pattern.limitation}</dd>
+                    <dt className="text-body-sm font-medium text-ink-muted">
+                      {isMy ? "ကန့်သတ်ချက်" : "Limitation"}
+                    </dt>
+                    <dd className="m-0 mt-1 text-pretty text-body text-ink">{pattern.limitation}</dd>
                   </div>
                   <div>
-                    <dt className="text-body-sm font-medium text-ink-muted">Evidence status</dt>
-                    <dd className="m-0 mt-1 text-body-sm text-ink">{pattern.evidenceLabel}. No NASA request has been made for this preview.</dd>
+                    <dt className="text-body-sm font-medium text-ink-muted">
+                      {isMy ? "အထောက်အထား အခြေအနေ" : "Evidence status"}
+                    </dt>
+                    <dd className="m-0 mt-1 text-pretty text-body-sm text-ink">
+                      {pattern.evidenceLabel}. {isMy ? "ဤနမူနာအတွက် NASA သို့ အချက်အလက်တောင်းဆိုထားခြင်း မရှိပါ။" : "No NASA request has been made for this preview."}
+                    </dd>
                   </div>
                   <div>
-                    <dt className="text-body-sm font-medium text-ink-muted">Check locally</dt>
-                    <dd className="m-0 mt-1 text-body-sm text-ink">{pattern.localCheck}</dd>
+                    <dt className="text-body-sm font-medium text-ink-muted">
+                      {isMy ? "ဒေသအလိုက် လက်တွေ့စစ်ဆေးရန်" : "Check locally"}
+                    </dt>
+                    <dd className="m-0 mt-1 text-pretty text-body-sm text-ink">{pattern.localCheck}</dd>
                   </div>
                 </dl>
               </Panel>
@@ -563,15 +631,28 @@ function PreviewStep({
           ))}
         </ol>
       ) : (
-        <Panel tone="sunken" className="flex flex-col items-start gap-3 p-5">
-          <Icon name="learn" size={28} className="text-ink-muted" />
-          <h3 className="text-headline text-ink">Templates unavailable for this selection</h3>
-          <p className="m-0 max-w-measure text-body text-ink-muted">Choose another main crop or area. Your selection is still saved locally, and no personal field result has been inferred.</p>
-        </Panel>
+        <EmptyState
+          icon="learn"
+          title={isMy ? "ရွေးချယ်ထားသော အချက်အလက်အတွက် နမူနာ မရှိပါ" : "Templates unavailable for this selection"}
+          body={isMy
+            ? "အခြားအဓိကသီးနှံ သို့မဟုတ် ဒေသကို ရွေးချယ်ပါ။ သင့်ရွေးချယ်မှုကို သိမ်းဆည်းထားပြီး စိုက်ခင်းအချက်အလက်ကို သီးခြားတွက်ချက်ထားခြင်း မရှိပါ။"
+            : "Choose another main crop or area. Your selection is still saved locally, and no personal field result has been inferred."}
+        >
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button variant="secondary" icon="rotation" onClick={onEditCrop}>
+              {isMy ? "အဓိကသီးနှံ ပြောင်းလဲရန်" : "Change main crop"}
+            </Button>
+            <Button variant="quiet" icon="location" onClick={onEditArea}>
+              {isMy ? "ဒေသ ပြောင်းလဲရန်" : "Change area"}
+            </Button>
+          </div>
+        </EmptyState>
       )}
 
-      <p className="m-0 text-body-sm text-ink-muted">
-        Preview contract: {preview.catalogVersion} · {preview.cropLibraryVersion} · illustrative regional patterns, not a ranked result.
+      <p className="m-0 text-pretty text-body-sm text-ink-muted tabular-nums">
+        {isMy
+          ? `နမူနာဗားရှင်း - ${preview.catalogVersion} · ${preview.cropLibraryVersion} · ဒေသဆိုင်ရာ နမူနာပုံစံများသာ ဖြစ်ပြီး အဆင့်သတ်မှတ်ထားခြင်း မဟုတ်ပါ။`
+          : `Preview contract: ${preview.catalogVersion} · ${preview.cropLibraryVersion} · illustrative regional patterns, not a ranked result.`}
       </p>
     </section>
   );

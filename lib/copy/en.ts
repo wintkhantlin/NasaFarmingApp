@@ -52,8 +52,7 @@ export const copy = {
   },
 
   welcome: {
-    // Both languages on purpose: someone who cannot read this page must still find the switch.
-    language: "ဘာသာစကား / Language",
+    language: "Language",
     yourData: "Your data",
     staysTitle: "What stays on this phone",
     staysFields: "Your fields, crops and soil tests",
@@ -79,8 +78,7 @@ export const copy = {
     closeSettings: "Close settings",
     done: "Done",
     areaUnit: "Area unit",
-    // Both languages on purpose, so a wrong-language screen can still be fixed.
-    language: "ဘာသာစကား / Language",
+    language: "Language",
     hectares: "Hectares",
     acres: "Acres",
     more: "More settings, privacy and backup",

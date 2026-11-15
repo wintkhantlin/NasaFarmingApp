@@ -1,19 +1,18 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { useLocaleStore } from "@/lib/store/locale-store";
 
 /**
- * English first, the Burmese translation as a second line beneath it.
- * Both are always in the page, so a reader in either language finds the same words.
- *
- * `inherit` keeps the Burmese line in the surrounding colour (use it inside a
- * primary button, where muted grey on green would be too faint to read).
- * `center` centres both lines (buttons, badges).
+ * Renders in the active user language (English or Burmese).
+ * Never renders both languages mixed together.
  */
 export function Bilingual({
   en,
   my,
   className,
-  inherit,
+  inherit: _inherit,
   center,
 }: {
   en: ReactNode;
@@ -22,12 +21,17 @@ export function Bilingual({
   inherit?: boolean;
   center?: boolean;
 }) {
-  return (
-    <span className={cn("flex min-w-0 flex-col", center && "items-center text-center", className)}>
-      <span>{en}</span>
-      <span lang="my" className={cn("text-body-sm font-normal", inherit ? "text-current opacity-90" : "text-ink-muted")}>
+  const locale = useLocaleStore((s) => s.locale);
+  if (locale === "my") {
+    return (
+      <span lang="my" className={cn("inline-block", center && "text-center", className)}>
         {my}
       </span>
+    );
+  }
+  return (
+    <span className={cn("inline-block", center && "text-center", className)}>
+      {en}
     </span>
   );
 }

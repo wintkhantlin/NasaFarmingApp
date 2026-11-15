@@ -312,7 +312,7 @@ export function DataUsageGuide() {
             value={activeTab}
             onChange={(val) => setActiveTab(val as "all" | "what" | "how")}
             options={[
-              { value: "all", label: isBurmese ? "အားလုံး (All)" : "All Overview" },
+              { value: "all", label: isBurmese ? "အားလုံး" : "All Overview" },
               { value: "what", label: isBurmese ? "၁။ အသုံးပြုသော ဒေတာများ" : "1. What Data is Used" },
               { value: "how", label: isBurmese ? "၂။ ဒေတာ အသုံးပြုပုံ" : "2. How Data is Used" },
             ]}

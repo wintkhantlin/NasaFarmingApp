@@ -50,7 +50,7 @@ export const copyMy = {
   },
 
   welcome: {
-    language: "ဘာသာစကား / Language",
+    language: "ဘာသာစကား",
     yourData: "သင့်ဒေတာ", // TODO native review
     staysTitle: "ဖုန်းထဲတွင်သာ သိမ်းထားသည်",
     staysFields: "သင့်စိုက်ခင်း၊ သီးနှံနှင့် မြေစစ်ချက်များ",
@@ -77,7 +77,7 @@ export const copyMy = {
     closeSettings: "ဆက်တင် ပိတ်ရန်",
     done: "ပြီးပြီ",
     areaUnit: "ဧရိယာ ယူနစ်",
-    language: "ဘာသာစကား / Language",
+    language: "ဘာသာစကား",
     hectares: "ဟက်တာ",
     acres: "ဧက",
     more: "ဆက်တင်အပြည့်အစုံ၊ ကိုယ်ရေးလုံခြုံမှုနှင့် အရန်သိမ်းခြင်း",

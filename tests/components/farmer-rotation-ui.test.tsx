@@ -6,6 +6,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 import { RotationEditor } from "@/components/field/rotation-editor";
 import { MoistureClockRibbon } from "@/components/field/moisture-clock-ribbon";
 import { FarmerGuidedFlow } from "@/components/field/farmer-guided-flow";
+import { useLocaleStore } from "@/lib/store/locale-store";
 import type { Field, Rotation } from "@/lib/types";
 
 const routerPush = vi.hoisted(() => vi.fn());
@@ -96,6 +97,7 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
   beforeEach(() => {
     cleanup();
     routerPush.mockReset();
+    useLocaleStore.setState({ locale: "en", areaUnit: "ha", hydrated: true });
     storeState = {
       status: "ready",
       fields: [mockField],
@@ -163,7 +165,8 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
   });
 
   describe("Honest Moisture Clock Ribbon (U-03)", () => {
-    it("never displays a fake calendar countdown when soil data is unconfirmed", () => {
+    it("never displays a fake calendar countdown when soil data is unconfirmed and renders English when English", () => {
+      useLocaleStore.setState({ locale: "en" });
       render(
         <MoistureClockRibbon
           hasConfirmedSoil={false}
@@ -172,8 +175,22 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
       );
 
       expect(screen.getByText(/Check topsoil moisture and drainage before sowing/i)).toBeInTheDocument();
-      expect(screen.getByText(/မြေပြင်အစိုဓာတ်နှင့် ရေနုတ်မြောင်းများကို လက်တွေ့စစ်ဆေးပါ/i)).toBeInTheDocument();
+      expect(screen.queryByText(/မြေပြင်အစိုဓာတ်နှင့် ရေနုတ်မြောင်းများကို လက်တွေ့စစ်ဆေးပါ/i)).toBeNull();
       expect(screen.queryByText(/~Day 8 to Day 16/i)).toBeNull();
+    });
+
+    it("displays Burmese advisory without English mixing when locale is Burmese", () => {
+      useLocaleStore.setState({ locale: "my" });
+      render(
+        <MoistureClockRibbon
+          hasConfirmedSoil={false}
+          hasConfirmedDrainageDate={false}
+        />,
+      );
+
+      expect(screen.getByText(/မြေပြင်အစိုဓာတ်နှင့် ရေနုတ်မြောင်းများကို လက်တွေ့စစ်ဆေးပါ/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Check topsoil moisture and drainage before sowing/i)).toBeNull();
+      useLocaleStore.setState({ locale: "en" });
     });
 
     it("displays the 3-zone physical drydown window when soil data is confirmed", () => {

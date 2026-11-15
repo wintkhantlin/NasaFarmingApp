@@ -43,13 +43,13 @@ export function Welcome() {
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col gap-6 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] [--tabbar-h:0px]">
       <div className="flex flex-col items-center gap-2 text-center">
         <BrandMark />
-        <h1 className="text-title text-ink">{text.app.name}</h1>
-        <p className="m-0 max-w-measure text-body text-ink">{text.path.job}</p>
+        <h1 className="text-balance text-title text-ink">{text.app.name}</h1>
+        <p className="m-0 max-w-measure text-pretty text-body text-ink">{text.path.job}</p>
       </div>
 
       {/* Language comes first: someone who cannot read this page must find it at once. */}
       <fieldset className="m-0 flex flex-col gap-3 border-0 p-0">
-        <legend className="mb-2 flex items-center gap-2 text-headline text-ink">
+        <legend className="mb-2 flex items-center gap-2 text-headline text-ink text-balance">
           <Icon name="language" size={22} />
           {text.welcome.language}
         </legend>
@@ -77,34 +77,37 @@ export function Welcome() {
       <section aria-labelledby="notice" className="flex flex-col gap-4 border-t border-line pt-5">
         <h2 id="notice" className="sr-only">{text.welcome.yourData}</h2>
         <div>
-          <h3 className="m-0 flex items-center gap-2 text-headline text-ink">
+          <h3 className="m-0 flex items-center gap-2 text-headline text-ink text-balance">
             <Icon name="private" size={20} className="text-field" />
             {text.welcome.staysTitle}
           </h3>
-          <ul className="m-0 mt-1 list-disc pl-7 text-body text-ink">
+          <ul className="m-0 mt-1 list-disc pl-7 text-pretty text-body text-ink">
             <li>{text.welcome.staysFields}</li>
             <li>{text.welcome.staysPriorities}</li>
           </ul>
         </div>
         <div>
-          <h3 className="m-0 flex items-center gap-2 text-headline text-ink">
+          <h3 className="m-0 flex items-center gap-2 text-headline text-ink text-balance">
             <Icon name="location" size={20} className="text-field" />
             {text.welcome.leavesTitle}
           </h3>
-          <p className="m-0 mt-1 text-body text-ink">{text.welcome.consentLine}</p>
+          <p className="m-0 mt-1 text-pretty text-body text-ink">{text.welcome.consentLine}</p>
           <details className="mt-1">
-            <summary className="flex min-h-tap cursor-pointer items-center text-label text-field">{text.welcome.more}</summary>
-            <ul className="m-0 list-disc pl-5 text-body-sm text-ink-muted">
+            <summary className="flex min-h-tap cursor-pointer items-center text-label text-field select-none">{text.welcome.more}</summary>
+            <ul className="m-0 list-disc pl-5 text-pretty text-body-sm text-ink-muted">
               <li>{text.welcome.leavesLocation}</li>
               <li>{text.welcome.leavesMap}</li>
             </ul>
           </details>
         </div>
-        {offline ? <p className="m-0 text-body-sm text-ink-muted">{text.welcome.offline}</p> : null}
-        {/* Shown in both languages whichever is active: garbled Burmese cannot explain its own fix. */}
+        {offline ? <p className="m-0 text-pretty text-body-sm text-ink-muted">{text.welcome.offline}</p> : null}
+        {/* Shown in the active language: English or Burmese, never mixed together. */}
         <div className="flex flex-col gap-1 rounded-md border border-unknown-border/30 bg-unknown-bg p-3 text-body-sm text-unknown-text" role="note">
-          <p lang="my" className="m-0">{zawgyiMy}</p>
-          <p lang="en" className="m-0">{zawgyiEn}</p>
+          {locale === "my" ? (
+            <p lang="my" className="m-0 text-pretty leading-relaxed">{zawgyiMy}</p>
+          ) : (
+            <p lang="en" className="m-0 text-pretty">{zawgyiEn}</p>
+          )}
         </div>
         <Link href="/about/data" className="inline-flex min-h-tap items-center text-label text-field">{text.welcome.learnData}</Link>
       </section>
