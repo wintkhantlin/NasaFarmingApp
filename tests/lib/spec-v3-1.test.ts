@@ -245,6 +245,13 @@ describe("Phase 2.1: two-tier plant-available water", () => {
     expect(awc?.note).toMatch(/Saxton and Rawls/);
   });
 
+  test("when SoilGrids is unavailable, farmer measurements still calculate available water capacity", () => {
+    const soil = effectiveSoil(syntheticField({ soilObservations: lab }), null);
+    expect(soil.soilGridsAvailable).toBe(false);
+    expect(soil.awcMmPerM).toMatchObject({ from: "farmer-ptf" });
+    expect(soil.awcMmPerM?.value).toBeCloseTo(142.6, 0);
+  });
+
   test("tier 1 does not borrow organic carbon from a soil map: without it the grid values are used and labelled", () => {
     const awc = effectiveSoil(syntheticField({ soilObservations: [obs("sand", 40, "%"), obs("clay", 20, "%")] }), profile).awcMmPerM;
     expect(awc?.from).toBe("soilgrids");

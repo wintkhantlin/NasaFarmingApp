@@ -101,6 +101,7 @@ Statuses: **Implemented** (runs in the application and is tested), **Partially i
 | MODIS NDVI | Implemented | Public Planetary Computer extraction with AppEEARS fallback; 250 m QA-screened regional history |
 | ECOSTRESS | Implemented; connection-gated | Separate LST and ET AppEEARS jobs, cloud/water and conservative LST-QA screening, native-unit summaries and provenance; needs an Earthdata login |
 | Economics & Water Response | Implemented with real-world market benchmarks | Interval arithmetic on farmer-entered values or loaded regional commodity benchmarks (DOA, Bayintnaung, MPBMSMA 2024–2026); optional water-stress yield discount via FAO-33 / FAO-66 with strict uncalibrated guards |
+| SoilGrids-unavailable water-capacity fallback | Implemented & tested | With farmer-measured sand (40%), clay (20%) and organic carbon (1.45%), the Saxton–Rawls (2006) calculation returns 142.6 mm/m in a synthetic test. Without the required measurements, available water capacity remains unknown; this does not estimate missing pH or validate field conditions. |
 
 When a source is not connected, the app falls back (for rainfall, to POWER) or reports *unknown*, and says so in the report. The appendix (Implementation Status) gives the detail.
 
@@ -136,7 +137,7 @@ The demonstration shows what changes in a comparison when evidence is added or r
 
 ## 7. Limitations and Validation
 
-**Agronomic yield and soil predictions have not been validated against field trials; input weather data have undergone ground-truth benchmarking.** The automated tests (543 tests across 61 test files) show that formulas are transcribed correctly, that water is conserved in the 2-zone and 3-zone balances to $10^{-9}\text{ mm}$, and that missing inputs stay missing. A dedicated validation harness audited NASA POWER reanalysis against 10 years of NOAA GHCN-Daily records (2015–2024) across 5 Myanmar stations (`docs/validation/WEATHER_VALIDATION.md`). The full table is Section 12 of the appendix. The main points are these.
+**Agronomic yield and soil predictions have not been validated against field trials; input weather data have undergone ground-truth benchmarking.** The automated tests (610 tests across 71 test files) show that formulas are transcribed correctly, that water is conserved in the 2-zone and 3-zone balances to $10^{-9}\text{ mm}$, and that missing inputs stay missing. A dedicated validation harness audited NASA POWER reanalysis against 10 years of NOAA GHCN-Daily records (2015–2024) across 5 Myanmar stations (`docs/validation/WEATHER_VALIDATION.md`). The full table is Section 12 of the appendix. The main points are these.
 
 - **Ten seasons only.** The replay uses $2016\text{–}2025$. Ten seasons are a small sample and carry any climate trend in that period. The comparison of worst-case losses between options (minimax regret) rests on those ten years, and its tail percentile is coarse.
 - **Empirical rainfall bias in the Central Dry Zone.** Validation against the Mandalay station reveals NASA POWER `PRECTOTCORR` monthly rainfall is **51% lower** than station observations ($r = 0.48$). Water-balance models will substantially overstate drought stress for rainfed Dry Zone crops. An explicit in-app warning alerts the farmer when viewing fields in this zone.

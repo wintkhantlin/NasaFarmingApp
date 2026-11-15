@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Panel } from "@/components/ui/panel";
 import { useLocaleStore } from "@/lib/store/locale-store";
 import { THEMES, pick, searchTopics, topicsInTheme, type LearnTopic } from "@/lib/learn/topics";
+import { DataUsageGuide } from "@/components/learn/data-usage-guide";
 
 const UI = {
   en: {
@@ -36,52 +37,64 @@ export function LearnHub() {
   const results = useMemo(() => (q.trim() ? searchTopics(q) : null), [q]);
 
   return (
-    <>
-      <p className="m-0 max-w-measure text-body text-ink-muted">{ui.intro}</p>
-      <TextField
-        type="search"
-        label={ui.search}
-        placeholder={ui.placeholder}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        size="small"
-        fullWidth
-        slotProps={{ htmlInput: { "aria-label": ui.search } }}
-      />
+    <div className="flex flex-col gap-8">
+      {/* What data is used and how data is used */}
+      <DataUsageGuide />
 
-      {results ? (
-        <SearchResults topics={results} locale={locale} query={q.trim()} noneText={ui.none(q.trim())} countText={ui.count(results.length)} />
-      ) : (
-        <>
-          <nav aria-label={ui.jump} className="flex flex-wrap gap-2">
-            {THEMES.map((t) => (
-              <a
-                key={t.id}
-                href={`#theme-${t.id}`}
-                className="inline-flex min-h-tap items-center rounded-pill border border-line bg-surface-raised px-3 text-body-sm text-ink"
-              >
-                {pick(t.title, locale)}
-              </a>
+      {/* Common Farm Questions & Topics */}
+      <section aria-labelledby="questions-guide-title" className="flex flex-col gap-4 border-t border-line pt-6">
+        <div className="flex flex-col gap-1">
+          <h2 id="questions-guide-title" className="m-0 text-title text-ink">
+            {locale === "my" ? "စိုက်ခင်းဆိုင်ရာ မေးခွန်းများနှင့် အဖြေများ" : "Browse Farm Questions & Topics"}
+          </h2>
+          <p className="m-0 max-w-measure text-body text-ink-muted">{ui.intro}</p>
+        </div>
+
+        <TextField
+          type="search"
+          label={ui.search}
+          placeholder={ui.placeholder}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          size="small"
+          fullWidth
+          slotProps={{ htmlInput: { "aria-label": ui.search } }}
+        />
+
+        {results ? (
+          <SearchResults topics={results} locale={locale} query={q.trim()} noneText={ui.none(q.trim())} countText={ui.count(results.length)} />
+        ) : (
+          <>
+            <nav aria-label={ui.jump} className="flex flex-wrap gap-2">
+              {THEMES.map((t) => (
+                <a
+                  key={t.id}
+                  href={`#theme-${t.id}`}
+                  className="inline-flex min-h-tap items-center rounded-pill border border-line bg-surface-raised px-3 text-body-sm text-ink hover:border-line-strong"
+                >
+                  {pick(t.title, locale)}
+                </a>
+              ))}
+            </nav>
+
+            {THEMES.map((theme) => (
+              <section key={theme.id} id={`theme-${theme.id}`} aria-labelledby={`theme-${theme.id}-title`} className="flex scroll-mt-4 flex-col gap-2">
+                <div className="flex flex-col gap-1 px-1">
+                  <h3 id={`theme-${theme.id}-title`} className="m-0 text-source font-semibold text-ink-muted">{pick(theme.title, locale)}</h3>
+                  <p className="m-0 text-body-sm text-ink-muted">{pick(theme.intro, locale)}</p>
+                </div>
+                <Panel as="div" className="divide-y divide-line">
+                  {topicsInTheme(theme.id).map((t) => (
+                    <TopicLink key={t.id} topic={t} locale={locale} />
+                  ))}
+                </Panel>
+              </section>
             ))}
-          </nav>
-
-          {THEMES.map((theme) => (
-            <section key={theme.id} id={`theme-${theme.id}`} aria-labelledby={`theme-${theme.id}-title`} className="flex scroll-mt-4 flex-col gap-2">
-              <div className="flex flex-col gap-1 px-1">
-                <h2 id={`theme-${theme.id}-title`} className="m-0 text-source text-ink-muted">{pick(theme.title, locale)}</h2>
-                <p className="m-0 text-body-sm text-ink-muted">{pick(theme.intro, locale)}</p>
-              </div>
-              <Panel as="div" className="divide-y divide-line">
-                {topicsInTheme(theme.id).map((t) => (
-                  <TopicLink key={t.id} topic={t} locale={locale} />
-                ))}
-              </Panel>
-            </section>
-          ))}
-          <p className="m-0 text-source text-ink-tertiary">{ui.definitions}</p>
-        </>
-      )}
-    </>
+            <p className="m-0 text-source text-ink-tertiary">{ui.definitions}</p>
+          </>
+        )}
+      </section>
+    </div>
   );
 }
 
