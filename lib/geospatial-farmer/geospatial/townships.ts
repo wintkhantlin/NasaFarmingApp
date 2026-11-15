@@ -7,22 +7,32 @@ export const administrativeContextSchema = z.object({
   ST: z.string().min(1), ST_PCODE: z.string().min(1),
   DT: z.string().min(1), DT_PCODE: z.string().min(1),
   TS: z.string().min(1), TS_PCODE: z.string().min(1), TS_MMR: z.string(),
+  source: z.string().optional(),
+  pcodeMapping: z.string().optional(),
 });
 export type AdministrativeContext = z.infer<typeof administrativeContextSchema>;
-export type Townships = FeatureCollection<Polygon | MultiPolygon, AdministrativeContext>;
+export type Townships = FeatureCollection<Polygon | MultiPolygon, AdministrativeContext> & {
+  metadata?: Record<string, unknown>;
+};
 const position = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 const ring = z.array(position).min(4).refine((r) => r[0][0] === r.at(-1)![0] && r[0][1] === r.at(-1)![1], "Ring must close");
 const polygon = z.array(ring).min(1);
-const collection = z.object({ type: z.literal("FeatureCollection"), features: z.array(z.object({
-  type: z.literal("Feature"), properties: administrativeContextSchema,
-  geometry: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("Polygon"), coordinates: polygon }),
-    z.object({ type: z.literal("MultiPolygon"), coordinates: z.array(polygon).min(1) }),
-  ]),
-})).length(162) });
+const collection = z.object({
+  type: z.literal("FeatureCollection"),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  features: z.array(z.object({
+    type: z.literal("Feature"), properties: administrativeContextSchema,
+    geometry: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("Polygon"), coordinates: polygon }),
+      z.object({ type: z.literal("MultiPolygon"), coordinates: z.array(polygon).min(1) }),
+    ]),
+  })).min(1)
+});
 export function parseTownships(value: unknown): Townships {
   const data = collection.parse(value);
-  if (new Set(data.features.map((f) => f.properties.TS_PCODE)).size !== 162) throw new Error("Duplicate township PCode");
+  if (new Set(data.features.map((f) => f.properties.TS_PCODE)).size !== data.features.length) {
+    throw new Error("Duplicate township PCode");
+  }
   const parents = new Map<string, string>();
   for (const { properties: p } of data.features) {
     const key = `${p.ST_PCODE}/${p.DT}`;

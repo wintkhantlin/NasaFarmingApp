@@ -20,7 +20,30 @@ export function TownshipPicker({ data, selection, onChange, error }: {
         <option value="">Choose {c.label.toLowerCase()}</option>{c.items.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
       </select></label>)}
       <p className="text-body-sm text-ink-muted">Township outlines give context. Draw your own field inside the area; choosing a township does not confirm a field.</p>
-      <p className="text-source text-ink-muted">Boundaries: <a className="underline" href="https://data.themimu.info/en/dataset/myanmar-administrative-boundary">MIMU / GAD, PCode v9.4</a>. About 1:250,000 scale. Coverage review pending.</p>
+      <p className="text-source text-ink-muted">
+        {data.metadata?.license ? (
+          <>
+            Boundaries:{" "}
+            <a
+              className="underline"
+              href="https://www.geoboundaries.org/api/current/gbOpen/MMR/ADM3/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              geoBoundaries gbOpen ({String(data.metadata.license)})
+            </a>
+            . 330 townships. Context only.
+          </>
+        ) : (
+          <>
+            Boundaries:{" "}
+            <a className="underline" href="https://data.themimu.info/en/dataset/myanmar-administrative-boundary">
+              MIMU / GAD, PCode v9.4
+            </a>
+            . About 1:250,000 scale. Coverage review pending.
+          </>
+        )}
+      </p>
     </div>}
   </details>;
 }

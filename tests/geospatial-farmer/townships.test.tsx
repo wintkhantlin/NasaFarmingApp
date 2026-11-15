@@ -23,11 +23,10 @@ it("supports Polygon and MultiPolygon and preserves actual coordinates in persis
   expect(field.centroid).toEqual([95.2,20.3]);
   expect(field.locationConfirmed).toBe(false);
 });
-it("requires 162 unique nonempty codes", () => {
+it("requires unique nonempty codes", () => {
   const full = { ...data, features: Array.from({length:162}, (_, i) => ({ ...data.features[0], properties: { ...properties, TS_PCODE: `T${i}` } })) };
   expect(parseTownships(full).features).toHaveLength(162);
-  expect(() => parseTownships(data)).toThrow();
-  expect(() => parseTownships({ ...full, features: full.features.map((f) => ({ ...f, properties })) })).toThrow();
+  expect(() => parseTownships({ ...full, features: [{ ...data.features[0], properties: { ...properties, TS_PCODE: "SAME" } }, { ...data.features[0], properties: { ...properties, TS_PCODE: "SAME" } }] })).toThrow();
   expect(() => parseTownships({ ...full, features: full.features.map((f) => ({ ...f, properties: {...f.properties, TS_PCODE: ""} })) })).toThrow();
 });
 it("cascades selections, shows Myanmar names and clears children", () => {
@@ -89,14 +88,59 @@ it("validates the full 162-township dataset when local file is present", async (
   expect(stPcodes.size).toBe(8);
 });
 
-it("handles study area boundaries API endpoint responses", async () => {
+it("validates the production 330-township geoBoundaries gbOpen dataset", async () => {
+  const fs = await import("node:fs");
+  const path = "lib/data/geoboundaries-330-townships.json";
+  expect(fs.existsSync(path)).toBe(true);
+
+  const raw = JSON.parse(fs.readFileSync(path, "utf-8"));
+  expect(raw.metadata?.license).toBe("Creative Commons Attribution 4.0 International (CC BY 4.0)");
+  expect(raw.metadata?.pcodeMapping).toBe("unavailable");
+  expect(raw.metadata?.admUnitCount).toBe(330);
+
+  const parsed = parseTownships(raw);
+  expect(parsed.features).toHaveLength(330);
+
+  const pcodes = new Set<string>();
+  const states = new Set<string>();
+  for (const feature of parsed.features) {
+    const { TS_PCODE, TS, DT, ST } = feature.properties;
+    expect(TS_PCODE).toMatch(/^GB-MMR-/);
+    expect(pcodes.has(TS_PCODE)).toBe(false);
+    pcodes.add(TS_PCODE);
+    states.add(ST);
+    expect(TS).toBeTruthy();
+    expect(DT).toBeTruthy();
+    expect(ST).toBeTruthy();
+
+    const geom = feature.geometry;
+    expect(["Polygon", "MultiPolygon"]).toContain(geom.type);
+    const polygons = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    for (const poly of polygons) {
+      for (const ring of poly) {
+        expect(ring.length).toBeGreaterThanOrEqual(4);
+        expect(ring[0]).toEqual(ring[ring.length - 1]);
+        for (const [lon, lat] of ring) {
+          expect(lon).toBeGreaterThanOrEqual(90);
+          expect(lon).toBeLessThanOrEqual(105);
+          expect(lat).toBeGreaterThanOrEqual(9);
+          expect(lat).toBeLessThanOrEqual(29);
+        }
+      }
+    }
+  }
+
+  expect(pcodes.size).toBe(330);
+  expect(states.size).toBeGreaterThanOrEqual(14);
+});
+
+it("serves production boundaries successfully through the API endpoint", async () => {
   const { GET } = await import("@/app/api/study-area/boundaries/route");
   const req = new Request("http://localhost/api/study-area/boundaries", {
     headers: { "accept-encoding": "gzip" },
   });
   const res = await GET(req);
-  expect([200, 503]).toContain(res.status);
-  if (res.status === 200) {
-    expect(res.headers.get("content-type")).toBe("application/geo+json");
-  }
+  expect(res.status).toBe(200);
+  expect(res.headers.get("content-type")).toBe("application/geo+json");
+  expect(res.headers.get("content-encoding")).toBe("gzip");
 });
