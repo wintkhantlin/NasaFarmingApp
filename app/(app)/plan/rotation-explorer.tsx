@@ -13,6 +13,7 @@ import { REGIONS, REGION_IDS } from "@/lib/data/regions";
 import { disambiguatePlaces, type PlaceCandidate, type PlaceOption } from "@/lib/plan/place-selection";
 import { resolveRegionalPreview } from "@/lib/plan/regional-preview";
 import { emptyPlanDraft, readPlanDraft, writePlanDraft, type PlanDraft, type PlanDraftPlace } from "@/lib/store/plan-draft";
+import { useLocaleStore } from "@/lib/store/locale-store";
 import type { RegionId } from "@/lib/types";
 import { RefinementDrawers } from "./refinement-drawers";
 import { PlanHandoff } from "@/components/field/plan-handoff";
@@ -35,6 +36,18 @@ const CROP_ICONS: Record<string, IconName> = {
   "pigeon-pea": "bean",
   soybean: "bean",
   lablab: "organic",
+  cotton: "flower",
+  chili: "flower",
+  onion: "nut",
+  garlic: "nut",
+  potato: "nut",
+  tomato: "flower",
+  sugarcane: "profile",
+  cassava: "organic",
+  mustard: "flower",
+  niger: "flower",
+  "butter-bean": "bean",
+  cabbage: "organic",
 };
 
 function supportedCrops(region: RegionId) {
@@ -422,19 +435,25 @@ function CropStep({
   onChoose: (cropId: string) => void;
   warning: string | null;
 }) {
+  const locale = useLocaleStore((s) => s.locale);
+  const isMy = locale === "my";
   return (
     <section className="flex flex-col gap-5" aria-labelledby="crop-heading">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h2 id="crop-heading" className="text-title text-ink">What is your main monsoon crop?</h2>
-          <p className="max-w-measure text-body text-ink-muted">Choose one crop for {place.name}, {REGIONS[place.region].name}. This does not record your full rotation.</p>
+          <h2 id="crop-heading" className="text-title text-ink">{isMy ? "အဓိကမိုးသီးနှံမှာ အဘယ်နည်း။" : "What is your main monsoon crop?"}</h2>
+          <p className="max-w-measure text-body text-ink-muted">
+            {isMy
+              ? `${REGIONS[place.region].name}၊ ${place.name} အတွက် သီးနှံတစ်ခု ရွေးချယ်ပါ။ ဤသည်မှာ သီးလှည့်တစ်ခုလုံး မဟုတ်ပါ။`
+              : `Choose one crop for ${place.name}, ${REGIONS[place.region].name}. This does not record your full rotation.`}
+          </p>
         </div>
-        <Button variant="quiet" icon="back" onClick={onBack}>Edit area</Button>
+        <Button variant="quiet" icon="back" onClick={onBack}>{isMy ? "ဒေသ ပြင်ဆင်ရန်" : "Edit area"}</Button>
       </div>
 
       {warning ? <Message tone="caution" title={warning} /> : null}
 
-      <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3" aria-label="Supported crops">
+      <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3" aria-label={isMy ? "စိုက်ပျိုးနိုင်သော သီးနှံများ" : "Supported crops"}>
         {crops.map((crop) => crop ? (
           <li key={crop.id}>
             <button
@@ -446,8 +465,9 @@ function CropStep({
                 <Icon name={CROP_ICONS[crop.id] ?? "rotation"} size={28} strokeWidth={1.7} />
               </span>
               <span>
-                <span className="block text-headline text-ink">{crop.names.common}</span>
-                <span lang="my" className="mt-1 block text-body-sm text-ink-muted">{crop.names.local[0] ?? "ဒေသအမည် မရှိသေးပါ"}</span>
+                <span className="block text-headline text-ink">
+                  {isMy ? (crop.names.local[0] ?? crop.names.common) : crop.names.common}
+                </span>
               </span>
             </button>
           </li>

@@ -1,4 +1,4 @@
-import type { Crop, RegionId } from "../../types";
+import type { Crop, CropProfile, RegionId } from "../../types";
 import { MYANMAR_CROPS, CROP_LIBRARY_VERSION } from "./myanmar";
 import { REFERENCE_CROPS } from "./reference";
 import {
@@ -7,6 +7,8 @@ import {
   getDefaultEconomicsForCrops,
   type RealWorldCropEconomicProfile,
 } from "./real-world-economics";
+
+export type StrategyCrop = Crop & { profile: CropProfile };
 
 export {
   CROP_LIBRARY_VERSION,
@@ -24,8 +26,8 @@ export function getCropById(id: string): Crop | undefined {
 }
 
 /** Crops with sourced stage-level rules, optionally limited to those with a calendar in the region. */
-export function strategyCrops(region?: RegionId): Crop[] {
-  return MYANMAR_CROPS.filter((c) => !region || c.profile?.regionalCalendars[region]);
+export function strategyCrops(region?: RegionId): StrategyCrop[] {
+  return MYANMAR_CROPS.filter((c) => !region || c.profile?.regionalCalendars[region]) as StrategyCrop[];
 }
 
 /** "06-01" and a year to "2026-06-01". */

@@ -19,26 +19,30 @@ export interface RegionInfo {
 export const REGIONS: Record<RegionId, RegionInfo> = {
   myanmar: {
     id: "myanmar", name: "Elsewhere in Myanmar", focus: "Field history supported; regional crop templates not yet available",
-    candidateCropIds: ["rice", "black-gram", "green-gram", "sesame", "groundnut", "sunflower", "chickpea", "pigeon-pea", "maize", "soybean", "lablab", "sunn-hemp"],
+    candidateCropIds: [
+      "rice", "black-gram", "green-gram", "sesame", "groundnut", "sunflower", "chickpea", "pigeon-pea",
+      "maize", "soybean", "lablab", "sunn-hemp", "cotton", "chili", "onion", "garlic", "potato",
+      "tomato", "sugarcane", "cassava", "mustard", "niger", "butter-bean", "cabbage",
+    ],
   },
   ayeyarwady: {
     id: "ayeyarwady",
     name: "Ayeyarwady",
     focus: "Rice-based systems and post-monsoon moisture",
-    candidateCropIds: ["rice", "black-gram", "green-gram"],
+    candidateCropIds: ["rice", "black-gram", "green-gram", "chili", "cassava", "tomato"],
   },
   magway: {
     id: "magway",
     name: "Magway",
     focus: "Dry-zone water limitations",
-    candidateCropIds: ["sesame", "groundnut", "sunflower", "green-gram", "chickpea", "pigeon-pea"],
-    resolvedCategories: { pulses: ["green-gram", "chickpea", "pigeon-pea"] },
+    candidateCropIds: ["sesame", "groundnut", "sunflower", "green-gram", "chickpea", "pigeon-pea", "cotton", "onion", "chili", "butter-bean", "niger", "mustard"],
+    resolvedCategories: { pulses: ["green-gram", "chickpea", "pigeon-pea", "butter-bean"] },
   },
   shan: {
     id: "shan",
     name: "Shan State",
     focus: "Highland soils, slope and erosion",
-    candidateCropIds: ["maize", "soybean", "lablab", "sunn-hemp"],
+    candidateCropIds: ["maize", "soybean", "lablab", "sunn-hemp", "potato", "garlic", "tomato", "cabbage", "mustard", "niger"],
     resolvedCategories: { "cover crops": ["lablab", "sunn-hemp"] },
   },
   yangon: {

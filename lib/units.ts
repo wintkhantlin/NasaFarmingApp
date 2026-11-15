@@ -26,7 +26,7 @@ export function formatArea(ha: number | null | undefined, unit: AreaUnit = "ha")
 export function formatYield(kgHa: number | null | undefined, cropId?: string, unit: YieldUnit = "kg"): string {
   if (kgHa === null || kgHa === undefined || !Number.isFinite(kgHa)) return "Unknown yield";
   if (unit === "basket") {
-    const isPulse = cropId && ["black-gram", "green-gram", "chickpea", "pigeon-pea", "cowpea", "soybean"].includes(cropId);
+    const isPulse = cropId && ["black-gram", "green-gram", "chickpea", "pigeon-pea", "cowpea", "soybean", "butter-bean"].includes(cropId);
     const basketKg = isPulse ? PULSE_BASKET_KG : PADDY_BASKET_KG;
     const basketsPerHa = Math.round(kgHa / basketKg);
     const basketsPerAcre = Math.round((kgHa / HA_TO_ACRES) / basketKg);

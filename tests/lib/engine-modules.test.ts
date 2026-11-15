@@ -39,7 +39,32 @@ describe("regions", () => {
 describe("crop library", () => {
   test("every supported crop has stages that cover the cycle and a source on each threshold", () => {
     const supported = strategyCrops();
-    expect(supported.map((c) => c.id).sort()).toEqual(["black-gram", "chickpea", "green-gram", "groundnut", "lablab", "maize", "pigeon-pea", "rice", "sesame", "soybean", "sunflower", "sunn-hemp"]);
+    expect(supported.map((c) => c.id).sort()).toEqual([
+      "black-gram",
+      "butter-bean",
+      "cabbage",
+      "cassava",
+      "chickpea",
+      "chili",
+      "cotton",
+      "garlic",
+      "green-gram",
+      "groundnut",
+      "lablab",
+      "maize",
+      "mustard",
+      "niger",
+      "onion",
+      "pigeon-pea",
+      "potato",
+      "rice",
+      "sesame",
+      "soybean",
+      "sugarcane",
+      "sunflower",
+      "sunn-hemp",
+      "tomato",
+    ]);
     for (const c of supported) {
       const p = c.profile!;
       expect(p.stages.map((s) => s.id)).toEqual(["ini", "dev", "mid", "late"]);
