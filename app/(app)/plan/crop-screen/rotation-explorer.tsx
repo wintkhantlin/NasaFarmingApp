@@ -216,13 +216,12 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
   const noPriorityEvidence = eligible.length > 0 && eligible.every((scenario) => !scenario.priority_coverage);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
-        <Link href="/" className="flex min-h-tap items-center gap-3 text-ink no-underline"><span aria-hidden="true" className="grid size-10 place-items-center rounded-md bg-field text-on-field text-xl">F</span><span><span className="block text-lg font-semibold leading-5">Field Almanac</span><span className="mt-1 block text-body-sm text-ink-muted">Farm decisions, grounded in observation</span></span></Link>
-        <nav aria-label="Main navigation" className="flex min-h-tap items-center gap-5 text-label text-ink-muted"><Link href="/" className="hover:text-ink">Your fields</Link><Link href="/plan" aria-current="page" className="font-semibold text-field underline decoration-2 underline-offset-8">Rotation Explorer</Link></nav>
+    <section className="w-full space-y-6 pb-10" aria-labelledby="rotation-explorer-heading">
+      <header className="border-b border-line pb-5">
+        <Link href="/plan" className="inline-flex min-h-tap items-center text-body-sm font-semibold text-field underline underline-offset-4">← Back to Plan</Link>
+        <h1 id="rotation-explorer-heading" className="mt-2 max-w-3xl text-display">{en.title}</h1>
+        <p className="mt-3 max-w-measure text-ink-muted">{en.intro}</p>
       </header>
-
-      <div className="py-8 sm:py-12"><h1 className="max-w-3xl text-display">{en.title}</h1><p className="mt-3 max-w-measure text-ink-muted">{en.intro}</p></div>
 
       <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Choose how to start">
         <button type="button" aria-pressed={entry === "new"} onClick={() => { setEntry("new"); setResult(null); setError(""); }} className={`min-h-tap rounded-md border px-4 text-label ${entry === "new" ? "border-field bg-field-soft text-field" : "border-line-strong bg-surface-raised text-ink"}`}>Select a new location</button>
@@ -296,6 +295,6 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
           </div>}
         </aside>
       </div>
-    </main>
+    </section>
   );
 }
