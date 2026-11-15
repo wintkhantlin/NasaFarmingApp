@@ -1,3 +1,4 @@
+import { administrativeContextSchema } from "../geospatial-farmer/geospatial/townships";
 import { z } from "zod";
 import { parsePlanDraft } from "../store/plan-draft";
 import type {
@@ -119,6 +120,7 @@ export const fieldSchema: z.ZodType<Field> = z.object({
   constraints: constraintsSchema.optional(),
   priorities: prioritiesSchema.optional(),
   economics: z.array(economicsSchema).max(40).optional(),
+  administrativeContext: administrativeContextSchema.optional(),
   localNotes: z.string().max(2000).optional(),
   recall: z.array(z.object({ year: z.number().int().min(1980).max(2100), answer: z.enum(["dry", "normal", "wet", "not-sure"]) })).max(60).optional(),
   answers: z.array(z.object({ questionId: z.string().min(1), value: z.string().min(1), at: isoDateTime })).max(100).optional(),

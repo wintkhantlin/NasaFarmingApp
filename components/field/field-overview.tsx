@@ -189,6 +189,13 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   type Row = { label: string; value: string; typical?: boolean };
   const rows: Row[] = [];
   if (field.areaHa !== null) rows.push({ label: "Area", value: formatAreaForLocale(field.areaHa, areaUnit, locale) });
+  if (field.administrativeContext) {
+    const admin = field.administrativeContext;
+    rows.push({
+      label: "Township",
+      value: `${admin.TS}${admin.TS_MMR ? ` (${admin.TS_MMR})` : ""}, ${admin.ST}`,
+    });
+  }
   rows.push({ label: "Water", value: t.irrigation[field.irrigation], typical: !waterSetByFarmer });
   if (soilTexture) rows.push({ label: "Soil type", value: `${soilTexture}: ${textureMeaning(soilTexture)}` });
   if (soilPh) rows.push({ label: "Acidity", value: phMeaning(Number(soilPh)) });
@@ -236,7 +243,12 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
   return (
     <>
-      <FieldPageHeader title={field.name} summary={regionName ?? undefined} />
+      <FieldPageHeader
+        title={field.name}
+        summary={field.administrativeContext
+          ? `${field.administrativeContext.TS}, ${field.administrativeContext.ST}`
+          : regionName ?? undefined}
+      />
 
       {/* Next step, and one line on what else would sharpen the answer */}
       <Panel tone="field" radius="lg" className="flex flex-col gap-3 p-4 sm:p-5">
@@ -421,6 +433,14 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
               <dt>Location</dt>
               <dd className="m-0 font-mono">{formatPoint(field.centroid)}</dd>
             </div>
+            {field.administrativeContext ? (
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Administrative context</dt>
+                <dd className="m-0">
+                  {field.administrativeContext.TS}, {field.administrativeContext.DT}, {field.administrativeContext.ST}
+                </dd>
+              </div>
+            ) : null}
             {field.areaHa !== null ? (
               <div className="flex flex-wrap gap-x-2">
                 <dt>Measured area</dt>
@@ -455,6 +475,13 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
         aria-labelledby="remove-dialog-title"
         fullWidth
         maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              pb: "env(safe-area-inset-bottom)",
+            },
+          },
+        }}
       >
         <DialogTitle id="remove-dialog-title" sx={{ fontWeight: 600 }}>
           {t.overview.removeTitle}

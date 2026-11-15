@@ -1,5 +1,7 @@
 "use client";
 
+import { TownshipPicker, type AreaSelection } from "@/components/geospatial-farmer/township-picker";
+import { parseTownships, townshipBounds, contextAtPoint, type Townships } from "@/lib/geospatial-farmer/geospatial/townships";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
@@ -11,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 import { parseCoordinate } from "@/lib/geo/format";
 import { searchPlaces, type Place } from "@/lib/geo/geocode";
-import { acresFromHa, areaHa, isSelfIntersecting } from "@/lib/geo/shapes";
+import { acresFromHa, areaHa, centroid, isSelfIntersecting } from "@/lib/geo/shapes";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import { useAppCopy, useLocaleStore } from "@/lib/store/locale-store";
 import { readPlanDraft, type PlanDraft } from "@/lib/store/plan-draft";
@@ -96,6 +98,28 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
   const hasMap = Boolean(MAPBOX_TOKEN);
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
+
+  const [boundaries, setBoundaries] = useState<Townships | null>(null);
+  const [boundaryError, setBoundaryError] = useState<string | null>(null);
+  const [areaSelection, setAreaSelection] = useState<AreaSelection>({ region: field?.administrativeContext?.ST_PCODE ?? "", district: field?.administrativeContext?.DT_PCODE ?? "", township: field?.administrativeContext?.TS_PCODE ?? "" });
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/study-area/boundaries", { signal: controller.signal }).then(async (res) => {
+      if (!res.ok) throw new Error("Boundaries unavailable");
+      return parseTownships(await res.json());
+    }).then(setBoundaries).catch(() => {
+      if (!controller.signal.aborted) setBoundaryError("Township boundaries are unavailable. Search for your village or mark your field with coordinates.");
+    });
+    return () => controller.abort();
+  }, []);
+  function selectArea(next: AreaSelection) {
+    setAreaSelection(next);
+    if (!boundaries) return;
+    const features = boundaries.features.filter(({ properties: p }) => next.township ? p.TS_PCODE === next.township : next.district ? p.DT_PCODE === next.district : next.region ? p.ST_PCODE === next.region : true);
+    if (!features.length) return;
+    const bbox = townshipBounds({ type: "FeatureCollection", features });
+    flyTo([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], 10, bbox);
+  }
 
   const fieldCount = useFieldsStore((s) => s.fields.length);
   const [name, setName] = useState(field?.name ?? "");
@@ -361,6 +385,15 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
     if (!locationConfirmed) return setSaveError(text.confirmRequired);
     if (!geometry || !canContinue) return setSaveError(text.markRequired);
     if (crosses) return setSaveError(copy.validation.outlineCrosses);
+    const geometryUnchanged = field && JSON.stringify(field.geometry) === JSON.stringify(geometry);
+    const administrativeContext = boundaries
+      ? contextAtPoint(boundaries, centroid(geometry))
+      : geometryUnchanged
+        ? field.administrativeContext
+        : undefined;
+    if (areaSelection.township && (!boundaries || administrativeContext?.TS_PCODE !== areaSelection.township)) {
+      return setSaveError("Your field location is outside the selected township, on its edge, or cannot be matched uniquely. Adjust your field or change the township selection.");
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -374,8 +407,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
         ? `[Explore context]: region ${planDraft.place.region}; place ${planDraft.place.name}; crop ${planDraft.mainCropId}; water ${water}; planting ${planDraft.nextPlantingPeriod}; priorities ${planDraft.priorityOrder.join(",") || "not-set"}. Regional answers, not verified field measurements.`
         : undefined;
       const saved = field
-        ? await update(field.id, { name: finalName, geometry, irrigation, constraints, locationConfirmed: true })
-        : await add({ name: finalName, geometry, irrigation, constraints, locationConfirmed: true, ...(planDraft?.priorityOrder.length ? { priorities: { order: planDraft.priorityOrder, weights: {} } } : {}), ...(context ? { localNotes: context } : {}) });
+        ? await update(field.id, { name: finalName, geometry, administrativeContext, irrigation, constraints, locationConfirmed: true })
+        : await add({ name: finalName, geometry, administrativeContext, irrigation, constraints, locationConfirmed: true, ...(planDraft?.priorityOrder.length ? { priorities: { order: planDraft.priorityOrder, weights: {} } } : {}), ...(context ? { localNotes: context } : {}) });
       router.push(field ? `/fields/${saved.id}` : `/fields/${saved.id}/rotation`);
     } catch (err) {
       setSaving(false);
@@ -394,6 +427,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
       <div className="absolute inset-0">
         {hasMap ? (
           <FieldMap
+            boundaries={boundaries}
+            selectedTownship={areaSelection.township}
             token={MAPBOX_TOKEN}
             geometry={geometry}
             tool={tool}
@@ -543,6 +578,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           ) : null}
         </section>
 
+        <TownshipPicker data={boundaries} selection={areaSelection} onChange={selectArea} error={boundaryError} />
+
         {/* The step panel: a bar along the bottom on a phone, the next card in the column on a desktop. */}
         <section
           ref={barRef}
@@ -550,8 +587,8 @@ export function LocationPicker({ field, fromPlan = false }: { field?: Field; fro
           className={cn(
             card,
             "fixed inset-x-0 bottom-0 z-20 flex max-h-[75svh] flex-col gap-3 overflow-y-auto rounded-b-none p-3",
-            "pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
-            "lg:static lg:z-auto lg:max-h-none lg:rounded-b-lg lg:p-3",
+            "pb-[calc(0.75rem+env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]",
+            "lg:static lg:z-auto lg:max-h-none lg:rounded-b-lg lg:p-3 lg:pb-3",
           )}
         >
           {sheetOpen ? (

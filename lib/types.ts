@@ -148,6 +148,7 @@ export interface Field {
   constraints?: FarmConstraints;
   priorities?: FarmerPriorities;
   economics?: CropEconomics[];
+  administrativeContext?: import("./geospatial-farmer/geospatial/townships").AdministrativeContext;
   localNotes?: string;
   /** Answers to single follow-up questions. Shown as "you told us". */
   answers?: FieldAnswer[];

@@ -188,7 +188,7 @@ export function SettingsButton() {
             role="dialog"
             aria-modal="true"
             aria-label={text.settings}
-            className="relative w-full max-w-md rounded-t-lg bg-surface-raised pb-[max(1rem,env(safe-area-inset-bottom))] shadow-float sm:rounded-lg"
+            className="relative w-full max-w-md rounded-t-lg bg-surface-raised pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-float sm:rounded-lg sm:pb-4"
           >
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
               <h2 className="text-headline text-ink">{text.settings}</h2>
