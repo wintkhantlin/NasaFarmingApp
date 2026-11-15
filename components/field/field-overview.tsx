@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Alert from "@mui/material/Alert";
+import { Message } from "@/components/ui/message";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -14,6 +14,8 @@ import { FieldPageHeader } from "@/components/field/field-page-header";
 import { Button, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
+import { JudgmentNote } from "@/components/ui/judgment-note";
+import { NavLink } from "@/components/ui/nav-link";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +28,7 @@ import { formatPoint } from "@/lib/geo/format";
 import { staticMapUrl } from "@/lib/geo/static-map";
 import { formatSpan, plural, sequenceText, slotName } from "@/lib/rotation-format";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
+import { DRY_ZONE_POWER_RAIN, WEATHER_CHECK, isDryZone } from "@/lib/validation/source-checks";
 
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -121,7 +124,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const minT = conditions?.monthlyTminC && conditions.monthlyTminC.length > 0 ? Math.min(...conditions.monthlyTminC) : null;
 
   const soilTexture = field.soilOverride?.texture ?? conditions?.soil?.texture ?? null;
-  const soilPh = field.soilOverride?.ph ?? conditions?.soil?.ph ?? null;
+  const rawPh = field.soilOverride?.ph ?? conditions?.soil?.ph ?? null;
+  // One decimal: a lab reports pH to 0.1, and SoilGrids averages can carry long fractions.
+  const soilPh = rawPh === null || rawPh === undefined ? null : Math.round(Number(rawPh) * 10) / 10;
   const isSoilTested = Boolean(
     field.soilOverride?.testedOn ||
     field.soilOverride?.ph ||
@@ -136,6 +141,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
   const topPriority = field.priorities?.order?.[0];
   const irrigationAmount = field.constraints?.irrigation?.amountMm;
   const labour = field.constraints?.labour;
+  const market = field.constraints?.marketAccess;
+  // Farm details saves constraints.irrigation only once the farmer answers; field.irrigation alone is the default.
+  const waterSetByFarmer = Boolean(field.constraints?.irrigation);
 
   const setup = [
     { label: "Boundary", done: hasBoundary, href: boundaryHref },
@@ -147,7 +155,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
 
   const next = !hasRotation
     ? { title: "Record what you grow now", body: "Tap the crops you grow.", href: `/fields/${field.id}/rotation`, cta: "Add my crops", icon: "rotation" as const }
-    : { title: "See my answer", body: `${sequenceText(rotations[0], " → ")}`, href: `/fields/${field.id}/compare`, cta: "See my answer", icon: "compare" as const };
+    : { title: "Your answer is ready", body: `See how ${sequenceText(rotations[0], " then ")} compares with other plans for this field.`, href: `/fields/${field.id}/compare`, cta: "See my answer", icon: "compare" as const };
 
   const handleRemove = async () => {
     setRemoving(true);
@@ -168,7 +176,6 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
     await update(field.id, { archivedAt: isArchived ? undefined : new Date().toISOString() });
   };
 
-  const linkClass = "inline-flex items-center gap-1 text-label font-medium text-field no-underline hover:underline";
 
   const soilOc = field.soilOverride?.ocPct ?? (conditions?.soil?.socGKg ? conditions.soil.socGKg / 10 : null);
   const salinityObs = field.soilObservations?.find((o) => o.property === "salinity");
@@ -199,8 +206,8 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
     },
     {
       label: "Water",
-      simple: copy.irrigation[field.irrigation],
-      technical: `${copy.irrigation[field.irrigation]}${irrigationAmount ? ` · ${irrigationAmount} mm/season` : ""}`,
+      simple: `${copy.irrigation[field.irrigation]}${waterSetByFarmer ? "" : " (assumed)"}`,
+      technical: `${copy.irrigation[field.irrigation]}${irrigationAmount ? ` · ${irrigationAmount} mm/season` : ""} · ${waterSetByFarmer ? "set by you" : "default, not asked yet"}`,
     },
     {
       label: "Soil type",
@@ -227,20 +234,33 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
     },
     {
       label: "Top priority",
-      simple: topPriority ? copy.profile.priority[topPriority] : "Balanced across water, soil and income",
-      technical: topPriority ? `${copy.profile.priority[topPriority]} · ranked 1 of ${field.priorities?.order?.length ?? 1}` : "Equal weights (default)",
+      simple: topPriority ? copy.profile.priority[topPriority] : "Balanced across water, soil and income (assumed)",
+      technical: topPriority ? `${copy.profile.priority[topPriority]} · ranked 1 of ${field.priorities?.order?.length ?? 1}` : "Equal weights (assumed, not asked yet)",
     },
     {
       label: "Equipment",
-      simple: primaryEquipment ?? "Hand tools assumed",
+      simple: primaryEquipment ?? "Hand tools (assumed)",
       technical: primaryEquipment ?? "Default: hand tools",
     },
     {
       label: "Labour",
-      simple: labour ? copy.profile.levels[labour] : "Typical household labour assumed",
+      simple: labour ? copy.profile.levels[labour] : "Typical household labour (assumed)",
       technical: labour ? `${copy.profile.levels[labour]} (set by you)` : "Default: household labour",
     },
+    {
+      label: "Market",
+      simple: market ? `${copy.profile.levels[market]} access to buyers` : "",
+      technical: market
+        ? `${copy.profile.levels[market]} market access (set by you)${field.constraints?.canSell?.length ? ` · buyer known for ${field.constraints.canSell.length} ${field.constraints.canSell.length === 1 ? "crop" : "crops"}` : ""}`
+        : "",
+      hint: "Not asked yet. Add it in farm details",
+    },
   ];
+
+  // Where a reading here is a guess that local knowledge or a test should settle.
+  const conditionCautions: string[] = [];
+  if (annualRainMm && isDryZone(regionId)) conditionCautions.push(`Rain here is probably higher than shown: NASA's figure was about ${Math.round(Math.abs(DRY_ZONE_POWER_RAIN.relBias) * 100)}% below the ${DRY_ZONE_POWER_RAIN.station} weather station (${WEATHER_CHECK.period}).`);
+  if (soilTexture && !field.soilOverride) conditionCautions.push("Soil is a map estimate. A soil test from the township agriculture office would settle it.");
 
   const stats: { icon: "water" | "conditions" | "soil"; tone: string; label: string; value: string; note: string }[] = [];
   if (annualRainMm) stats.push({ icon: "water", tone: "text-water", label: "Annual rainfall", value: `${annualRainMm} mm`, note: wetSeason ? `Wettest ${wetSeason}` : "NASA POWER" });
@@ -288,13 +308,19 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
         <div className="flex flex-col gap-2 border-t border-line pt-3">
           <div className="flex items-center justify-between text-body-sm text-ink-muted">
             <span>Field setup</span>
-            <span className="tabular">{doneCount} of {setup.length} done</span>
+            <span className="tabular">
+              {hasRotation
+                ? doneCount === setup.length
+                  ? "All done"
+                  : `Answer ready · ${setup.length - doneCount} optional ${setup.length - doneCount === 1 ? "detail" : "details"} would sharpen it`
+                : `${doneCount} of ${setup.length} done`}
+            </span>
           </div>
           <ul className="m-0 grid list-none grid-cols-2 gap-x-3 gap-y-2 p-0 sm:grid-cols-4">
             {setup.map((s) => (
               <li key={s.label} className="flex flex-col gap-1.5">
                 <span aria-hidden className={`h-1.5 rounded-full ${s.done ? "bg-field" : "bg-line"}`} />
-                <Link href={s.href} className="inline-flex items-center gap-1 text-body-sm text-ink no-underline hover:underline">
+                <Link href={s.href} className="-my-2.5 inline-flex min-h-tap items-center gap-1 text-body-sm text-ink no-underline hover:underline">
                   <span aria-hidden className={s.done ? "text-field" : "text-ink-muted"}>{s.done ? "✓" : "○"}</span>
                   <span>{s.label}</span>
                   <span className="sr-only">{s.done ? "(done)" : "(not done)"}</span>
@@ -324,10 +350,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
               title="Current rotation"
               description={rotation ? `${rotation.cycleYears}-year cycle · ${plural(rotation.slots.length, "crop")}` : undefined}
               aside={
-                <Link href={`/fields/${field.id}/rotation`} className={linkClass}>
-                  <span>{rotation ? "Edit" : "Add crops"}</span>
-                  <Icon name="next" size={14} />
-                </Link>
+                <NavLink href={`/fields/${field.id}/rotation`} icon="rotation" className="-my-3">
+                  {rotation ? "Edit crops" : "Add crops"}
+                </NavLink>
               }
             />
             {rotation ? (
@@ -358,6 +383,13 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                 No crops recorded yet.
               </p>
             )}
+            {rotation?.slots.length ? (
+              <div className="-mb-2 border-t border-line pt-1">
+                <NavLink href={`/fields/${field.id}/pests`} icon="pest">
+                  Pests and diseases
+                </NavLink>
+              </div>
+            ) : null}
           </Panel>
 
           {/* Conditions: real retrieved values only */}
@@ -368,12 +400,6 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
               <PanelHeader
                 id="overview-conditions"
                 title="Local conditions"
-                aside={
-                  <Link href={`/fields/${field.id}/conditions`} className={linkClass}>
-                    <span>Details</span>
-                    <Icon name="next" size={14} />
-                  </Link>
-                }
               />
               <dl className="m-0 grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
                 {stats.map((s) => (
@@ -387,11 +413,20 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                   </div>
                 ))}
               </dl>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-body-sm">
-                <Link href={`/fields/${field.id}/conditions`} className={linkClass}>
-                  <Icon name="conditions" size={16} />
-                  <span>All conditions</span>
-                </Link>
+              {conditionCautions.length ? (
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                  {conditionCautions.map((c) => (
+                    <li key={c} className="flex items-start gap-1.5 text-body-sm text-ink-muted">
+                      <Icon name="info" size={15} className="mt-0.5 shrink-0" />
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <div className="-mb-2 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-1">
+                <NavLink href={`/fields/${field.id}/conditions`} icon="conditions">
+                  Weather and soil
+                </NavLink>
                 {analysis.showingCache ? <span className="text-source text-ink-muted">Cached data</span> : null}
               </div>
             </Panel>
@@ -425,10 +460,9 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
                 id="overview-details"
                 title="Field details"
                 aside={
-                  <Link href={`/fields/${field.id}/profile`} className={linkClass}>
-                    <span>All farm details</span>
-                    <Icon name="next" size={14} />
-                  </Link>
+                  <NavLink href={`/fields/${field.id}/profile`} icon="profile" className="-my-3">
+                    Edit details
+                  </NavLink>
                 }
               />
               <div role="group" aria-label="Detail level" className="inline-flex self-start rounded-md border border-line bg-surface-sunken p-0.5 text-body-sm">
@@ -460,12 +494,13 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
             </div>
           </Panel>
 
-          <Link href={`/fields/${field.id}/report`} className={linkClass}>
-            <Icon name="report" size={15} />
-            <span>Printable report</span>
-          </Link>
+          <NavLink href={`/fields/${field.id}/report`} icon="report" className="self-start">
+            Printable report
+          </NavLink>
         </div>
       </div>
+
+      <JudgmentNote compact />
 
       {/* Field Options Disclosure */}
       <details className="border-t border-line pt-3 print:hidden">
@@ -495,7 +530,7 @@ export function FieldOverview({ fieldId }: { fieldId: string }) {
         </DialogTitle>
         <DialogContent>
           <p className="text-body text-ink">{copy.overview.removePrompt(field.name)}</p>
-          {removeError ? <Alert severity="error" sx={{ mt: 2 }}>{removeError}</Alert> : null}
+          {removeError ? <Message tone="problem" role="alert" className="mt-4" title="Field removal failed">{removeError}</Message> : null}
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button variant="secondary" onClick={() => setRemoveOpen(false)} disabled={removing}>

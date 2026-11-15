@@ -82,8 +82,16 @@ describe("typed engine display adapter", () => {
     expect(view.gaps.join(" ")).not.toContain("SRTM terrain");
   });
 
-  test("option cautions explain model limits in farmer-facing words", () => {
+  test("a shared soil disease between crops leads the trade-off", () => {
+    // Sesame then green gram: different families, but both host Macrophomina (charcoal rot).
     const view = adaptComparison(input());
+    expect(view.options[0].tradeOff).toContain("charcoal rot");
+  });
+
+  test("option cautions explain model limits in farmer-facing words", () => {
+    // Without the agronomic pest finding, the model-limit caution is the trade-off.
+    const comparison = { ...result, current: { ...result.current, risks: result.current.risks.filter((r) => !r.id.startsWith("pest:")) } };
+    const view = adaptComparison(input({ comparison }));
     expect(view.options[0].tradeOff).not.toContain("species-level starting values");
     expect(view.options[0].tradeOff).toContain("general crop information");
   });
@@ -115,8 +123,8 @@ describe("typed engine display adapter", () => {
   test("historical replay and source lineage come from the engine result", () => {
     const view = adaptComparison(input());
     expect(view.replay).toEqual(result.baseline);
-    expect(view.detail).toContain("complete past years from 2016–2025");
-    expect(view.detail).toContain("does not predict next season");
+    expect(view.detail).toContain("past years from 2016–2025");
+    expect(view.detail).toContain("confirm local prices and field conditions");
     expect(view.sourceStatuses?.power).toBe(data.power.status);
     const source = view.options[0].sources[0];
     const indicator = result.current.evidence[0].indicator;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { useEffect, useMemo, useState } from "react";
-import Alert from "@mui/material/Alert";
+import { Message } from "@/components/ui/message";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -256,7 +256,12 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
   const cropChoices = useMemo(() => {
     const ids = new Set<string>(region ? strategyCrops(region).map((c) => c.id) : strategyCrops().map((c) => c.id));
     for (const s of rotations[0]?.slots ?? []) if (s.cropId) ids.add(s.cropId);
-    return [...ids].map((id) => getCropById(id)).filter((c): c is NonNullable<typeof c> => Boolean(c));
+    const crops = new Map<string, NonNullable<ReturnType<typeof getCropById>>>();
+    for (const id of ids) {
+      const crop = getCropById(id);
+      if (crop) crops.set(crop.id, crop);
+    }
+    return [...crops.values()];
   }, [region, rotations]);
 
   const touch = () => setSaved(false);
@@ -714,7 +719,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
           </div>
         </div>
         {soilMap ? (
-          <div className="flex flex-col gap-2 rounded-md border border-line-subtle bg-surface-sunken p-3.5">
+          <div className="flex flex-col gap-2 rounded-md border border-line bg-surface-sunken p-3.5">
             <span className="inline-flex items-center gap-2 text-label text-ink"><Icon name="estimate" />Also estimated from the map</span>
             <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3 lg:grid-cols-5">
               {(
@@ -788,7 +793,7 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
           </span>
         </summary>
         <div className="flex flex-col gap-4 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line-subtle bg-surface-sunken p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-sunken p-3">
             <div className="flex flex-col gap-0.5">
               <span className="text-label text-ink">Myanmar Commodity Market Benchmarks (2024–2026)</span>
               <span className="text-body-sm text-ink-muted">
@@ -849,8 +854,8 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
         </div>
       </details>
 
-      {error ? <Alert severity="error">{error}</Alert> : null}
-      {saved ? <Alert severity="success">{copy.profile.saved}</Alert> : null}
+      {error ? <Message tone="problem" role="alert" title="This did not save">{error}</Message> : null}
+      {saved ? <Message tone="success" role="status" title={copy.profile.saved} /> : null}
 
       <ActionBar>
         <Button variant="primary" size="lg" className="flex-1" onClick={() => void save(true)} disabled={saving}>

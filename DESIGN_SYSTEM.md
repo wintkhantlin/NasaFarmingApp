@@ -278,6 +278,10 @@ Pill, `type.footnote`, `bg.sunken` fill, `text.secondary` text, leading icon (`s
 | Hypothetical | `bg.sunken`, `text.primary`, slider icon, never dismissible | Top of S18 and on any pinned what-if result |
 | Doesn't fit your limits | `stress.bg`, `stress`, short reason | Dimmed option card |
 
+### 9.6 Evidence line
+
+`Evidence` (`components/ui/provenance.tsx`) shows where a finding comes from: **Based on:** citation, then the kind of source in brackets, then an "open" link when the library has a URL. It goes under any rule, suitability check, nitrogen range or family check, or in a Message's `evidence` slot. It replaces "unknown" and "not yet checked" wording: if a source exists, cite it; if data is missing, use a `needs` Message that says what to add.
+
 ### 9.5 Charts (trends, per-season bars)
 
 - Bars in `text.secondary`; highlighted year in `text.primary`; missing years as gaps with "no data" ticks, never zero-height bars.
@@ -386,9 +390,23 @@ System slider with stepped values (rain 5%, temperature 0.5 °C), a zero detent 
 
 ### 10.11 Feedback
 
+**Message** (`components/ui/message.tsx`) is the one component for every notice. Never hand-style a notice box.
+
+| Tone | Use | Surface and icon (tokens) | Live role |
+| --- | --- | --- | --- |
+| `info` | Context: "Past seasons, not a forecast" | `surface-sunken`, info | none |
+| `success` | Ready, saved, passes | `field-soft`, check in `field` | `status` after an action |
+| `caution` | Watch out, check before you rely on it | `drought-soft`, alert in `drought` | none, or `status` after an action |
+| `problem` | Blocked, does not fit, an error | `stress-bg`, × in `stress` | `alert` for errors after an action only |
+| `needs` | Something is missing | `unknown-bg`, dashed `unknown-border`, ? | none |
+
+Anatomy, always in this order: icon in a 36 px circle, **title** (the finding, six words or fewer), body (one or two sentences: what it means or what to do), one action (link or secondary button, 44 px tap target), optional evidence line. `compact` drops the circle for use inside a card. A spoken tone word ("Watch out:") is read before the title, so colour is never the only signal.
+
+Writing rules: the title says what is true, not what is missing ("Add your crops to compare", not "No crops recorded"); the body says what to do next; a `needs` message names the action that completes it; at most one Message per section; no emoji, icons come from `Icon`.
+
 | Component | Use | Rule |
 | --- | --- | --- |
-| Inline notice | "Not a forecast", "Hypothetical", "Updated 3 days ago" | Part of the layout, not dismissible |
+| Inline notice | "Not a forecast", "Hypothetical", "Updated 3 days ago" | A Message in the layout, not dismissible |
 | Toast | Undo after archive; "Comparison updated" | 5 s, bottom above tab bar, with action |
 | Confirmation dialog | Delete field, discard changes | System action sheet; destructive option in `danger` |
 | Empty state | No fields, no comparisons | Title, one sentence, one primary button, centred in content zone |

@@ -10,7 +10,7 @@
 | Path | Responsibility | Primary Files |
 |:---|:---|:---|
 | `app/(app)/` | Main application routes (wrapped in layout chrome) | `page.tsx` (Home/Field List), `learn/page.tsx` |
-| `app/(app)/fields/[fieldId]/` | Field sub-routes (wrapped in `FieldShell`) | `page.tsx` (Overview), `rotation/`, `conditions/`, `compare/`, `trends/`, `profile/`, `report/`, `share/`, `questions/` |
+| `app/(app)/fields/[fieldId]/` | Field sub-routes (wrapped in `FieldShell`) | `page.tsx` (Overview), `rotation/`, `conditions/`, `pests/`, `compare/`, `trends/`, `profile/`, `report/`, `share/`, `questions/` |
 | `app/(map)/` | Full-screen map views (no header/tabbar) | `fields/new/page.tsx`, `fields/[fieldId]/location/page.tsx` |
 | `app/welcome/` | First launch onboarding cover (S01) | `page.tsx` |
 | `components/field/` | Field-specific UI views & controls | `field-overview.tsx`, `rotation-editor.tsx`, `rotation-compare.tsx`, `conditions-view.tsx`, `farm-profile.tsx`, `report-view.tsx`, `what-if.tsx`, `question-form.tsx` |
@@ -20,6 +20,7 @@
 | `lib/store/` | Zustand client-side state stores | `fields-store.ts` (Fields & Rotations), `settings-store.ts` (Consent), `locale-store.ts` (en/my) |
 | `lib/nasa/` & `lib/soil/` | External API clients & adapters | `nasa-sources.ts`, `soil-grids.ts`, `remote-sensing.ts` |
 | `lib/geo/` | Geospatial math & static maps | `format.ts`, `static-map.ts`, `field-clip.ts` |
+| `lib/validation/` | Ground-truth checks of inputs (`npm run validate:weather`, network) | `metrics.ts`, `ghcn.ts`, `weather.ts`, `report.ts`; findings in `docs/validation/README.md` |
 
 ---
 
@@ -45,6 +46,7 @@
 | **S16** | Share & Print Report | `/fields/:id/report` | `components/field/report-view.tsx`, `share-report.tsx` |
 | **S17** | Long-Term Trends | `/fields/:id/trends` | `components/field/trends-view.tsx` |
 | **S18** | What-If Simulator | Modal | `components/field/what-if.tsx` |
+| **S19** | Pests and Diseases | `/fields/:id/pests` | `components/field/pests-view.tsx` (engine `lib/engine/pest-outlook.ts`, rules `lib/data/crops/weather-disease-rules.ts`, hosts `lib/data/crops/host-organisms.ts`) |
 
 ---
 

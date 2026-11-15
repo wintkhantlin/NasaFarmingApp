@@ -27,7 +27,8 @@ test("populated restore to field comparison and printable report", async ({ page
   await expect(page.getByRole("heading", { name: "Compare crop plans" })).toBeVisible();
   await expect(page.getByText(/complete past years from 2016–2025/).first()).toBeVisible();
   await expect(page.getByText("How we checked these choices")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Quick view" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "Your choices" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "See my farmer summary" })).toBeVisible();
   await expect(page.getByText(/Evidence state:/)).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("compare-view.png"), fullPage: true });
   await page.goto(`/fields/${field.id}/report`);

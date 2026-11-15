@@ -166,7 +166,7 @@ export function ReportView({ fieldId }: { fieldId: string }) {
           </p>
           <h2 className="text-balance text-display text-ink">{field.name}</h2>
           <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-            Field-informed adviser summary. It combines the field details you confirmed with regional models and historical data; it does not predict a future season.
+            Field-informed adviser summary combining the details you confirmed with regional models and historical evidence for a local discussion.
           </p>
         </header>
 

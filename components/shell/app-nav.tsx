@@ -8,8 +8,8 @@ import { cn } from "@/lib/cn";
 import { useLocaleStore } from "@/lib/store/locale-store";
 
 const LINKS: { href: string; label: string; icon: IconName; match: (p: string) => boolean }[] = [
-  { href: "/", label: "Fields", icon: "fields", match: (p) => p === "/" || p.startsWith("/fields") },
-  { href: "/plan", label: "Plan", icon: "rotation", match: (p) => p.startsWith("/plan") },
+  { href: "/", label: "My fields", icon: "fields", match: (p) => p === "/" || p.startsWith("/fields") },
+  { href: "/plan", label: "Explore", icon: "rotation", match: (p) => p.startsWith("/plan") },
   { href: "/learn", label: "Learn", icon: "learn", match: (p) => p.startsWith("/learn") || p.startsWith("/about") },
 ];
 
@@ -30,10 +30,17 @@ export function TabBar() {
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-14 flex-col items-center justify-center gap-0.5 text-source font-medium no-underline transition-colors active:bg-surface-sunken",
+                  "relative flex h-14 flex-col items-center justify-center gap-0.5 text-source font-medium no-underline transition-colors active:bg-surface-sunken",
                   active ? "text-field" : "text-ink-muted",
                 )}
               >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-5 top-0 h-0.5 rounded-b-pill bg-field transition-opacity",
+                    active ? "opacity-100" : "opacity-0",
+                  )}
+                />
                 <Icon name={l.icon} size={22} strokeWidth={active ? 2.3 : 1.8} />
                 {l.label}
               </Link>

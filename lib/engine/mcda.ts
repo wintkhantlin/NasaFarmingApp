@@ -25,7 +25,7 @@ export interface CriterionDef {
   unit: string;
   /** What "better" means, in words. */
   meaning: string;
-  /** Fixed anchors for the utility. Absent when no defensible absolute scale exists (money). */
+  /** Fixed anchors for the utility. Income has none by default; the caller passes a regional benchmark anchor. */
   anchor?: Anchor;
 }
 
@@ -242,7 +242,13 @@ function narrowed(p: FarmerPriorities | undefined, priority: PriorityId): Set<Cr
 
 const ALL_PRIORITIES: PriorityId[] = ["water", "soil", "income", "forage", "lower-inputs"];
 
-export function rankRotations(inputs: McdaInput[], farmerPriorities: FarmerPriorities | undefined): McdaResult {
+export interface RankOptions {
+  /** Anchors that replace or add to the defaults, e.g. a regional income benchmark. */
+  anchors?: Partial<Record<CriterionId, Anchor>>;
+}
+
+export function rankRotations(inputs: McdaInput[], farmerPriorities: FarmerPriorities | undefined, opts: RankOptions = {}): McdaResult {
+  const CRITERIA_IN_USE: CriterionDef[] = CRITERIA.map((d) => (opts.anchors?.[d.id] ? { ...d, anchor: opts.anchors[d.id] } : d));
   const given = priorityWeights(farmerPriorities);
   // No priorities set: weigh everything equally so there is always an answer. The result says so.
   const assumedPriorities = !given;
@@ -262,7 +268,7 @@ export function rankRotations(inputs: McdaInput[], farmerPriorities: FarmerPrior
 
   const excluded: McdaResult["excluded"] = [];
   const wanted: CriterionDef[] = [];
-  for (const def of CRITERIA) {
+  for (const def of CRITERIA_IN_USE) {
     const keep = narrowed(priorities, def.priority);
     if ((pw[def.priority] ?? 0) <= 0) excluded.push({ criterion: def.id, label: def.label, reason: "no-priority", detail: "Not one of your priorities." });
     else if (keep && !keep.has(def.id)) excluded.push({ criterion: def.id, label: def.label, reason: "no-priority", detail: "Not one of the finer choices you made." });

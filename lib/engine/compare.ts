@@ -3,17 +3,20 @@ import { ofSeasons, type DerivedIndicator } from "../evidence/indicator";
 import type { Crop, Evidence, Rotation, RotationSlot, Risk } from "../types";
 import { generateCandidates, type RejectedCandidate } from "./candidates";
 import { buildRainSeries, baselineYears, BASELINE, type EngineData, type RainSeries } from "./data";
-import { economicsFor, type EconomicsAssessment } from "./economics";
+import { economicsFor, type EconomicsAssessment, incomeAnchorFor } from "./economics";
 import { exposureForCrop, type ExposureSummary } from "./exposure";
 import { forageMarket, type ForageMarketAssessment } from "./forage-market";
 import { assessGaps, type GapAssessment } from "./lowcover";
 import { rankRotations, CRITERIA, type CriterionId, type McdaInput, type McdaResult } from "./mcda";
-import { pestSequence, type SequenceCheck } from "./pest";
+import { dryZoneRainCaution, heatLimitCaution, isDryZone } from "../validation/source-checks";
+import { hostReturnIntervals, pestSequence, type ReturnIntervalWarning, type SequenceCheck } from "./pest";
 import {
   appIndicator,
+  ecostressIndicator,
   farmerIndicator,
   hlsIndicator,
   libraryIndicator,
+  modisIndicator,
   powerIndicator,
   rainIndicator,
   smapIndicator,
@@ -93,6 +96,8 @@ export interface EvaluatedOption {
   mechanisms: Mechanism[];
   lowCover: GapAssessment[];
   pest: SequenceCheck[];
+  /** Host-specific soil pathogens whose host comes back too soon in the cycle. */
+  hostReturns: ReturnIntervalWarning[];
   forage: ForageMarketAssessment;
   economics: EconomicsAssessment;
   overlaps: Array<{ from: string; to: string; days: number }>;
@@ -156,10 +161,12 @@ export function compareRotations(data: EngineData, currentRotation: Rotation, op
     feasible: o.fit !== "does-not-fit" && o.slots.length > 0,
     values: o.metrics,
   }));
-  const mcda = rankRotations(mcdaInputs, data.field.priorities);
+  const incomeAnchor = incomeAnchorFor(data.region);
+  const rankOpts = incomeAnchor ? { anchors: { "income-margin": incomeAnchor } } : {};
+  const mcda = rankRotations(mcdaInputs, data.field.priorities, rankOpts);
 
   const sensitivity = (["water", "soil", "income", "forage", "lower-inputs"] as const).map((p) => {
-    const r = rankRotations(mcdaInputs, { order: [p], weights: { [p]: 1 } });
+    const r = rankRotations(mcdaInputs, { order: [p], weights: { [p]: 1 } }, rankOpts);
     const top = r.status === "ranked" ? all.find((o) => o.id === r.ranking[0].rotationId) : undefined;
     return { priority: p, topOptionId: top?.id ?? null, topLabel: top?.label ?? null };
   });
@@ -274,6 +281,7 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   const mechanisms = soilMechanisms(rotation, structure);
   const lowCover = assessGaps(structure.gaps, data.hls);
   const pest = overlapUnverified ? [] : pestSequence(rotation);
+  const hostReturns = hostReturnIntervals(rotation);
   const forage = forageMarket(rotation, data.field.constraints);
   const economics = economicsFor(rotation, data.field.economics, data.field.areaHa, { fallbackToRealWorld: true });
   const overlaps = slotOverlaps(slots).map((o) => ({ from: slots[o.from].id, to: slots[o.to].id, days: o.days }));
@@ -281,7 +289,14 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   // feasibility
   const outside = evals.filter((e) => e.suitability?.overall === "outside");
   const unconfirmed = evals.filter((e) => !e.suitability || e.suitability.overall === "unknown");
-  const fit: FitStatus = outside.length > 0 || overlaps.length > 0 ? "does-not-fit" : unconfirmed.length > 0 || evals.length === 0 ? "not-confirmed" : "fits";
+  // A crop planned as irrigated on a field recorded with no irrigation cannot be confirmed: the plan and the field disagree.
+  const waterConflict = data.field.irrigation === "none" ? evals.filter((e) => e.slot.irrigated) : [];
+  const fit: FitStatus =
+    outside.length > 0 || overlaps.length > 0
+      ? "does-not-fit"
+      : unconfirmed.length > 0 || evals.length === 0 || waterConflict.length > 0
+        ? "not-confirmed"
+        : "fits";
   const noFitReason =
     fit === "does-not-fit"
       ? [
@@ -296,7 +311,10 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
   const dryYear = dryYearFit(ctx, evals);
   const metrics = metricsFor(evals, structure, economics, forage, rotation);
   const evidence = buildEvidence(ctx, rotation, evals, structure, nitrogen, dryYear);
-  const risks = buildRisks(ctx, evals, erosion, pest, economics, structure);
+  const risks = buildRisks(ctx, evals, erosion, pest, economics, structure, hostReturns);
+  for (const e of waterConflict) {
+    risks.push({ relatedEvidence: [], id: `${e.slot.id}:water-access`, kind: "agronomic", severity: "important", text: `${e.name} is planned as irrigated, but this field is recorded as having no irrigation.`, action: "Confirm the water source on the Your farm page, or plan this crop as rain-fed." });
+  }
   const explanations = buildExplanations(ctx, evals, structure, nitrogen);
   const unknowns = [...new Set([...evals.flatMap((e) => e.unknowns), ...(economics.unknownSlots > 0 ? ["Yield, price and cost ranges for every crop (economic comparison)"] : [])])];
   if (erosion.exposure === "needs-slope-data") unknowns.push("Slope of the field (needs terrain data)");
@@ -318,6 +336,7 @@ function evaluate(ctx: Ctx, rotation: Rotation, headline: string, reason: string
     mechanisms,
     lowCover,
     pest,
+    hostReturns,
     forage,
     economics,
     overlaps,
@@ -632,12 +651,15 @@ function buildEvidence(ctx: Ctx, rotation: Rotation, evals: SlotEvaluation[], st
   return out;
 }
 
-function buildRisks(ctx: Ctx, evals: SlotEvaluation[], erosion: ErosionScreen, pest: SequenceCheck[], economics: EconomicsAssessment, structure: RotationStructure): Risk[] {
+function buildRisks(ctx: Ctx, evals: SlotEvaluation[], erosion: ErosionScreen, pest: SequenceCheck[], economics: EconomicsAssessment, structure: RotationStructure, hostReturns: ReturnIntervalWarning[] = []): Risk[] {
   const { data } = ctx;
   const risks: Risk[] = [];
   const add = (r: Omit<Risk, "relatedEvidence"> & { relatedEvidence?: string[] }) => risks.push({ relatedEvidence: [], ...r });
   if (data.region === "unsupported") {
     add({ id: "region", kind: "missing-data", severity: "important", text: "This location is outside Ayeyarwady, Magway and Shan State, so there are no crop rules for it.", action: "Move the pin to a supported region, or use the app only to look at weather and soil." });
+  }
+  if (ctx.rain.primary === "P" && isDryZone(ctx.data.region)) {
+    add({ id: "dry-zone-power-rain", kind: "coarse-data", severity: "caution", text: dryZoneRainCaution(), action: "Compare with a rain gauge or township rain records before deciding a crop is too dry." });
   }
   if (data.power.status !== "ok") {
     add({ id: "power", kind: "missing-data", severity: "important", text: "NASA POWER weather could not be read, so weather results are unknown.", action: "Check the connection and try again." });
@@ -650,11 +672,24 @@ function buildRisks(ctx: Ctx, evals: SlotEvaluation[], erosion: ErosionScreen, p
       if (c.level === "outside") add({ id: `${e.slot.id}:${c.id}`, kind: "agronomic", severity: "important", text: `${e.name}: ${c.detail}`, action: c.id === "sowing-window" ? "Check the planting date with your local extension office." : "Check this with a soil test or local advice." });
     }
     const heat = e.exposure?.byStage.find((s) => (s.seasonsWithHeat ?? 0) > 0);
-    if (heat && e.exposure) add({ id: `${e.slot.id}:heat`, kind: "agronomic", severity: "caution", text: `${e.name}: ${ofSeasons(heat.seasonsWithHeat as number, e.exposure.eligibleSeasons)} had a day above ${heat.heatThresholdC} °C at ${heat.label.toLowerCase()}.`, action: "Think about sowing earlier or later, or a heat-tolerant variety." });
+    if (heat && e.exposure) {
+      const rough = heat.heatThresholdC !== null ? heatLimitCaution(heat.heatThresholdC) : null;
+      add({ id: `${e.slot.id}:heat`, kind: "agronomic", severity: "caution", text: `${e.name}: ${ofSeasons(heat.seasonsWithHeat as number, e.exposure.eligibleSeasons)} had a day above ${heat.heatThresholdC} °C at ${heat.label.toLowerCase()}.${rough ? ` ${rough}` : ""}`, action: "Think about sowing earlier or later, or a heat-tolerant variety." });
+    }
     const sf = e.water?.shortfall.p50;
     if (!e.irrigated && sf != null && sf > 100) add({ id: `${e.slot.id}:water`, kind: "agronomic", severity: "caution", text: `${e.name}: rain was about ${fmt(sf)} mm short of estimated crop demand in a median season.`, action: "Check your water access, soil water holding and whether stored moisture is enough." });
   });
-  pest.filter((p) => p.result === "same-family").forEach((p, i) => add({ id: `pest:${i}`, kind: "agronomic", severity: "caution", text: p.text, action: "Ask local advisers about pests and diseases for this sequence." }));
+  pest.forEach((p, i) => {
+    const soil = p.shared.filter((h) => h.severity === "caution");
+    if (soil.length) {
+      add({ id: `pest:${i}`, kind: "agronomic", severity: "caution", text: p.text, action: `${soil[0].advice} Ask local plant-protection staff whether it is present in your area.` });
+    } else if (p.result === "same-family") {
+      add({ id: `pest:${i}`, kind: "agronomic", severity: "caution", text: p.text, action: "Ask local advisers about pests and diseases for this sequence." });
+    } else if (p.shared.length) {
+      add({ id: `pest:${i}`, kind: "agronomic", severity: "info", text: p.text, action: p.shared[0].advice });
+    }
+  });
+  hostReturns.forEach((h) => add({ id: `host-return:${h.organismId}`, kind: "agronomic", severity: "caution", text: h.text, action: "If this field has had wilt, grow the crop less often or choose a wilt-resistant variety." }));
   if (erosion.exposure === "possible" || erosion.exposure === "elevated") {
     add({ id: "erosion", kind: "agronomic", severity: erosion.exposure === "elevated" ? "important" : "caution", text: erosion.reasons.join(" "), action: "Consider keeping cover on the ground in rainy months. This screen does not measure soil loss." });
   } else if (erosion.exposure === "needs-slope-data") {
@@ -728,6 +763,32 @@ function contextIndicators(data: EngineData, current: EvaluatedOption): DerivedI
       data, name: "Median slope", value: data.srtmInfo.status === "ok" && slope?.medianDeg != null ? Number(slope.medianDeg.toFixed(1)) : null, units: "degrees", statistic: "median of valid 3 x 3 cells",
       start: null, end: null, valid: slope?.validCells ?? null, expected: slope?.totalCells ?? null,
       assumptions: ["Slope is not soil loss. Terrain is from February 2000."],
+    }),
+  );
+  const modisValid = data.modis.filter((observation) => observation.ndviMedian !== null);
+  out.push(
+    modisIndicator({
+      data, name: "Regional 16-day vegetation observations", value: data.modisInfo.status === "ok" ? modisValid.length : null, units: "quality-screened composites", statistic: "count",
+      start: data.modisInfo.start, end: data.modisInfo.end, valid: modisValid.length, expected: data.modis.length,
+      assumptions: ["A 250 m pixel can mix this field with neighbouring land. This is regional history, not crop identity."],
+    }),
+  );
+  const lst = data.ecostressLst.filter((observation) => observation.median !== null);
+  const latestLst = lst.at(-1);
+  out.push(
+    ecostressIndicator({
+      data, variable: "LST", name: "Latest clear land-surface temperature", value: data.ecostressLstInfo.status === "ok" ? latestLst?.median ?? null : null, units: "°C", statistic: "median of clear best-quality field pixels in the latest usable scene",
+      start: latestLst?.date ?? data.ecostressLstInfo.start, end: latestLst?.date ?? data.ecostressLstInfo.end, valid: latestLst?.validPixels ?? 0, expected: latestLst?.totalPixels ?? 0,
+      assumptions: ["Land-surface temperature is not air temperature and is not used for the crop heat thresholds."],
+    }),
+  );
+  const et = data.ecostressEt.filter((observation) => observation.median !== null);
+  const latestEt = et.at(-1);
+  out.push(
+    ecostressIndicator({
+      data, variable: "ETdaily", name: "Latest clear modeled evapotranspiration", value: data.ecostressEtInfo.status === "ok" ? latestEt?.median ?? null : null, units: "W/m²", statistic: "median of clear land pixels in the latest usable scene",
+      start: latestEt?.date ?? data.ecostressEtInfo.start, end: latestEt?.date ?? data.ecostressEtInfo.end, valid: latestEt?.validPixels ?? 0, expected: latestEt?.totalPixels ?? 0,
+      assumptions: ["The product is modeled energy flux in W/m². It is not converted to mm/day and is not used as measured crop water use."],
     }),
   );
   if (data.soil.ph?.from === "farmer") {

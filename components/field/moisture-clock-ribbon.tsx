@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Icon } from "@/components/ui/icon";
+import { Message } from "@/components/ui/message";
 import { cn } from "@/lib/cn";
 import { seedbedMoistureWindow, type SeedbedWindowResult } from "@/lib/engine/water";
 
@@ -61,20 +62,15 @@ export function MoistureClockRibbon({
           <Icon name="conditions" size={18} className="text-drought" />
           <span>Moisture Clock (မြေဆီလွှာအစိုဓာတ် ပြက္ခဒိန်)</span>
         </div>
-        <div className="rounded-md border border-drought/30 bg-drought-soft p-3 text-body-sm text-ink">
-          <p className="m-0 font-medium text-ink">
-            Check topsoil moisture and drainage before sowing
-          </p>
-          <p className="m-0 mt-1 text-source text-ink-muted">
+        <Message tone="caution" title="Check topsoil moisture and drainage before sowing">
+          <p lang="my" className="m-0 text-ink-muted">
             စိုက်ပျိုးခြင်းမပြုမီ မြေပြင်အစိုဓာတ်နှင့် ရေနုတ်မြောင်းများကို လက်တွေ့စစ်ဆေးပါ။
           </p>
-          <p className="m-0 mt-2 text-source text-ink-muted">
-            {result.advisory}
-          </p>
-        </div>
-        <p className="m-0 text-source text-ink-muted">
-          ℹ️ Initial soil texture or harvest drainage date is not confirmed for this parcel. A calendar countdown is not shown without ground verification.
-        </p>
+          <p className="m-0 mt-1">{result.advisory}</p>
+        </Message>
+        <Message tone="needs" compact title="Add soil texture and drainage date">
+          Once both are set, this shows the days when the field may be ready to sow.
+        </Message>
       </div>
     );
   }
@@ -157,11 +153,9 @@ export function MoistureClockRibbon({
         </div>
       </div>
 
-      <div className="rounded-md bg-surface-sunken p-2.5 text-source text-ink-muted">
-        <p className="m-0">
-          ⚠️ <strong>Field verification notice:</strong> {caveat}
-        </p>
-      </div>
+      <Message tone="caution" compact title="Field verification notice">
+        {caveat}
+      </Message>
     </div>
   );
 }

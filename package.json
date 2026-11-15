@@ -14,7 +14,8 @@
     "test:changed": "vitest run --changed",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "test:rotation": "node test/rotation-integration.test.mjs"
+    "test:rotation": "node test/rotation-integration.test.mjs",
+    "validate:weather": "vitest run --config vitest.validation.config.mts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",

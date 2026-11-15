@@ -75,6 +75,8 @@ The Weather Channel asks for notifications one category at a time, shows what ea
 
 The UI uses the plain name and keeps the dataset in the source line. This is the working vocabulary for copy and layer names.
 
+Notices use the `Message` component and its five tones (info, success, caution, problem, needs); sources use the `Evidence` line. Tones, anatomy and writing rules are in DESIGN_SYSTEM.md 10.11 and 9.6.
+
 | Farmer's question | UI name | NASA source | Shown as |
 | --- | --- | --- | --- |
 | Do I need to irrigate? | Soil moisture | `SMAP L3/L4 · 9 km · daily` | Chart with crop band, map layer |

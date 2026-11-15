@@ -1,9 +1,9 @@
 # Field Shift: Comparing Crop Rotations with NASA Earth Observations
 
-**Scientific Methods and System Design — Research Prototype v3.2**
+**Scientific Methods and System Design — Research Prototype v3.3**
 Technical Appendix: equations, mathematical foundations, assumptions, and dataset specifications included in full below.
 
-*Field Shift is a research prototype. It is not a NASA product, NASA does not endorse it, and it has not been validated against observed field data. Section 7 says what that means for how it should be used.*
+*Field Shift is a research prototype. It is not a NASA product, NASA does not endorse it, and its agronomic predictions have not been validated against observed field trials. Its weather inputs have been audited against NOAA GHCN-Daily stations (Section 7 and Technical Appendix Section 12.1).*
 
 ---
 
@@ -15,7 +15,7 @@ Field Shift is a browser-based tool that lets a farmer mark a field, record the 
 
 It is an aid to a conversation between a farmer and a local adviser. It does not forecast the coming season, predict yield or income, or tell a farmer what to do.
 
-**What is built, and what is not.** The comparison engine, the weather and soil sources, and the satellite-vegetation route run today and are covered by 400 automated tests across 39 test suites (plus 23 rotation integration tests). Rainfall from satellite (GPM IMERG), soil moisture (SMAP) and terrain (SRTM) need NASA Earthdata credentials that the project has not yet used end to end. Surface temperature (ECOSTRESS) and MODIS vegetation are not wired in. No model has been compared with field observations. Section 5 gives the full status, and Section 6 describes a demonstration that has been designed but not yet run.
+**What is built, and what is not.** The comparison engine, the weather and soil sources, and the satellite-vegetation route run today and are covered by 543 automated tests across 61 test suites (plus empirical weather validation against 10 years of NOAA GHCN-Daily Myanmar stations). Rainfall from satellite (GPM IMERG), soil moisture (SMAP) and terrain (SRTM) need NASA Earthdata credentials that the project has not yet used end to end. Surface temperature (ECOSTRESS) and MODIS vegetation are not wired in. No agronomic yield or soil-probe model has been compared with field trials. Section 5 gives the full status, and Section 6 describes a demonstration that has been designed but not yet run.
 
 ---
 
@@ -50,10 +50,11 @@ It is an aid to a conversation between a farmer and a local adviser. It does not
 | Fit | Do the crops suit the region's sowing windows, soil pH, texture, drainage and salinity? A decisive missing input gives *unknown*, not a pass |
 | Water | In each of the last ten seasons, how much did rain fall short of estimated crop demand? A physically conserved three-zone soil column (seedbed, sub-seedbed, buffer) tracks evaporation, transpiration, dynamic FAO depletion, and post-paddy drainage windows |
 | Exposure | In how many of those seasons would heat at flowering, cold shock, acute flowering rain or a long dry spell have occurred in the crop's sensitive stages? |
+| Pests & Diseases | Tracks species-level pathogen carryover (e.g., *Rhizoctonia*, *Macrophomina*), alerts on vector green bridges (<30d), enforces vascular wilt return intervals ($n/k \ge 3\text{ yr}$), and evaluates historical weather favourability spells |
 | Soil | How much of the cycle has a crop in the field, how many crops fix nitrogen, and what a partial nitrogen budget with residue fate kinetics can and cannot say |
 | Terrain | Where slope, low cover and rainy periods coincide, a screening warning for erosion exposure |
 | Income | A margin *range* calculated using interval arithmetic from farmer-entered values or verified real-world regional market benchmarks (DOA, Bayintnaung Wholesale, MPBMSMA), with optional FAO-33 / FAO-66 water-limited yield response where calibrated |
-| Ranking | A match to the farmer's stated priorities, with the evidence it could not use listed beside it |
+| Ranking | A match to the farmer's stated priorities anchored to regional benchmark rotations, with the evidence it could not use listed beside it |
 
 ### 3.3 Design commitments
 
@@ -91,10 +92,10 @@ Statuses: **Implemented** (runs in the application and is tested), **Partially i
 
 | Capability | Status | Note |
 | --- | --- | --- |
-| NASA POWER weather | Implemented | Requests 2016 to present; not compared with stations |
+| NASA POWER weather | Implemented & Audited | Requests 2016 to present; audited against NOAA GHCN-Daily stations (51% Dry Zone rain bias flagged with in-app banner) |
 | ISRIC SoilGrids | Implemented | Model estimate; used when the farmer has no soil test |
 | Landsat vegetation (Planetary Computer) | Implemented | Checked on live scenes for one test polygon; not compared with ground cover |
-| Rotation comparison, water, exposure, ranking | Implemented | 3-zone soil column, dynamic FAO depletion fraction, post-paddy drainage window, and multi-year disease cycle detection |
+| Rotation comparison, water, exposure, ranking | Implemented | 3-zone soil column, dynamic FAO depletion fraction, post-paddy drainage window, species-level pathogen carryover, wilt return intervals, and regional benchmark income anchoring |
 | GPM IMERG rainfall | Partially implemented | Needs `EARTHDATA_TOKEN`; no end-to-end retrieval yet; Final V07 ends September 2025 |
 | SMAP soil moisture, SRTM slope, HLS vegetation | Partially implemented | Need an Earthdata login for AppEEARS; not run live |
 | MODIS NDVI | Proposed | Code exists but nothing calls it |
@@ -135,27 +136,27 @@ The demonstration shows what changes in a comparison when evidence is added or r
 
 ## 7. Limitations and Validation
 
-**Nothing has been validated.** The automated tests show that formulas are transcribed correctly, that water is conserved in the 2-zone and 3-zone balances to $10^{-9}\text{ mm}$, and that missing inputs stay missing. They do not show that the outputs match what happens in a field. A mathematically consistent simulation is not a validated agronomic prediction. The full table is Section 12 of the appendix. The main points are these.
+**Agronomic yield and soil predictions have not been validated against field trials; input weather data have undergone ground-truth benchmarking.** The automated tests (543 tests across 61 test files) show that formulas are transcribed correctly, that water is conserved in the 2-zone and 3-zone balances to $10^{-9}\text{ mm}$, and that missing inputs stay missing. A dedicated validation harness audited NASA POWER reanalysis against 10 years of NOAA GHCN-Daily records (2015–2024) across 5 Myanmar stations (`docs/validation/WEATHER_VALIDATION.md`). The full table is Section 12 of the appendix. The main points are these.
 
 - **Ten seasons only.** The replay uses $2016\text{–}2025$. Ten seasons are a small sample and carry any climate trend in that period. The comparison of worst-case losses between options (minimax regret) rests on those ten years, and its tail percentile is coarse.
+- **Empirical rainfall bias in the Central Dry Zone.** Validation against the Mandalay station reveals NASA POWER `PRECTOTCORR` monthly rainfall is **51% lower** than station observations ($r = 0.48$). Water-balance models will substantially overstate drought stress for rainfed Dry Zone crops. An explicit in-app warning alerts the farmer when viewing fields in this zone.
+- **Coastal temperature distortion.** In coastal stations (Sittwe, Kawthaung), $50\text{ km}$ reanalysis cells blend land and marine temperatures, understating daytime highs by up to $3.1^\circ\text{C}$ and overstating nighttime lows by up to $5.0^\circ\text{C}$. Extreme heat and cold shock checks are unreliable in coastal fringes.
 - **Rainfall products differ and are not corrected.** POWER and IMERG disagree, and crop water-stress estimates are sensitive to that. Where IMERG is used, days it lacks come from POWER, so a seasonal total can mix products. IMERG Final V07 stops in September 2025, so the last three months of the baseline use POWER.
 - **The paddy model is surface-water only.** It tracks ponded water and has no separate store for water in saturated soil, so it is a screening tool for rice, not a paddy soil-plant water model.
 - **Nitrogen and erosion are screens.** The nitrogen budget gives enclosure bounds, not a prediction of soil nitrogen. The erosion indicator flags where slope, low cover and rain coincide and is not a soil-loss model.
-- **Scoring anchors are assumptions.** The targets and limits that turn criteria into scores are analyst choices, to be reviewed with local experts. A rank is a match to stated priorities, not a forecast.
+- **Scoring anchors are grounded assumptions.** Criteria targets and limits are anchored to physical limits or regional typical rotations (e.g. income anchor based on regional benchmark commodity margins, guaranteeing independence of irrelevant alternatives).
 - **Greenness is not ground truth.** Landsat NDVI cannot separate bare soil from flooded fields or young crops, and monsoon cloud leaves gaps. Satellite pixels of $30\text{ m}$ are coarse on small fields.
 - **Crop rules are partly assumed.** Some thresholds and calendars in the crop library are analyst assumptions, and no cultivar yet has the thermal requirements that would let the app time growth stages from temperature.
 - **Income uses entered or benchmark ranges only.** Farmer-entered figures take precedence; real-world benchmarks provide calibrated regional ranges from commodity exchanges (DOA, Bayintnaung, MPBMSMA 2024–2026). Water-stress yield adjustments are applied only when species-calibrated FAO $K_y$ factors exist and baseline yield is not already water-constrained.
 
-**Proposed validation and measurable outcomes.** None of the following has been started, and thresholds for success should be set with local advisers before any is measured.
-
-| Question | Measure | Evidence needed |
-| --- | --- | --- |
-| Is satellite and reanalysis rainfall close enough to what falls on the field? | Seasonal bias and error of POWER and IMERG against rain gauges | Gauge records near test fields |
-| Does modelled water stress match the soil? | Agreement of modelled stress days with probe-measured depletion | Soil-moisture probe time series |
-| Does the vegetation timeline match the ground? | Agreement of cloud-free NDVI dates with dated field photographs | Photographs and field notes |
-| Is the ranking stable and honest? | Change in ranking when a source is removed; share of runs where the app correctly declines to rank | Repeated runs on the same fields |
-| Is it understood? | Whether farmers and advisers can state, after reading a report, what is unknown and what to check locally | Interviews and usability sessions |
-| Does it help a decision? | Advisers' judgement of whether a comparison changed or sharpened a conversation | Structured feedback after use |
+**Validation status & roadmap.**
+- **Completed:** Empirical audit of NASA POWER vs. NOAA GHCN-Daily Myanmar stations (2015–2024).
+- **Proposed next steps:**
+  1. **Rainfall:** compare POWER and IMERG seasonal totals with gauge records at sites that have them, and report the difference with each analysis.
+  2. **Water stress:** for fields with soil-moisture probes, compare modelled stress days with observed depletion.
+  3. **Vegetation:** compare the satellite timeline with dated field photographs on a small set of fields.
+  4. **Decisions:** record real rotation comparisons for real fields, with the actual outputs (the demonstration protocol in the whitepaper), and review them with local advisers.
+  5. **Use:** test with farmers and extension officers whether the plain-language explanations lead to correct reading of the uncertainty.
 
 ---
 
@@ -170,4 +171,4 @@ The demonstration shows what changes in a comparison when evidence is added or r
 
 ## 9. Where to Go Next
 
-The technical appendix holds the equations (reference evapotranspiration, the daily soil water balance and three-zone soil column, the pedotransfer functions, phenology, quality screening, the ranking and regret formulas), the dataset specifications for each source, the provenance contract, and the model limitations table. It also lists what changed in version 3.2. The next steps are, in order: run the demonstration of Section 6 on a real field; obtain Earthdata credentials and retrieve IMERG, SMAP and SRTM end to end; collect soil moisture at planting so the root-zone balance can run; hold interviews with farmers and extension officers; and begin the validation in Section 7.
+The technical appendix holds the equations (reference evapotranspiration, the daily soil water balance and three-zone soil column, the pedotransfer functions, phenology, quality screening, the ranking and regret formulas), the dataset specifications for each source, the provenance contract, and the model limitations table. It also lists what changed in version 3.3. The next steps are, in order: run the demonstration of Section 6 on a real field; obtain Earthdata credentials and retrieve IMERG, SMAP and SRTM end to end; collect soil moisture at planting so the root-zone balance can run; hold interviews with farmers and extension officers; and begin the validation in Section 7.

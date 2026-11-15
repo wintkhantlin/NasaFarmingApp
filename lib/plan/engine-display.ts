@@ -162,7 +162,7 @@ export function adaptComparison(input: DisplayInput): ComparisonDisplay {
   // At the precision presented to farmers, effectively equal scores carry no first-place badge.
   const tiedFirst = ranking.length > 1 && ranking[0].score.toFixed(2) === ranking[1].score.toFixed(2);
   const replay = { ...baseline };
-  const frame = `We checked ${baseline.completeYears} of ${expectedYears} complete past years from ${BASELINE.startYear}–${BASELINE.endYear}. This does not predict next season.`;
+  const frame = `We checked ${baseline.completeYears} of ${expectedYears} complete past years from ${BASELINE.startYear}–${BASELINE.endYear} as a shared historical stress test.`;
   const common = { engineStatus: comparison.mcda.status, replay, options, tiedFirst, sourceStatuses: statuses, gaps: comparison.dataGaps.map(farmerFriendlyGap) };
 
   if (comparison.region === "unsupported" || alternatives.length === 0 || baseline.completeYears === 0 || comparison.rain.primary === "none") {
@@ -200,5 +200,5 @@ export function adaptComparison(input: DisplayInput): ComparisonDisplay {
       : "Some choices do not have the same information, so they are shown without a forced ranking.";
     return { ...common, state: "partial-evidence", headline: "Some information is still missing", detail: `${frame} ${reason} We have enough information to compare ${completeAlternatives.length} alternative${completeAlternatives.length === 1 ? "" : "s"}.` };
   }
-  return { ...common, state: "comparable", headline: tiedFirst ? "The leading options are close" : "Compare your crops with other options", detail: `We checked these choices against ${baseline.completeYears} past years from ${BASELINE.startYear}–${BASELINE.endYear} and what you said matters. This does not predict next season or promise a profit.` };
+  return { ...common, state: "comparable", headline: tiedFirst ? "The leading options are close" : "Compare your crops with other options", detail: `We checked these choices against ${baseline.completeYears} past years from ${BASELINE.startYear}–${BASELINE.endYear} and what you said matters. Use the result to compare trade-offs, then confirm local prices and field conditions.` };
 }

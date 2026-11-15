@@ -23,7 +23,7 @@ type Request = {
   history?: string[];
   location?: Record<string, unknown>;
   farm?: { available_crops?: string[]; soil_ph?: number | null; drainage?: string; irrigation?: string; fallow_management?: string };
-  environment?: { source?: string; basis?: string; spatial_resolution_km?: number | null; monthly?: Monthly[] };
+  environment?: { source?: string; basis?: string; spatial_resolution_km?: number | null; known_biases?: string[]; monthly?: Monthly[] };
   farmer?: { priorities?: Partial<Record<Objective, number>>; crop_metrics?: Record<string, { additional_crop_water_use_mm?: number; net_margin_per_ha?: number }>; metrics_source?: string };
 };
 type Signals = Record<Objective, number | null>;
@@ -197,6 +197,7 @@ function evaluateOne(sequence: string[], req: Request): Scenario {
     else unknowns.push("Irrigation access is reported, but capacity and crop water demand are not validated; water adequacy remains unknown.");
     if (["observed", "historical_normals", "synthetic"].includes(environment.basis ?? "")) cautions.push("Climate values are not a validated future-season forecast; seasonal suitability is provisional.");
     if (environment.spatial_resolution_km !== undefined && environment.spatial_resolution_km !== null) cautions.push(`Environmental grid resolution ${environment.spatial_resolution_km} km is not field-scale ground truth.`);
+    for (const bias of environment.known_biases ?? []) if (typeof bias === "string" && bias) cautions.push(bias);
   }
 
   const nonfallow = sequence.filter((id) => id !== "fallow");

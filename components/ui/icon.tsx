@@ -2,7 +2,10 @@ import {
   Archive,
   ArrowLeft,
   BookOpen,
+  Bug,
   Check,
+  CircleAlert,
+  CircleHelp,
   CloudSun,
   ChevronLeft,
   ChevronRight,
@@ -10,6 +13,7 @@ import {
   Ellipsis,
   FileText,
   House,
+  Info,
   Keyboard,
   Languages,
   Layers,
@@ -106,9 +110,13 @@ const ICONS = {
   reset: RotateCcw,
   nitrogen: Atom,
   bean: Bean,
+  pest: Bug,
   flower: Flower2,
   nut: Nut,
   ph: TestTubeDiagonal,
+  info: Info,
+  alert: CircleAlert,
+  help: CircleHelp,
 } as const;
 
 export type IconName = keyof typeof ICONS;

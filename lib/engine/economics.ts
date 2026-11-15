@@ -327,3 +327,45 @@ export function economicsFor(
     occupiedCycleDays,
   };
 }
+
+/**
+ * The usual rotation in each region, used as a fixed reference point for the income score. Scoring income
+ * against a fixed benchmark, rather than against whichever options happen to be compared, means adding or
+ * removing an option never changes another option's income score.
+ */
+export const REGIONAL_INCOME_BENCHMARK: Record<"ayeyarwady" | "magway" | "shan", { crops: string[]; label: string }> = {
+  ayeyarwady: { crops: ["rice", "black-gram"], label: "monsoon rice then black gram" },
+  magway: { crops: ["sesame", "green-gram"], label: "sesame then green gram" },
+  shan: { crops: ["maize", "soybean"], label: "maize then soybean" },
+};
+
+export interface IncomeAnchor {
+  /** MMK per ha per year that earns full credit: the benchmark rotation's midpoint margin. */
+  target: number;
+  /** Break-even. A loss scores zero. */
+  limit: 0;
+  scope: "analyst-assumption";
+  ref: string;
+}
+
+/**
+ * Income anchor for a region: 0 at break-even, full credit at the midpoint margin of the region's usual rotation,
+ * computed from the benchmark price, yield and cost table (not the farmer's own numbers, so it stays fixed).
+ * Null when the region has no benchmark or the table lacks a crop.
+ */
+export function incomeAnchorFor(region: string): IncomeAnchor | null {
+  const bench = REGIONAL_INCOME_BENCHMARK[region as keyof typeof REGIONAL_INCOME_BENCHMARK];
+  if (!bench) return null;
+  const slots = bench.crops.map((cropId, i) => ({ id: `bench-${i}`, kind: "crop" as const, cropId, plantDate: "2026-01-01", harvestDate: "2026-01-02", dateConfidence: "typical" as const, irrigated: false }));
+  const e = economicsFor({ slots, cycleYears: 1 }, undefined, null, { fallbackToRealWorld: true });
+  const m = e.annualizedMarginMmkHa;
+  if (!m) return null;
+  const target = Math.round((m[0] + m[1]) / 2);
+  if (target <= 0) return null;
+  return {
+    target,
+    limit: 0,
+    scope: "analyst-assumption",
+    ref: `Full credit at the midpoint margin of the usual ${bench.label} rotation (${target.toLocaleString("en-US")} MMK/ha/yr from the benchmark price, yield and cost table); zero at break-even. Options above the benchmark all score full credit, and their margins are still shown side by side.`,
+  };
+}

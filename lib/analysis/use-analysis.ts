@@ -180,7 +180,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
         setRemote(json);
         void setCachedRemote(id!, json);
 
-        const pending = [json.smap, json.hls, json.srtm].some((s) => s.status === "pending");
+        const pending = [json.smap, json.hls, json.srtm, json.modis, json.ecostressLst, json.ecostressEt].some((s) => s.status === "pending");
         if (pending && pollCount++ < MAX_POLLS) {
           const delay = adaptivePollInterval(pollCount);
           timer = setTimeout(() => void tick(), delay);
@@ -194,7 +194,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
 
     function handleVisibility() {
       if (document.visibilityState === "visible" && mounted) {
-        const pending = [remoteRef.current?.smap, remoteRef.current?.hls, remoteRef.current?.srtm].some((s) => s?.status === "pending");
+        const pending = [remoteRef.current?.smap, remoteRef.current?.hls, remoteRef.current?.srtm, remoteRef.current?.modis, remoteRef.current?.ecostressLst, remoteRef.current?.ecostressEt].some((s) => s?.status === "pending");
         if (pending) {
           if (timer) clearTimeout(timer);
           void tick();
@@ -220,7 +220,7 @@ export function useFieldAnalysis(field: Field | undefined): FieldAnalysis {
 
   const engineData = useMemo(() => (field ? buildEngineData(field, conditions, remote) : null), [field, conditions, remote]);
   const retrieving =
-    conditions?.imerg?.status === "pending" || [remote?.smap, remote?.hls, remote?.srtm].some((s) => s?.status === "pending");
+    conditions?.imerg?.status === "pending" || [remote?.smap, remote?.hls, remote?.srtm, remote?.modis, remote?.ecostressLst, remote?.ecostressEt].some((s) => s?.status === "pending");
 
   return {
     phase,

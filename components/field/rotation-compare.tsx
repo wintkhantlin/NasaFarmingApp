@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Icon } from "@/components/ui/icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { FIT_HAZARD, OptionDetail } from "@/components/field/option-detail";
 import { StatusTag } from "@/components/ui/status";
@@ -15,12 +15,11 @@ import { whatIfResult } from "@/lib/engine/what-if";
 import { knownCount, seasonStrip, stressedCount } from "@/lib/engine/strip";
 import { checkLimits, type LimitCheck } from "@/lib/engine/limits";
 import { buttonClass } from "@/components/ui/button";
-import { InfoGlyph } from "@/components/ui/icons";
 import { Disclosure } from "@/components/ui/disclosure";
 import { JudgmentNote } from "@/components/ui/judgment-note";
+import { Message } from "@/components/ui/message";
 import { Panel } from "@/components/ui/panel";
 import { RiskChip } from "@/components/ui/risk-chip";
-import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { copy } from "@/lib/copy/en";
@@ -111,9 +110,66 @@ function keyFigures(o: EvaluatedOption, strip: ReturnType<typeof seasonStrip>): 
     out.push({ label: copy.compare.numbersLegumes, value: `${o.structure.legumeSlots} of ${o.structure.cropSlots}` });
   }
   const m = o.economics.cycleMarginMmkHa;
-  if (m) out.push({ label: "Benchmark gross-margin range, not guaranteed profit", value: `${mmk(m[0])}–${mmk(m[1])} MMK/ha` });
+  if (m) out.push({ label: "Estimated return after listed costs", value: `${mmk(m[0])}–${mmk(m[1])} MMK/ha` });
   if (o.forage.forageSlots > 0) out.push({ label: copy.compare.numbersFodder, value: String(o.forage.forageSlots) });
   return out;
+}
+
+interface SimpleFact {
+  icon: IconName;
+  label: string;
+  text: string;
+  tone: string;
+}
+
+/** Two to four short facts per choice, each with an icon, so the card can be read at a glance. */
+function simpleFacts(
+  o: EvaluatedOption,
+  now: EvaluatedOption | null,
+  isYours: boolean,
+  comparable: boolean,
+  item: DisplayOption | undefined,
+): SimpleFact[] {
+  const out: SimpleFact[] = [];
+  if (comparable && now && !isYours) {
+    const diff = differences(o, now)[0];
+    if (diff && diff !== copy.compare.diffNone) out.push({ icon: "compare", label: "Compared with now", text: diff, tone: "bg-field-soft text-field" });
+  }
+  const m = o.economics.cycleMarginMmkHa;
+  if (comparable && m) {
+    out.push({
+      icon: "cost",
+      label: "Estimated return after listed costs",
+      text: `${mmk(m[0])} to ${mmk(m[1])} MMK per hectare, using benchmark prices and costs.`,
+      tone: "bg-surface-sunken text-ink",
+    });
+  }
+  if (item?.tradeOff) out.push({ icon: "conditions", label: "Watch out for", text: item.tradeOff, tone: "bg-drought-soft text-drought" });
+  if (item?.localCheck) out.push({ icon: "done", label: "Check before choosing", text: item.localCheck, tone: "bg-surface-sunken text-ink" });
+  return out;
+}
+
+/** The crop sequence as large pills joined by arrows: readable without parsing a sentence. */
+function CropPills({ names }: { names: string[] }) {
+  if (names.length === 0) return <p className="m-0 text-body text-ink-muted">No crops recorded</p>;
+  const occurrences = new Map<string, number>();
+  return (
+    <ol aria-label="Crops in order" className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-2 p-0">
+      {names.map((n, i) => {
+        const occurrence = (occurrences.get(n) ?? 0) + 1;
+        occurrences.set(n, occurrence);
+        return (
+          <li key={`${n}-${occurrence}`} className="flex items-center gap-1.5">
+            {i > 0 ? <Icon name="next" size={16} className="text-ink-muted" aria-hidden /> : null}
+            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-pill bg-field-soft px-3 text-body font-semibold text-ink">
+              {n !== "Fallow" ? <Icon name="rotation" size={16} className="text-field" /> : null}
+              {n.replace(/\s*\(.*\)\s*$/, "")}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function keySeasonCount(strip: ReturnType<typeof seasonStrip>) {
@@ -127,7 +183,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const rotations = useFieldRotations(fieldId);
   const load = useFieldsStore((s) => s.load);
   const loadRotations = useFieldsStore((s) => s.loadRotations);
-  const [depth, setDepth] = useState<"answer" | "reasons" | "evidence">("answer");
   const [scenario, setScenario] = useState<Scenario>(NO_SCENARIO);
   const [keepingMine, setKeepingMine] = useState(false);
   /** Sliders stay responsive while the options catch up on the same past seasons. */
@@ -255,10 +310,9 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         <h1 className="m-0 text-title text-ink">{display.headline}</h1>
         <p className="m-0 max-w-measure text-body text-ink-muted">{display.detail}</p>
         {needsCurrentCrops ? (
-          <div className="flex max-w-measure flex-col gap-1 rounded-md bg-field-soft p-4 text-body-sm text-ink">
-            <strong>What to add next</strong>
-            <span>Choose the crops grown on this field and give the timing you remember. A month range or “not sure” is enough.</span>
-          </div>
+          <Message tone="needs" title="Add what grows here">
+            Choose the crops grown on this field and give the timing you remember. A month range or “not sure” is enough.
+          </Message>
         ) : null}
         {display.gaps.length > 0 ? <ul className="m-0 list-disc space-y-2 pl-5 text-body-sm text-ink-muted">{display.gaps.map(gap => <li key={gap}>{gap}</li>)}</ul> : null}
         {comparison && display.state === "data-unavailable" ? <>
@@ -315,7 +369,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
   const tableRows: Array<{ group: string; items: Array<ReturnType<typeof row>> }> = [
     {
       group: copy.compare.groupLimits,
-      items: [row(copy.compare.measureLimits, (o) => <LimitSummary checks={limitsById.get(o.id) ?? []} />)],
+      items: [row(copy.compare.measureLimits, (o) => <LimitSummary checks={limitsById.get(o.id) ?? []} fieldId={field.id} />)],
     },
     {
       group: copy.compare.groupFit,
@@ -353,7 +407,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
           o.erosion.exposure === "needs-slope-data" ? "Needs slope data" : o.erosion.exposure === "not-flagged" ? "Not flagged" : o.erosion.exposure === "possible" ? "Possible" : "Higher",
         ),
         row(copy.compare.measurePest, (o) =>
-          o.slots.some(s => s.evaluationStatus === "not-evaluated") ? "Not-evaluated: overlapping crops" : o.pest.length === 0 ? "No same-family pair" : `${o.pest.filter((p) => p.result === "same-family").length} of ${o.pest.length} pairs in the same family`,
+          o.slots.some(s => s.evaluationStatus === "not-evaluated") ? "Not-evaluated: overlapping crops" : o.pest.length === 0 ? "No same-family pair" : `${o.pest.filter((p) => p.shared.some((h) => h.severity === "caution")).length} of ${o.pest.length} pairs share a soil disease or pest; ${o.pest.filter((p) => p.result === "same-family").length} in the same family`,
         ),
       ],
     },
@@ -367,7 +421,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     {
       group: copy.compare.groupMoney,
       items: [
-        row("Benchmark gross-margin range (not guaranteed profit)", (o) =>
+        row("Estimated return after listed costs", (o) =>
           o.economics.cycleMarginMmkHa ? `${mmk(o.economics.cycleMarginMmkHa[0])} to ${mmk(o.economics.cycleMarginMmkHa[1])} MMK/ha` : unknown,
         ),
         row(copy.compare.measureFodder, (o) => String(o.forage.forageSlots)),
@@ -385,70 +439,62 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
     },
   ];
 
+  const alternativeNumber = new Map(orderedAlternatives.map((o, i) => [o.id, i + 1]));
+  const optionName = (o: EvaluatedOption) =>
+    o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : `Choice ${alternativeNumber.get(o.id) ?? ""}`.trim();
+  const visibleOptions = displayOptions.filter((o) => hasOwnRotation || o.id !== comparison.current.id || !hasAlternatives);
+
   return (
     <>
       <FieldPageHeader title={copy.compare.title} summary={summary} />
 
       <WhatIfBanner scenario={testScenario} recorded={field.irrigation} onReset={() => setScenario(NO_SCENARIO)} />
 
-      <section className="flex flex-col gap-3 border-b border-line pb-5" aria-label="Comparison summary">
+      {/* 1. The short answer, in one place */}
+      <section aria-label="Comparison summary" className="flex flex-col gap-3 rounded-lg border border-field/30 bg-field-soft/40 p-4 sm:p-5">
         <h2 className="m-0 text-headline text-ink">{answerHeadline}</h2>
-        <p className="m-0 max-w-measure text-body-sm text-ink-muted">{answerReason}</p>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Change my crops</Link>
-          <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>Water, budget & priorities</Link>
-        </div>
+        <p className="m-0 max-w-measure text-body text-ink">{answerReason}</p>
+        {hasOwnRotation && comparison.mcda.assumedPriorities ? (
+          <Message
+            tone="needs"
+            title={copy.compare.assumedPriorities}
+            action={
+              <Link href={`/fields/${field.id}/questions/priority`} className={buttonClass("secondary")}>
+                {copy.compare.assumedChange}
+              </Link>
+            }
+          />
+        ) : null}
       </section>
 
-      <Disclosure title="How we checked these choices" hint={display.state === "comparable" ? "Ready" : "Some information is missing"}>
-        <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-          We checked {display.replay?.completeYears ?? 0} complete past years from 2016–2025. This shows how the choices might have handled past weather; it does not predict next season.
-        </p>
-        <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
-          <li>Regional weather: {plainSourceStatus(display.sourceStatuses?.power)}</li>
-          <li>Detailed satellite rain: {plainSourceStatus(display.sourceStatuses?.imerg)}</li>
-          <li>Regional soil moisture: {plainSourceStatus(display.sourceStatuses?.smap)}</li>
-          <li>Clear crop-cover images: {plainSourceStatus(display.sourceStatuses?.hls)}</li>
-          <li>Land slope: {plainSourceStatus(display.sourceStatuses?.srtm)}</li>
-        </ul>
-        {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">More information is still loading. You can review what is ready now.</p> : null}
-        {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">You are seeing previously saved information because a refresh is not available.</p> : null}
-        {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Try loading again</button> : null}
-      </Disclosure>
-
-      {hasOwnRotation && comparison.mcda.assumedPriorities ? (
-        <p className="m-0 flex flex-wrap items-center gap-x-2 text-body-sm text-ink-muted">
-          <span className="rounded-pill border border-line bg-surface px-2.5 py-1 text-source text-ink">{copy.compare.assumedPriorities}</span>
-          <Link href={`/fields/${field.id}/questions/priority`} className="inline-flex min-h-tap items-center text-label text-field underline hover:text-ink">
-            {copy.compare.assumedChange}
-          </Link>
-        </p>
-      ) : null}
-
       {!hasOwnRotation && hasAlternatives ? (
-        <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-3 p-4 sm:p-5">
-          <h2 className="m-0 text-headline text-ink">{copy.compare.noRotationTitle}</h2>
-          <p className="m-0 max-w-measure text-body text-ink-muted">{copy.compare.noRotationBody}</p>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>
-            {copy.compare.noRotationAction}
-          </Link>
-        </Panel>
+        <Message
+          tone="needs"
+          title={copy.compare.noRotationTitle}
+          action={
+            <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>
+              {copy.compare.noRotationAction}
+            </Link>
+          }
+        >
+          {copy.compare.noRotationBody}
+        </Message>
       ) : null}
 
       {hasOwnRotation && comparison.shortfall && hasAlternatives ? (
-        <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-2 p-4 sm:p-5">
-          <h2 className="m-0 text-headline text-ink">
-            {comparison.region === "unsupported" ? copy.compare.unsupported : copy.compare.shortfallTitle}
-          </h2>
-          <p className="m-0 max-w-measure text-body text-ink-muted">
-            {comparison.region === "unsupported" ? copy.compare.unsupportedBody : copy.compare.shortfallBody}
-          </p>
-          {comparison.region !== "unsupported" && hasAlternatives ? (
-            <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
-              {copy.compare.shortfallAction}
-            </Link>
-          ) : null}
-        </Panel>
+        <Message
+          tone="caution"
+          title={comparison.region === "unsupported" ? copy.compare.unsupported : copy.compare.shortfallTitle}
+          action={
+            comparison.region !== "unsupported" && hasAlternatives ? (
+              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+                {copy.compare.shortfallAction}
+              </Link>
+            ) : null
+          }
+        >
+          {comparison.region === "unsupported" ? copy.compare.unsupportedBody : copy.compare.shortfallBody}
+        </Message>
       ) : null}
 
       {!hasAlternatives ? (
@@ -457,101 +503,186 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
             {copy.compare.unsupportedAction}
           </Link>
         ) : (
-          <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-2 p-4 sm:p-5">
-            <h2 className="m-0 text-headline text-ink">{copy.compare.noAlternativesTitle}</h2>
-            <p className="m-0 max-w-measure text-body text-ink-muted">{copy.compare.noAlternativesBody(place)}</p>
-            <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
-              {copy.compare.shortfallAction}
-            </Link>
-          </Panel>
+          <Message
+            tone="info"
+            title={copy.compare.noAlternativesTitle}
+            action={
+              <Link href={`/fields/${field.id}/profile`} className={buttonClass("secondary")}>
+                {copy.compare.shortfallAction}
+              </Link>
+            }
+          >
+            {copy.compare.noAlternativesBody(place)}
+          </Message>
         )
       ) : null}
 
       {weatherLoading ? (
-        <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-2 p-4 sm:p-5">
-          <div className="flex items-start gap-2">
-            <InfoGlyph className="mt-0.5 shrink-0 text-ink-muted" />
-            <div className="flex min-w-0 flex-col gap-1">
-              <h2 className="m-0 text-label text-ink">{copy.compare.weatherLoadingTitle}</h2>
-              <p className="m-0 max-w-measure text-body-sm text-ink">{copy.compare.weatherLoadingBody}</p>
-            </div>
-          </div>
-        </Panel>
+        <Message tone="info" role="status" title={copy.compare.weatherLoadingTitle}>
+          {copy.compare.weatherLoadingBody}
+        </Message>
       ) : null}
 
       {weatherMissing ? (
-        <Panel as="section" tone="plain" role="status" className="flex flex-col items-start gap-2 p-4 sm:p-5">
-          <div className="flex items-start gap-2">
-            <InfoGlyph className="mt-0.5 shrink-0 text-drought" />
-            <div className="flex min-w-0 flex-col gap-1">
-              <h2 className="m-0 text-label text-ink">{copy.compare.weatherMissingTitle}</h2>
-              <p className="m-0 max-w-measure text-body-sm text-ink">{copy.compare.weatherMissingBody}</p>
-            </div>
-          </div>
-          <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>
-            {copy.home.retry}
-          </button>
-        </Panel>
+        <Message
+          tone="needs"
+          role="status"
+          title={copy.compare.weatherMissingTitle}
+          action={
+            <button type="button" onClick={analysis.retry} className={buttonClass("secondary")}>
+              {copy.home.retry}
+            </button>
+          }
+        >
+          {copy.compare.weatherMissingBody}
+        </Message>
       ) : null}
 
-      {displayOptions.length > 0 ? (
-        <section aria-labelledby="options-title" className="flex flex-col gap-5">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 id="options-title" className="m-0 text-headline text-ink">
-                {hasAlternatives ? copy.compare.optionsTitle : copy.compare.optionsTitleYours}
-              </h2>
-              <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-                {!hasAlternatives
-                  ? copy.compare.optionsDescriptionYours
-                  : hasOwnRotation
-                    ? copy.compare.optionsDescription
-                    : copy.compare.optionsDescriptionSolo}
-              </p>
-            </div>
-            <Segmented
-              legend={copy.compare.showLabel}
-              value={depth}
-              onChange={setDepth}
-              options={[
-                { value: "answer", label: copy.compare.depthAnswer },
-                { value: "reasons", label: copy.compare.depthReasons },
-                { value: "evidence", label: copy.compare.depthEvidence },
-              ]}
-            />
+      {/* 2. Each choice as one open card: crops, one status, a few facts with icons */}
+      {visibleOptions.length > 0 ? (
+        <section aria-labelledby="options-title" className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 id="options-title" className="m-0 text-headline text-ink">
+              {hasAlternatives ? copy.compare.optionsTitle : copy.compare.optionsTitleYours}
+            </h2>
+            <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+              {!hasAlternatives ? copy.compare.optionsDescriptionYours : hasOwnRotation ? copy.compare.optionsDescription : copy.compare.optionsDescriptionSolo}
+            </p>
           </div>
-          <div className="flex flex-col gap-3">
-            {displayOptions.map((o) => (
-              <details key={o.id} className="group rounded-lg border border-line bg-surface-raised">
-                <summary className="min-h-tap cursor-pointer p-4 sm:p-5">
-                  <span className="ml-1 inline-flex max-w-full flex-col gap-1 align-top">
-                    <span className="text-body-sm text-ink-muted">{o.id === comparison.current.id ? "Your current crops" : "Another choice to discuss"}</span>
-                    <span className="text-headline font-semibold text-ink">{o.rotation.slots.map(slotName).join(" → ")}</span>
-                    <span className="text-body-sm text-ink-muted">{copy.compare.fitLabel[o.fit]} · Open to see benefits and cautions</span>
-                  </span>
-                </summary>
-                <OptionRow
-                option={o}
-                now={now}
-                limits={limitsById.get(o.id) ?? []}
-                strip={stripOf(o)}
-                depth={depth}
-                best={o.id === bestId}
-                isYours={o.id === comparison.current.id && hasOwnRotation}
-                place={display.state === "comparable" ? rankedById.get(o.id)?.place : undefined}
-                field={field}
-                display={display.options.find((item) => item.id === o.id)}
-                showComparativeMetrics={display.state === "comparable"}
-              />
-              </details>
-            ))}
-          </div>
+          <ol className="m-0 flex list-none flex-col gap-4 p-0">
+            {visibleOptions.map((o) => {
+              const isYours = o.id === comparison.current.id && hasOwnRotation;
+              const item = display.options.find((d) => d.id === o.id);
+              const limits = limitsById.get(o.id) ?? [];
+              const facts = simpleFacts(o, now, isYours, display.state === "comparable", item);
+              return (
+                <li key={o.id}>
+                  <article
+                    aria-labelledby={`choice-${o.id}`}
+                    className={"flex flex-col gap-4 rounded-lg border bg-surface-raised p-4 sm:p-5 " + (isYours ? "border-line-strong" : "border-line")}
+                  >
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 id={`choice-${o.id}`} className="m-0 text-label font-semibold text-ink-muted">
+                          {optionName(o)}
+                        </h3>
+                        <RiskChip hazard={FIT_HAZARD[o.fit]}>{copy.compare.fitLabel[o.fit]}</RiskChip>
+                      </div>
+                      <CropPills names={o.rotation.slots.map((sl) => slotName(sl))} />
+                      {limits.some((c) => c.result === "fail") ? <Message tone="problem" compact title="Breaks one of the limits you set" /> : null}
+                      {o.fit === "does-not-fit" && o.noFitReason ? <p className="m-0 text-body-sm text-ink">{o.noFitReason}</p> : null}
+                    </div>
+
+                    {facts.length > 0 ? (
+                      <ul className="m-0 flex list-none flex-col gap-3 border-t border-line p-0 pt-3">
+                        {facts.map((f) => (
+                          <li key={f.text} className="flex items-start gap-3">
+                            <span className={"grid size-9 shrink-0 place-items-center rounded-pill " + f.tone}>
+                              <Icon name={f.icon} size={18} />
+                            </span>
+                            <span className="flex min-w-0 flex-col pt-0.5">
+                              <span className="text-source font-medium text-ink-muted">{f.label}</span>
+                              <span className="text-body text-ink">{f.text}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+
+                    <details className="group border-t border-line pt-1">
+                      <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-label font-medium text-field [&::-webkit-details-marker]:hidden">
+                        <Icon name="next" size={18} className="transition-transform group-open:rotate-90" />
+                        More details
+                      </summary>
+                      <OptionRow
+                        option={o}
+                        now={now}
+                        limits={limits}
+                        strip={stripOf(o)}
+                        depth="reasons"
+                        best={o.id === bestId}
+                        isYours={isYours}
+                        place={display.state === "comparable" ? rankedById.get(o.id)?.place : undefined}
+                        field={field}
+                        display={item}
+                        showComparativeMetrics={display.state === "comparable"}
+                        hideSummary
+                      />
+                    </details>
+                  </article>
+                </li>
+              );
+            })}
+          </ol>
         </section>
       ) : null}
 
+      {/* 3. What to do next, straight after the choices */}
+      <section aria-labelledby="next-step" className="flex flex-col gap-3 rounded-lg border border-line bg-surface-raised p-4 sm:p-5 print:hidden">
+        <h2 id="next-step" className="m-0 text-headline text-ink">What would you like to do?</h2>
+        <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
+          <Icon name="report" />
+          See my farmer summary
+        </Link>
+        <div className="grid gap-2 sm:flex sm:flex-wrap">
+          {hasOwnRotation ? (
+            <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary", "w-full sm:w-auto")}>
+              <Icon name="done" />
+              Keep my current crops
+            </button>
+          ) : null}
+          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary", "w-full sm:w-auto")}>
+            <Icon name="rotation" />
+            Change my crops
+          </Link>
+        </div>
+        {keepingMine ? (
+          <Message tone="success" role="status" title="Your current crops are unchanged">
+            You can come back and change them later.
+          </Message>
+        ) : null}
+      </section>
+
+      <Disclosure title="Before planting: questions to check locally">
+        <CheckLocally
+          cropNames={[
+            ...new Set(
+              displayOptions
+                .filter((o) => o.id !== comparison.current.id)
+                .flatMap((o) => o.slots.map((e) => e.name))
+                .filter(Boolean),
+            ),
+          ]}
+        />
+      </Disclosure>
+
+      <JudgmentNote compact />
+
+      {/* 4. Detail for advisers and extension workers, out of the farmer's way */}
+      <section aria-labelledby="adviser-detail" className="flex flex-col gap-3 border-t border-line pt-5">
+        <div className="flex flex-col gap-1">
+          <h2 id="adviser-detail" className="m-0 text-label font-semibold text-ink">For advisers: more detail</h2>
+          <p className="m-0 text-body-sm text-ink-muted">You do not need these to decide. They show how the choices were checked.</p>
+        </div>
+
+        <Disclosure title="How we checked these choices" hint={display.state === "comparable" ? "Ready" : "Some information is missing"}>
+          <p className="m-0 max-w-measure text-body-sm text-ink-muted">
+            We replayed {display.replay?.completeYears ?? 0} complete past years from 2016–2025 to compare how each choice handled the same weather.
+          </p>
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body-sm text-ink-muted">
+            <li>Regional weather: {plainSourceStatus(display.sourceStatuses?.power)}</li>
+            <li>Detailed satellite rain: {plainSourceStatus(display.sourceStatuses?.imerg)}</li>
+            <li>Regional soil moisture: {plainSourceStatus(display.sourceStatuses?.smap)}</li>
+            <li>Clear crop-cover images: {plainSourceStatus(display.sourceStatuses?.hls)}</li>
+            <li>Land slope: {plainSourceStatus(display.sourceStatuses?.srtm)}</li>
+          </ul>
+          {analysis.retrieving ? <p className="m-0 text-body-sm text-ink">More information is still loading. You can review what is ready now.</p> : null}
+          {analysis.showingCache ? <p className="m-0 text-body-sm text-ink">You are seeing previously saved information because a refresh is not available.</p> : null}
+          {display.state === "partial-evidence" || display.state === "unresolved" ? <button type="button" onClick={analysis.retry} className={buttonClass("secondary", "self-start")}>Try loading again</button> : null}
+        </Disclosure>
       {hasAlternatives && display.state === "comparable" ? (
-        <details className="rounded-lg border border-line bg-surface-raised">
-          <summary className="min-h-tap cursor-pointer p-4 text-headline text-ink">{copy.compare.measures}</summary>
+        <details className="rounded-md border border-line bg-surface">
+          <summary className="min-h-tap cursor-pointer p-4 text-label text-ink">{copy.compare.measures}</summary>
           <div className="overflow-x-auto border-t border-line">
             <table className="w-full min-w-[44rem] border-collapse text-left">
               <caption className="sr-only">{copy.compare.tableLabel}</caption>
@@ -562,7 +693,8 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                   </th>
                   {displayOptions.map((o) => (
                     <th key={o.id} scope="col" className={"p-4 align-top " + (o.id === bestId ? "border-t-4 border-t-field bg-field-soft/60" : "")}>
-                      <span className="block text-headline text-ink">{o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : o.label}</span>
+                      <span className="block text-headline text-ink">{optionName(o)}</span>
+                      <span className="mt-0.5 block text-body-sm text-ink-muted">{o.label}</span>
                       <span className="mt-1 flex flex-wrap gap-1.5">
                         {o.id === comparison.current.id && hasOwnRotation ? <StatusTag tag="yours" /> : null}
                         {o.id === bestId ? <StatusTag tag="best-match" /> : null}
@@ -595,18 +727,17 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </details>
       ) : null}
 
-      {depth === "evidence" && displayOptions.length > 0 ? (
-        <section aria-labelledby="evidence-all" className="flex flex-col gap-6">
-          <h2 id="evidence-all" className="m-0 text-headline text-ink">
-            {copy.compare.evidenceAllTitle}
-          </h2>
-          {displayOptions.map((o, i) => (
-            <div key={o.id} className="flex flex-col gap-3">
-              <h3 className="m-0 text-headline text-ink">{o.id === comparison.current.id && hasOwnRotation ? "What you grow now" : o.label}</h3>
-              <OptionDetail option={o} rainyMonths={rainyMonths} fieldId={field.id} region={field.region} showCalls={i === 0} />
-            </div>
-          ))}
-        </section>
+      {displayOptions.length > 0 ? (
+        <Disclosure title={copy.compare.evidenceAllTitle} lazy>
+          <div className="flex flex-col gap-6">
+            {displayOptions.map((o, i) => (
+              <div key={o.id} className="flex flex-col gap-3">
+                <h3 className="m-0 text-headline text-ink">{optionName(o)}</h3>
+                <OptionDetail option={o} rainyMonths={rainyMonths} fieldId={field.id} region={field.region} showCalls={i === 0} />
+              </div>
+            ))}
+          </div>
+        </Disclosure>
       ) : null}
 
       {comparison.region !== "unsupported" && (hasOwnRotation || comparison.mcda.status === "ranked") ? (
@@ -630,7 +761,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
                       <span className="tabular grid min-h-7 min-w-10 place-items-center rounded-pill border border-line-strong px-2 font-mono text-source">
                         {copy.compare.rankPlace(r.originalPlace)}
                       </span>
-                      <span className="min-w-0 flex-1 text-label text-ink">{o?.id === comparison.current.id && hasOwnRotation ? "What you grow now" : o?.label}</span>
+                      <span className="min-w-0 flex-1 text-label text-ink">{o ? optionName(o) : ""}</span>
                       {r.originalPlace === 1 && display.tiedFirst ? <span className="text-source text-ink-muted">Close score; no clear first choice</span> : null}
                       {o && o.badges.length > 0 ? <span className="w-full text-body-sm text-ink-muted">{o.badges.map(farmerBadge).join(" · ")}</span> : null}
                     </li>
@@ -731,34 +862,7 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
         </Disclosure>
       ) : null}
 
-      <Disclosure title="Before planting: questions to check locally">
-        <CheckLocally
-        cropNames={[
-          ...new Set(
-            displayOptions
-              .filter((o) => o.id !== comparison.current.id)
-              .flatMap((o) => o.slots.map((e) => e.name))
-              .filter(Boolean),
-          ),
-        ]}
-        />
-      </Disclosure>
-
-      <JudgmentNote compact />
-
-      <div className="flex flex-col items-start gap-3 border-t border-line pt-5 print:hidden">
-        <h2 className="m-0 text-headline text-ink">Choose your next step</h2>
-        <Link href={`/fields/${field.id}/report`} className={buttonClass("primary", "w-full sm:w-auto", "lg")}>
-          Open farmer summary
-          <Icon name="next" />
-        </Link>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setKeepingMine(true)} className={buttonClass("secondary")}>Keep my current crops</button>
-          <Link href={`/fields/${field.id}/rotation`} className={buttonClass("secondary")}>Edit crops and dates</Link>
-          <button type="button" onClick={() => { setDepth("reasons"); document.getElementById("options-title")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className={buttonClass("secondary")}>See why</button>
-        </div>
-        {keepingMine ? <p role="status" className="m-0 text-body-sm text-ink">Your current crops are unchanged. You can return and edit them later.</p> : null}
-      </div>
+      </section>
     </>
   );
 }
@@ -775,6 +879,7 @@ function OptionRow({
   field,
   display,
   showComparativeMetrics,
+  hideSummary = false,
 }: {
   option: EvaluatedOption;
   now: EvaluatedOption | null;
@@ -787,6 +892,8 @@ function OptionRow({
   field: Field;
   display?: DisplayOption;
   showComparativeMetrics: boolean;
+  /** Inside a choice card the name, status, caution and check are already shown above. */
+  hideSummary?: boolean;
 }) {
   const diffs = now && !isYours ? differences(o, now) : [];
   const figures = keyFigures(o, strip);
@@ -794,7 +901,8 @@ function OptionRow({
 
   return (
     <article
-      aria-labelledby={`option-${o.id}`}
+      aria-labelledby={hideSummary ? undefined : `option-${o.id}`}
+      aria-label={hideSummary ? "More details" : undefined}
       className={
         "relative flex min-w-0 flex-col gap-4 border-t bg-surface-raised p-4 sm:p-5 " +
         (best ? "border-2 border-field bg-field-soft/40 pt-6" : "border-line")
@@ -806,7 +914,7 @@ function OptionRow({
           Best match for what matters to you
         </span>
       ) : null}
-      <div className="flex flex-col gap-2">
+      {!hideSummary ? <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 id={`option-${o.id}`} className="m-0 min-w-0 text-headline text-ink">
             {isYours ? "What you grow now" : o.label}
@@ -825,12 +933,14 @@ function OptionRow({
           ))}
         </div>
         {o.fit === "does-not-fit" && o.noFitReason ? <p className="m-0 max-w-measure text-body-sm text-ink">{o.noFitReason}</p> : null}
-      </div>
+      </div> : <p className="m-0 max-w-measure text-body-sm text-ink-muted">{isYours ? copy.compare.yoursNote : o.reason}</p>}
 
       {display ? (
         <dl className="m-0 flex flex-col gap-2 border-t border-line pt-3 text-body-sm">
-          <div><dt className="font-medium text-ink">Main caution</dt><dd className="m-0 text-ink-muted">{display.tradeOff}</dd></div>
-          <div><dt className="font-medium text-ink">Check before choosing</dt><dd className="m-0 text-ink-muted">{display.localCheck}</dd></div>
+          {!hideSummary ? <>
+            <div><dt className="font-medium text-ink">Main caution</dt><dd className="m-0 text-ink-muted">{display.tradeOff}</dd></div>
+            <div><dt className="font-medium text-ink">Check before choosing</dt><dd className="m-0 text-ink-muted">{display.localCheck}</dd></div>
+          </> : null}
           {depth !== "answer" ? <>
             <div><dt className="font-medium text-ink">What we assumed</dt><dd className="m-0 text-ink-muted">{display.assumption}</dd></div>
             <div><dt className="font-medium text-ink">What we still do not know</dt><dd className="m-0 text-ink-muted">{display.unknown}</dd></div>
@@ -886,7 +996,7 @@ function OptionRow({
           </div>
           <div className="flex flex-col gap-2">
             <h4 className="m-0 text-label text-ink">{copy.compare.againstLimits}</h4>
-            <LimitSummary checks={limits} />
+            <LimitSummary checks={limits} fieldId={field.id} />
           </div>
           {o.unknowns.length > 0 ? (
             <div className="flex flex-col gap-1">

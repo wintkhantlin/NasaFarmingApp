@@ -6,8 +6,8 @@
 export const ECOSTRESS_MASK_FILL = 255;
 
 export const ECOSTRESS_QA_POLICY =
-  "ECOSTRESS: drop cloud = 1 and water = 1 and fill (255). LST is land-surface temperature in kelvin (not air temperature); " +
-  "ETdaily is W/m2 (not mm/day).";
+  "ECOSTRESS: drop cloud = 1 and water = 1 and fill (255). For LST, keep only mandatory-QA bits 0-1 = 00 (best quality). " +
+  "LST is land-surface temperature (not air temperature); ETdaily is W/m² (not mm/day).";
 
 export function ecostressClear(cloud: number | null, water: number | null): boolean {
   const c = cloud === null || cloud === ECOSTRESS_MASK_FILL ? null : cloud;
@@ -15,6 +15,12 @@ export function ecostressClear(cloud: number | null, water: number | null): bool
   // an unknown mask is not "clear": missing QA never passes
   if (c === null || w === null) return false;
   return c === 0 && w === 0;
+}
+
+/** ECOSTRESS L2 LSTE mandatory QA is stored in the least-significant two bits. */
+export function ecostressLstUsable(qc: number | null, cloud: number | null, water: number | null): boolean {
+  if (qc === null || !Number.isInteger(qc) || qc < 0) return false;
+  return (qc & 0b11) === 0 && ecostressClear(cloud, water);
 }
 
 export const kelvinToCelsius = (k: number) => k - 273.15;

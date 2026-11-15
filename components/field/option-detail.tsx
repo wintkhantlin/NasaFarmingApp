@@ -4,14 +4,17 @@ import { CropCalendar } from "@/components/field/crop-calendar";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Provenance, ScopeBadge } from "@/components/ui/provenance";
+import { Message } from "@/components/ui/message";
 import { RiskChip } from "@/components/ui/risk-chip";
 import { copy } from "@/lib/copy/en";
 import type { EvaluatedOption, FitStatus, SlotEvaluation } from "@/lib/engine/compare";
 import type { FitLevel } from "@/lib/engine/suitability";
 import { ofSeasons } from "@/lib/evidence/indicator";
-import { formatSpan } from "@/lib/rotation-format";
+import { formatSpan, slotName } from "@/lib/rotation-format";
+import { getCropById } from "@/lib/data/crops";
 import { useFieldsStore } from "@/lib/store/fields-store";
 import type { Hazard } from "@/components/ui/icons";
+import type { RuleScope } from "@/lib/types";
 
 const fmt = (n: number | null | undefined, d = 0) => (n === null || n === undefined ? "unknown" : n.toFixed(d));
 const mmk = (n: number) => `${Math.round(n).toLocaleString()} MMK`;
@@ -62,22 +65,25 @@ export function YourCallMarker({
 
   return (
     <div className="flex flex-col gap-2 rounded-md bg-surface p-3 text-body-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <RiskChip hazard="drought">Your call</RiskChip>
-          <span className="font-medium text-ink">{topic}</span>
-        </div>
-        {fieldId ? (
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="cursor-pointer text-source text-field underline hover:text-ink"
-          >
-            {open ? "Close" : "Not right for my field?"}
-          </button>
-        ) : null}
-      </div>
-      <p className="m-0 text-ink-muted">{note}</p>
+      <Message
+        tone="info"
+        compact
+        title={topic}
+        action={
+          fieldId ? (
+            <button
+              type="button"
+              onClick={() => setOpen(!open)}
+              aria-expanded={open}
+              className="inline-flex min-h-tap cursor-pointer items-center text-label text-field underline hover:text-ink"
+            >
+              {open ? "Close" : "Not right for my field?"}
+            </button>
+          ) : null
+        }
+      >
+        {note}
+      </Message>
       {open ? (
         <div className="mt-2 flex flex-col gap-2 border-t border-line pt-2">
           <p className="text-source text-ink font-medium">
@@ -147,19 +153,19 @@ function SuitabilityBlock({ e }: { e: SlotEvaluation }) {
         <p className="m-0 text-label text-ink">
           {e.name} <span className="text-body-sm font-normal text-ink-muted">{formatSpan(e.slot.plantDate, e.slot.harvestDate)}</span>
         </p>
-        <RiskChip hazard={LEVEL[e.suitability.overall].hazard}>{LEVEL[e.suitability.overall].word}</RiskChip>
+        {e.suitability.overall !== "unknown" ? <RiskChip hazard={LEVEL[e.suitability.overall].hazard}>{LEVEL[e.suitability.overall].word}</RiskChip> : null}
       </div>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {e.suitability.checks.map((c) => (
           <li key={c.id} className="flex flex-col gap-0.5 border-t border-line pt-1.5 first:border-0 first:pt-0">
             <span className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
               <span className="font-medium">{c.label}</span>
-              <RiskChip hazard={LEVEL[c.level].hazard}>{LEVEL[c.level].word}</RiskChip>
+              {c.level !== "unknown" ? <RiskChip hazard={LEVEL[c.level].hazard}>{LEVEL[c.level].word}</RiskChip> : null}
             </span>
             <span className="text-body-sm text-ink-muted">{c.detail}</span>
             <span className="flex flex-wrap items-center gap-2 text-source text-ink-muted">
               {c.inputSource ? <span>Input: {c.inputSource}</span> : null}
-              {c.ruleSource ? <ScopeBadge scope={c.ruleSource.scope} /> : null}
+              {c.ruleSource ? <ScopeBadge scope={c.ruleSource.scope} refText={c.ruleSource.ref} /> : null}
             </span>
           </li>
         ))}
@@ -196,6 +202,52 @@ function WaterBlock({ e }: { e: SlotEvaluation }) {
       {e.rootZone?.status === "unknown" ? <p className="m-0 text-ink-muted">Root-zone balance not run: needs {e.rootZone.missing.join(", ")}.</p> : null}
     </div>
   );
+}
+
+interface Citation {
+  scope: RuleScope;
+  ref: string;
+  url?: string;
+}
+
+/** The sourced nitrogen-fixation range behind each legume in the option. */
+function nitrogenSources(o: EvaluatedOption): Citation[] {
+  const seen = new Map<string, Citation>();
+  for (const slot of o.rotation.slots) {
+    const n = slot.cropId ? getCropById(slot.cropId)?.profile?.nFixKgHa : undefined;
+    if (n && !seen.has(n.ref)) seen.set(n.ref, { scope: n.scope, ref: n.ref, url: n.url });
+  }
+  return [...seen.values()];
+}
+
+/**
+ * When there is no crop-after-crop pair to check (one crop, or overlapping crops),
+ * show each crop's family from the library and what repeating it means, with the source.
+ */
+function familyEvidence(o: EvaluatedOption): Array<Citation & { key: string; family: string; text: string; repeats: boolean }> {
+  const crops = o.rotation.slots.filter((sl) => sl.kind !== "fallow" && sl.cropId);
+  const families = new Map<string, string[]>();
+  for (const sl of crops) {
+    const c = getCropById(sl.cropId as string);
+    if (!c) continue;
+    families.set(c.family, [...(families.get(c.family) ?? []), slotName(sl)]);
+  }
+  const single = crops.length === 1;
+  return [...families.entries()].map(([family, names]) => {
+    const crop = getCropById(crops.find((sl) => getCropById(sl.cropId as string)?.family === family)?.cropId as string);
+    const selfRule = crop?.profile?.rotationRules.find((r) => r.avoidAfterFamilies.includes(family));
+    const repeats = single || names.length > 1;
+    const who = [...new Set(names)].join(" and ");
+    const text = single
+      ? `${who} is grown every cycle, so pests and diseases of the ${family} family can carry over from one season to the next.${selfRule ? ` ${selfRule.reason}` : ""}`
+      : repeats
+        ? `${who} share the ${family} family, so their pests and diseases can pass between them.`
+        : `${who} is the only ${family} crop in this sequence.`;
+    const source: Citation = selfRule
+      ? { scope: selfRule.scope, ref: selfRule.ref }
+      : { scope: "analyst-assumption", ref: `Crop family from the crop library${crop?.sources[0] ? ` (${crop.sources[0].field}: ${crop.sources[0].ref})` : ""}; general host-family rotation guidance` };
+    return { key: family, family, text, repeats, ...source };
+  });
 }
 
 /** Everything the engine knows about one option, in the order a farmer or adviser would ask for it. */
@@ -242,19 +294,19 @@ export function OptionDetail({
         ) : null}
         <YC
           topic="Variety and sowing dates"
-          note="Sowing calendars are general species baselines. Sowing dates should be tuned to local varieties and the arrival of the monsoon."
+          note="Sowing windows come from the regional crop calendar. Your variety and when the monsoon arrives on your field fine-tune them."
           fieldId={fieldId}
         />
         {region === "ayeyarwady" ? (
           <YC
             topic="Flooded rice and bare soil"
-            note="Satellite water pixels do not mean bare ground. Standing water and flood recession timing depend on local bunding."
+            note="Satellite water readings show where water stands. How fast it drains from your field depends on your bunds and is best judged on the ground."
             fieldId={fieldId}
           />
         ) : null}
       </Section>
 
-      <Section id={`${o.id}-fit`} title={copy.compare.suitabilityTitle} description="Each check is preferred, tolerated, outside or unknown. Unknown is never a pass.">
+      <Section id={`${o.id}-fit`} title={copy.compare.suitabilityTitle} description="Each check compares past seasons at this field with published temperature, rain and soil ranges for the crop.">
         <div className="grid gap-3 lg:grid-cols-2">
           {o.slots.map((e) => (
             <SuitabilityBlock key={e.slot.id} e={e} />
@@ -262,7 +314,7 @@ export function OptionDetail({
         </div>
       </Section>
 
-      <Section id={`${o.id}-water`} title={copy.compare.waterTitle} description="Historical seasons replayed over these crop windows. Not a forecast.">
+      <Section id={`${o.id}-water`} title={copy.compare.waterTitle} description="Rain and crop water demand for each crop window, replayed over past seasons at this field.">
         {o.slots.some(s => s.evaluationStatus === "not-evaluated") ? <p className="text-body-sm text-ink-muted">Not-evaluated: overlapping or relay crops cannot use the sequential water/ET model. Check drainage and topsoil locally.</p> : null}
         <div className="grid gap-3 lg:grid-cols-2">
           {o.slots.map((e) => (
@@ -270,17 +322,17 @@ export function OptionDetail({
           ))}
         </div>
         <p className="m-0 text-body-sm text-ink-muted">
-          Dry-season replay: {o.dryYear.evaluated > 0 ? `${ofSeasons(o.dryYear.passes, o.dryYear.evaluated)} met every crop's checks` : "not evaluated"}. {o.dryYear.note}
+          Dry-season replay: {o.dryYear.evaluated > 0 ? `${ofSeasons(o.dryYear.passes, o.dryYear.evaluated)} met every crop's checks` : "needs complete past dry seasons for these crop windows"}. {o.dryYear.note}
           {o.dryYear.label ? ` ${o.dryYear.label}.` : ""}
         </p>
         <YC
           topic="Water on your field"
-          note="SMAP is a 9 km cell and cannot see your canal, tube well or low corner. Your experience with local moisture beats the satellite model."
+          note="Soil moisture comes from NASA SMAP, one value per 9 km area. What you see from your canal, tube well or low corner sharpens it for your field."
           fieldId={fieldId}
         />
       </Section>
 
-      <Section id={`${o.id}-soil`} title={copy.compare.soilTitle} description="Mechanisms and ranges, not predictions of soil carbon or yield.">
+      <Section id={`${o.id}-soil`} title={copy.compare.soilTitle} description="Published nitrogen and soil-cover ranges for these crops, with their sources.">
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
             <h4 className="m-0 text-label text-ink">{copy.compare.nitrogenTitle}</h4>
@@ -291,7 +343,10 @@ export function OptionDetail({
               {o.nitrogen.removedKgHa !== null ? `Grain from your yields removes about ${fmt(o.nitrogen.removedKgHa)} kg N/ha.` : "Nitrogen removed in grain is unknown without your yields."}
             </p>
             <p className="m-0 text-ink-muted">{o.nitrogen.note}</p>
-            {o.nitrogen.scope ? <ScopeBadge scope={o.nitrogen.scope} className="self-start" /> : null}
+            {nitrogenSources(o).map((src) => (
+              <ScopeBadge key={src.ref} scope={src.scope} refText={src.ref} url={src.url} className="self-start" />
+            ))}
+            {o.nitrogen.scope && nitrogenSources(o).length === 0 ? <ScopeBadge scope={o.nitrogen.scope} className="self-start" /> : null}
           </div>
           <div className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3 text-body-sm">
             <h4 className="m-0 text-label text-ink">{copy.compare.erosionTitle}</h4>
@@ -313,51 +368,85 @@ export function OptionDetail({
             {o.mechanisms.map((m) => (
               <li key={m.id} className="flex flex-col gap-0.5">
                 <span className="text-ink"><strong>{m.title}.</strong> {m.text}</span>
-                <ScopeBadge scope={m.scope} className="self-start" />
+                <ScopeBadge scope={m.scope} refText={m.ref} className="self-start" />
               </li>
             ))}
           </ul>
         </div>
         <YC
           topic="Soil fertility"
-          note="The soil map is 250 m and global. Your own soil test or hands-on experience beats any regional map."
+          note="Soil values come from SoilGrids, one value per 250 m. A soil test or your own experience gives the field-level answer."
           fieldId={fieldId}
         />
         {region === "shan" ? (
           <YC
             topic="Slope and erosion"
-            note="Weather models cannot resolve every mountain slope or valley. Contour bunds, terracing and cover crops depend on your topography."
+            note="Slope comes from NASA SRTM elevation data. Your contour bunds, terraces and cover crops decide how much soil stays in place."
             fieldId={fieldId}
           />
         ) : null}
       </Section>
 
-      <Section id={`${o.id}-pest`} title={copy.compare.pestTitle} description="From crop family relationships only. Weather cannot identify a disease.">
-        {o.slots.some(s => s.evaluationStatus === "not-evaluated") ? <p className="text-body-sm text-ink-muted">Not-evaluated: disease and family-sequence interpretation for overlapping crops is unverified.</p> : o.pest.length === 0 ? (
-          <p className="m-0 text-body-sm text-ink-muted">Only one crop, so there is no sequence to check.</p>
-        ) : (
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+      <Section id={`${o.id}-pest`} title={copy.compare.pestTitle} description="Checked against crop families and the named pests and diseases each pair of crops shares. Each finding shows its source.">
+        {o.slots.some((sl) => sl.evaluationStatus === "not-evaluated") ? (
+          <p className="m-0 text-body-sm text-ink-muted">These crops overlap in the field, so each crop&apos;s family is listed below instead of a crop-after-crop check.</p>
+        ) : null}
+        {o.pest.length > 0 && !o.slots.some((sl) => sl.evaluationStatus === "not-evaluated") ? (
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {o.pest.map((p, i) => (
-              <li key={i} className="flex flex-col gap-0.5 text-body-sm">
+              <li key={i} className="flex flex-col gap-1 text-body-sm">
                 <span className="flex flex-wrap items-center gap-2 text-ink">
-                  <RiskChip hazard={p.result === "same-family" ? "drought" : p.result === "different-family" ? "healthy" : "drought"}>
-                    {p.result === "same-family" ? "Same family" : p.result === "different-family" ? "Different family" : "Unknown"}
-                  </RiskChip>
+                  {p.result !== "unknown" ? (
+                    <RiskChip hazard={p.result === "same-family" || p.shared.some((h) => h.severity === "caution") ? "drought" : "healthy"}>
+                      {p.shared.some((h) => h.severity === "caution")
+                        ? "Shares a soil disease or pest"
+                        : p.result === "same-family"
+                          ? "Same family"
+                          : "Different family"}
+                    </RiskChip>
+                  ) : null}
                   {p.text}
                 </span>
-                {p.scope ? <ScopeBadge scope={p.scope} className="self-start" /> : null}
+                {p.shared.map((h) => (
+                  <span key={h.organismId} className="text-ink-muted">
+                    <span className="text-ink">{h.name}</span> (<i>{h.scientific}</i>): {h.advice}
+                  </span>
+                ))}
+                {p.scope ? <ScopeBadge scope={p.scope} refText={p.ref} /> : null}
+                {p.shared[0] ? <ScopeBadge scope={p.shared[0].scope} refText={p.shared.map((h) => h.ref).join("; ")} /> : null}
+              </li>
+            ))}
+            {o.hostReturns.map((h) => (
+              <li key={`return-${h.organismId}`} className="flex flex-col gap-1 text-body-sm">
+                <span className="flex flex-wrap items-center gap-2 text-ink">
+                  <RiskChip hazard="drought">Comes back too soon</RiskChip>
+                  {h.text}
+                </span>
+                <ScopeBadge scope={h.scope} refText={h.ref} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {familyEvidence(o).map((f) => (
+              <li key={f.key} className="flex flex-col gap-1 text-body-sm">
+                <span className="flex flex-wrap items-center gap-2 text-ink">
+                  <RiskChip hazard={f.repeats ? "drought" : "healthy"}>{f.family}</RiskChip>
+                  {f.text}
+                </span>
+                <ScopeBadge scope={f.scope} refText={f.ref} />
               </li>
             ))}
           </ul>
         )}
         <YC
           topic="Pests and disease"
-          note="NASA data cannot identify insect pests, stem borers, or soil-borne fungi or guarantee that a rotation breaks their cycle."
+          note="Family rules come from the crop library. Pests and diseases you have seen on this field add evidence the library does not have."
           fieldId={fieldId}
         />
       </Section>
 
-      <Section id={`${o.id}-forage`} title={copy.compare.forageTitle} description="Environmental feasibility only. Greenness is not forage quality.">
+      <Section id={`${o.id}-forage`} title={copy.compare.forageTitle} description="Feed use of each crop, from the crop library.">
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
           {o.forage.forage.map((f) => (
             <li key={f.cropId}>
@@ -368,7 +457,7 @@ export function OptionDetail({
         <p className="m-0 text-body-sm text-ink-muted">Still needed: {o.forage.needs.join("; ")}.</p>
       </Section>
 
-      <Section id={`${o.id}-econ`} title={copy.compare.economicsTitle} description="From the price, yield and cost ranges you entered. Weather does not change them.">
+      <Section id={`${o.id}-econ`} title={copy.compare.economicsTitle} description="Price, yield and cost ranges for each crop, with where each range comes from.">
         {o.economics.slots.length === 0 ? null : (
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body-sm text-ink">
             {o.economics.slots.map((s) => (
@@ -386,7 +475,7 @@ export function OptionDetail({
         </p>
         <YC
           topic="Markets, prices and labour"
-          note="No satellite can see current farmgate prices, buyer presence, or harvest labour availability in your township."
+          note="Prices and costs come from the ranges shown above. Your local buyers, farmgate prices and harvest labour give the current picture."
           fieldId={fieldId}
         />
       </Section>

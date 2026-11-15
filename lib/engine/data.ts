@@ -4,7 +4,7 @@ import type { ImergDay } from "../nasa/imerg";
 import type { SmapDay } from "../nasa/appeears/results";
 import type { ObservationSummary } from "../nasa/derive/ndvi";
 import type { SlopeStats } from "../nasa/derive/slope";
-import type { RemoteProvider } from "../server/remote-sensing";
+import type { EcostressObservation, RemoteProvider } from "../server/remote-sensing";
 import { completeYears, type DailyRecord } from "./climate";
 import type { DayValue } from "./rain";
 
@@ -83,6 +83,15 @@ export interface EngineData {
   hlsInfo: RemoteInfo;
   slope: SlopeStats | null;
   srtmInfo: RemoteInfo;
+  /** Regional 250 m, 16-day vegetation history; not field-scale crop identity. */
+  modis: ObservationSummary[];
+  modisInfo: RemoteInfo;
+  /** Clear ECOSTRESS scenes in degrees Celsius; surface temperature, not air temperature. */
+  ecostressLst: EcostressObservation[];
+  ecostressLstInfo: RemoteInfo;
+  /** Clear ECOSTRESS modeled ET scenes in W/m²; not millimetres of crop water use. */
+  ecostressEt: EcostressObservation[];
+  ecostressEtInfo: RemoteInfo;
   soil: EffectiveSoil;
 }
 

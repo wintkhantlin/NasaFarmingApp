@@ -30,6 +30,9 @@ export function SourceStatusPanel({ conditions, remote }: { conditions: Conditio
     { title: copy.conditions.smapTitle, status: remote?.smap.status, note: copy.conditions.smapNote },
     { title: copy.conditions.hlsTitle, status: remote?.hls.status, note: "Clear observations only. Cloud, shadow, snow and water are screened out, and gaps are not zero." },
     { title: copy.conditions.srtmTitle, status: remote?.srtm.status, note: "Slope comes from neighbouring elevation cells. Slope is not soil loss." },
+    { title: "MODIS regional vegetation", status: remote?.modis.status, note: "A 250 m, 16-day regional greenness history. Mixed land cover means it does not identify the crop in this field." },
+    { title: "ECOSTRESS surface temperature", status: remote?.ecostressLst.status, note: "Clear, best-quality 70 m land-surface temperature. This is not air temperature." },
+    { title: "ECOSTRESS evapotranspiration", status: remote?.ecostressEt.status, note: "Clear 70 m modeled ET in W/m². It is context, not measured crop water use or mm/day." },
   ];
   return (
     <Panel as="section" aria-labelledby="sources" className="flex flex-col gap-3 p-4 sm:p-6">

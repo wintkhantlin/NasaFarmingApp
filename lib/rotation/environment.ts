@@ -27,6 +27,9 @@ function validateEnvironment(value: unknown): EnvironmentSnapshot {
   if (item.spatial_resolution_km !== undefined && item.spatial_resolution_km !== null && (!Number.isFinite(item.spatial_resolution_km) || item.spatial_resolution_km < 0)) {
     throw new Error("Environmental data contains an invalid grid resolution.");
   }
+  if (item.known_biases !== undefined && (!Array.isArray(item.known_biases) || item.known_biases.some((b) => typeof b !== "string"))) {
+    throw new Error("Environmental data contains invalid source notes.");
+  }
   return item;
 }
 

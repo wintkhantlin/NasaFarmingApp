@@ -130,8 +130,38 @@ describe("FieldOverview (S06 Field Hub)", () => {
   it("renders the next step callout guiding the farmer to their answer", () => {
     render(<FieldOverview fieldId={mockField.id} />);
 
-    expect(screen.getAllByText("See my answer").length).toBeGreaterThan(0);
-    expect(screen.getByText("Rice → Chickpea")).toBeInTheDocument();
+    expect(screen.getByText("Your answer is ready")).toBeInTheDocument();
+    expect(screen.getByText("See how Rice then Chickpea compares with other plans for this field.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See my answer" })).toBeInTheDocument();
+    // Boundary, rotation and soil test are done; the farm profile is the one optional detail left.
+    expect(screen.getByText("Answer ready · 1 optional detail would sharpen it")).toBeInTheDocument();
+  });
+
+  it("marks defaults as assumed and shows market access", () => {
+    render(<FieldOverview fieldId={mockField.id} />);
+
+    expect(screen.getByText("Balanced across water, soil and income (assumed)")).toBeInTheDocument();
+    expect(screen.getByText("Some irrigation (assumed)")).toBeInTheDocument();
+    expect(screen.getByText("Market")).toBeInTheDocument();
+    expect(screen.getByText("Not asked yet. Add it in farm details")).toBeInTheDocument();
+  });
+
+  it("says when a reading is a guess, and that the farmer's judgment comes first", () => {
+    storeState.fields = [{ ...mockField, region: "magway", soilOverride: undefined }];
+    render(<FieldOverview fieldId={mockField.id} />);
+
+    expect(screen.getByText(/Rain here is probably higher than shown: NASA.s figure was about 51% below the Mandalay/)).toBeInTheDocument();
+    expect(screen.getByText(/Soil is a map estimate/)).toBeInTheDocument();
+    expect(screen.getByText("Suggestions to discuss, not instructions.")).toBeInTheDocument();
+  });
+
+  it("gives every page link the 44 px navigation-row shape", () => {
+    const { container } = render(<FieldOverview fieldId={mockField.id} />);
+    for (const name of ["Edit crops", "Pests and diseases", "Weather and soil", "Edit details", "Printable report"]) {
+      const link = screen.getByRole("link", { name });
+      expect(link.className, name).toContain("min-h-tap");
+    }
+    expect(container).toBeTruthy();
   });
 
   it("renders current crop rotation summary with slot details", () => {

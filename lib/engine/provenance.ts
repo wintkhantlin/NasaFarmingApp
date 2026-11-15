@@ -1,6 +1,7 @@
 import { IMERG } from "../nasa/imerg";
 import { HLS_QA_POLICY } from "../nasa/qa/hls-fmask";
 import { MODIS_QA_POLICY } from "../nasa/qa/modis-vi";
+import { ECOSTRESS_QA_POLICY } from "../nasa/qa/ecostress";
 import { LANDSAT_QA_POLICY, MPC_CONFIG } from "../nasa/planetary-computer";
 import { PRODUCT_DOI } from "../nasa/appeears/products";
 import { makeIndicator, type DerivedIndicator, type EvidenceKind, type MissingReason } from "../evidence/indicator";
@@ -206,20 +207,49 @@ export function srtmIndicator(c: Common): DerivedIndicator {
 }
 
 export function modisIndicator(c: Common): DerivedIndicator {
+  const i = c.data.modisInfo;
+  const viaMpc = i.provider === "planetary-computer";
   return makeIndicator({
     ...base(c),
     sourceId: "G",
     kind: "observation",
-    product: "MOD13Q1 vegetation indices",
+    product: `MOD13Q1 vegetation indices${viaMpc ? " (via Microsoft Planetary Computer)" : ""}`,
     productVersion: "061",
     variableOrLayer: "_250m_16_days_NDVI",
-    sourceUrl: "https://appeears.earthdatacloud.nasa.gov/api/product/MOD13Q1.061",
+    sourceUrl: viaMpc ? `https://planetarycomputer.microsoft.com/dataset/${MPC_CONFIG.modisViCollection}` : "https://appeears.earthdatacloud.nasa.gov/api/product/MOD13Q1.061",
     doi: PRODUCT_DOI["MOD13Q1.061"],
     sourceResolution: "250 m, 16-day composites",
     nativeFootprint: "250 m cell: mixed land cover, regional vegetation context",
     aggregationMethod: c.statistic,
     qaPolicy: MODIS_QA_POLICY,
-    missingReason: c.value === null ? "source-unconfigured" : null,
+    retrievedAt: i.retrievedAt,
+    timeStandard: "UTC acquisition/composite date",
+    sourceCrs: viaMpc ? "Sinusoidal source grid, windowed at the field" : "Native MODIS sinusoidal grid",
+    missingReason: c.value === null ? missingFor(i.status) : null,
+  });
+}
+
+export function ecostressIndicator(c: Common & { variable: "LST" | "ETdaily" }): DerivedIndicator {
+  const isLst = c.variable === "LST";
+  const i = isLst ? c.data.ecostressLstInfo : c.data.ecostressEtInfo;
+  const product = isLst ? "ECO_L2T_LSTE.002" : "ECO_L3T_JET.002";
+  return makeIndicator({
+    ...base(c),
+    sourceId: "E",
+    kind: "model-estimate",
+    product: isLst ? "ECOSTRESS tiled land-surface temperature" : "ECOSTRESS tiled modeled evapotranspiration",
+    productVersion: "002",
+    variableOrLayer: c.variable,
+    sourceUrl: `https://appeears.earthdatacloud.nasa.gov/api/product/${product}`,
+    doi: PRODUCT_DOI[product],
+    retrievedAt: i.retrievedAt,
+    sourceResolution: "About 70 m, irregular ISS overpasses",
+    nativeFootprint: "About 70 m pixels; clear land pixels within the field outline",
+    aggregationMethod: c.statistic,
+    timeStandard: "UTC acquisition date",
+    qaPolicy: ECOSTRESS_QA_POLICY,
+    sourceCrs: "UTM tile",
+    missingReason: c.value === null ? missingFor(i.status) : null,
   });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import Alert from "@mui/material/Alert";
+import { Message } from "@/components/ui/message";
 import TextField from "@mui/material/TextField";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -247,7 +247,7 @@ export default function RotationExplorer() {
       </header>
 
       {storageWarning ? (
-        <Alert severity="warning">This browser blocked local storage. You can continue, but this draft may not be here when you return.</Alert>
+        <Message tone="caution" title="This draft may not be kept">This browser blocked local storage. You can continue, but the draft may not be here when you return.</Message>
       ) : null}
 
       {step === "area" ? (
@@ -395,7 +395,7 @@ function AreaStep({
         </Button>
       </div>
 
-      {message ? <Alert severity="info">{message}</Alert> : null}
+      {message ? <Message tone="info" title={message} /> : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
         <p className="m-0 text-body-sm text-ink-muted">GPS is optional and never blocks the preview.</p>
@@ -430,7 +430,7 @@ function CropStep({
         <Button variant="quiet" icon="back" onClick={onBack}>Edit area</Button>
       </div>
 
-      {warning ? <Alert severity="warning">{warning}</Alert> : null}
+      {warning ? <Message tone="caution" title={warning} /> : null}
 
       <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3" aria-label="Supported crops">
         {crops.map((crop) => crop ? (
@@ -493,7 +493,7 @@ function PreviewStep({
         </div>
       </div>
 
-      <Alert severity={preview.availability === "templates-unavailable" ? "warning" : "info"}>{preview.message}</Alert>
+      <Message tone={preview.availability === "templates-unavailable" ? "caution" : "info"} title={preview.message} />
       <RefinementDrawers draft={draft} onChange={onDraftChange} />
       <PlanHandoff draft={draft} />
 

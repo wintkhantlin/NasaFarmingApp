@@ -91,26 +91,27 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
     cleanup();
   });
 
-  describe("Dual View Experience Toggle", () => {
-    it("renders experience mode toggle buttons for Guided Farmer View and Advanced Timeline", () => {
+  describe("Crop entry mode toggle", () => {
+    it("renders concise guided and detailed editor choices", () => {
       render(<RotationEditor fieldId={mockField.id} />);
 
-      expect(screen.getByText(/Guided Farmer View/i)).toBeInTheDocument();
-      expect(screen.getByText(/Advanced Detail View/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Guided" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Detailed" })).toBeInTheDocument();
     });
 
-    it("can toggle freely between Guided Farmer View and Advanced Timeline", () => {
+    it("can toggle freely between guided questions and detailed editing", () => {
       render(<RotationEditor fieldId={mockField.id} />);
 
-      const guidedBtn = screen.getByText(/Guided Farmer View/i);
+      const guidedBtn = screen.getByRole("button", { name: "Guided" });
       fireEvent.click(guidedBtn);
 
-      // Should now show Guided Farmer Step 1 header
-      expect(screen.getByText(/Step 1: Your Field/i)).toBeInTheDocument();
-      expect(screen.getByText(/Confirm your field details/i)).toBeInTheDocument();
+      // Guided starts on priorities, with saved field details summarised rather than asked again
+      expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+      expect(screen.getByText("What matters most?")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Edit field" })).toHaveAttribute("href", `/fields/${mockField.id}/profile`);
 
-      // Can toggle back to Advanced Detail View
-      const advancedBtn = screen.getByText(/Advanced Detail View/i);
+      // Can toggle back to detailed editing
+      const advancedBtn = screen.getByRole("button", { name: "Detailed" });
       fireEvent.click(advancedBtn);
       expect(screen.getByText("Seasonal Timeline")).toBeInTheDocument();
     });
@@ -120,11 +121,14 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
     it("recognizes and renders the emerald Relay Broadcast (Ye-pyan) badge instead of an error", () => {
       render(<RotationEditor fieldId={mockField.id} />);
 
-      // Ensure we are in Advanced View
-      const advancedBtn = screen.getByText(/Advanced Detail View/i);
+      // Ensure we are in the detailed editor
+      const advancedBtn = screen.getByRole("button", { name: "Detailed" });
       fireEvent.click(advancedBtn);
 
       expect(screen.getByText(/Relay Broadcast \(Ye-pyan\)/i)).toBeInTheDocument();
+      // The pulse slot uses usual-season dates, so it is labelled as suggested, not exact
+      expect(screen.getByText("Suggested dates")).toBeInTheDocument();
+      expect(screen.getByText(/Suggested from the usual season/)).toBeInTheDocument();
     });
   });
 
@@ -162,13 +166,11 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
     });
   });
 
-  describe("Farmer Guided Flow 5-Step Journey", () => {
+  describe("Farmer Guided Flow 3-Step Journey", () => {
     it("opens the comparison step only after the chosen plan is saved", async () => {
       render(<RotationEditor fieldId={mockField.id} />);
-      fireEvent.click(screen.getByText(/Guided Farmer View/i));
-      fireEvent.click(screen.getByText(/Continue to Farm Conditions/i));
-      fireEvent.click(screen.getByText(/Continue to Priorities/i));
-      fireEvent.click(screen.getByText(/Compare Recommended Rotations/i));
+      fireEvent.click(screen.getByRole("button", { name: "Guided" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show options" }));
       fireEvent.click(screen.getByText(/Continue with/i));
       fireEvent.click(screen.getByRole("button", { name: /Save this plan/i }));
 
@@ -179,60 +181,68 @@ describe("PROMPTS 7 & 8: Farmer-Centered UI & Moisture Clock (U-03)", () => {
       let rejectSave!: (reason: Error) => void;
       const apply = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectSave = reject; }));
       render(<FarmerGuidedFlow field={mockField} currentSlots={mockRotation.slots} cycleYears={1} onApplyPlan={apply} onSwitchToAdvanced={vi.fn()} />);
-      fireEvent.click(screen.getByText(/Continue to Farm Conditions/i));
-      fireEvent.click(screen.getByText(/Continue to Priorities/i));
-      fireEvent.click(screen.getByText(/Compare Recommended Rotations/i));
-      expect(screen.getAllByText(/benchmark prices and assumed costs/)).toHaveLength(3);
+      fireEvent.click(screen.getByRole("button", { name: "Show options" }));
+      expect(screen.getAllByText(/benchmark prices and listed costs/)).toHaveLength(3);
       fireEvent.click(screen.getByText(/Continue with/i));
       fireEvent.click(screen.getByRole("button", { name: /Save this plan/i }));
       expect(screen.getByRole("button", { name: "Saving plan…" })).toBeDisabled();
       expect(screen.queryByText(/Plan saved in this browser/)).not.toBeInTheDocument();
       rejectSave(new Error("quota"));
-      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Could not save the plan"));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Plan save failed"));
       expect(screen.getByRole("button", { name: /Save this plan/i })).toBeEnabled();
     });
-    it("navigates through the 5 steps and preserves field input", () => {
+    it("goes priorities → compare → plan, with farm details optional", () => {
       const applyMock = vi.fn();
-      const switchMock = vi.fn();
-
       render(
         <FarmerGuidedFlow
           field={mockField}
           currentSlots={mockRotation.slots}
           cycleYears={1}
           onApplyPlan={applyMock}
-          onSwitchToAdvanced={switchMock}
+          onSwitchToAdvanced={vi.fn()}
         />,
       );
 
-      // Step 1
-      expect(screen.getByText(/Step 1: Your Field/i)).toBeInTheDocument();
+      // Step 1: field summary shown, not re-asked
       expect(screen.getByText("Delta Field")).toBeInTheDocument();
-
-      // Go to Step 2
-      fireEvent.click(screen.getByText(/Continue to Farm Conditions/i));
-      expect(screen.getByText(/Step 2: Tell Us About Your Farm/i)).toBeInTheDocument();
-
-      // Go to Step 3
-      fireEvent.click(screen.getByText(/Continue to Priorities/i));
-      expect(screen.getByText(/Step 3: What's Most Important\?/i)).toBeInTheDocument();
+      expect(screen.getByText(/Rain-fed/)).toBeInTheDocument();
       expect(screen.getByText(/Earn more/i)).toBeInTheDocument();
       expect(screen.getByText(/Use less water/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Dry-season water/)).toBeNull();
 
-      // Go to Step 4
-      fireEvent.click(screen.getByText(/Compare Recommended Rotations/i));
-      expect(screen.getByText(/Step 4: Compare Rotations/i)).toBeInTheDocument();
+      // Step 2: options are shown straight away; refinements are optional and collapsed
+      fireEvent.click(screen.getByRole("button", { name: "Show options" }));
+      expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
+      expect(screen.getByText(/Optional: 1 of 3 farm details added/)).toBeInTheDocument();
       expect(screen.getAllByText(/Rice → Black Gram/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/Rice → Sesame/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Dry-season water/)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /Add farm details \(optional\)/ }));
+      expect(screen.getByText(/Dry-season water/)).toBeInTheDocument();
 
-      // Go to Step 5
+      // Step 3: plan with suggested dates
       fireEvent.click(screen.getByText(/Continue with/i));
-      expect(screen.getByText(/Step 5: My Plan & Field Checklist/i)).toBeInTheDocument();
-      expect(screen.getByText(/Pre-Planting Field Checklist/i)).toBeInTheDocument();
+      expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
+      expect(screen.getAllByText("Suggested dates").length).toBe(2);
+      expect(screen.getByText(/Before planting/)).toBeInTheDocument();
 
-      // Save plan calls onApplyPlan
-      fireEvent.click(screen.getByText(/Save This Plan/i));
+      fireEvent.click(screen.getByRole("button", { name: "Save this plan" }));
       expect(applyMock).toHaveBeenCalled();
+    });
+
+    it("never treats an unanswered budget as unlimited", () => {
+      render(<FarmerGuidedFlow field={mockField} currentSlots={[]} cycleYears={1} onApplyPlan={vi.fn()} onSwitchToAdvanced={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Show options" }));
+      expect(screen.getAllByText(/Add to check:.*your budget/).length).toBe(3);
+
+      fireEvent.click(screen.getByRole("button", { name: /Add farm details/ }));
+      expect(screen.getByText(/Not answered yet, so upfront costs are not checked against a budget/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /No fixed limit/, pressed: true })).toBeNull();
+
+      // A stated limit is applied in MMK per hectare from the per-acre answer
+      fireEvent.click(screen.getByRole("button", { name: /Under 600,000 MMK per acre/ }));
+      expect(screen.getAllByText(/May cost more than your budget/).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(/Add to check:.*your budget/)).toHaveLength(0);
     });
   });
 });

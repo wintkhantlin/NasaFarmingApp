@@ -1,4 +1,5 @@
 import type { CropEconomics, FarmerPriorities, PriorityId, Rotation } from "../types";
+import { hostReturnIntervals } from "./pest";
 import { isPaddyCrop } from "./water";
 
 export type FarmerWaterAccess = "rainfed" | "occasional_irrigation" | "reliable_irrigation" | "unknown";
@@ -22,6 +23,11 @@ export interface FarmerDecisionInput {
   farmerObservedDrainage?: "waterlogged" | "adequate" | "dry" | "unknown";
   farmerObservedMoisture?: "wet" | "moist" | "dry" | "unknown";
   plantingMethodPreference?: "tillage" | "zero_till" | "relay_broadcast" | "unknown";
+  /**
+   * Whether this field has had Fusarium wilt (chickpea or pigeon pea). true makes a too-short return interval a
+   * hard veto; unknown or false leaves it as something to review, because the break only matters where wilt is present.
+   */
+  knownWiltInField?: boolean | "unknown";
 }
 
 export type FeasibilityStatus = "feasible" | "infeasible" | "needs_review";
@@ -98,27 +104,50 @@ export function classifyRotationFeasibility(
 
   const cropSlots = rotation.slots.filter((s) => s.kind === "crop" && s.cropId);
 
-  // 1. Water Access Hard Gate
+  // 1. Water Access Hard Gate. Any slot planned as irrigated needs water the farmer can supply. Irrigated paddy
+  // needs a reliable supply; other irrigated crops can manage with occasional irrigation.
   for (const s of cropSlots) {
-    const isRice = s.cropId === "rice" || isPaddyCrop({ id: s.cropId ?? "" });
-    // Summer or dry-season irrigated rice requires reliable irrigation
-    const isDrySeasonRice = isRice && s.irrigated;
-
-    if (isDrySeasonRice && input.availableWater === "rainfed") {
+    if (!s.irrigated) continue;
+    const isPaddy = s.cropId === "rice" || isPaddyCrop({ id: s.cropId ?? "" });
+    if (input.availableWater === "rainfed") {
       hardConstraintVetoes.push(`WATER_UNAVAILABLE:${s.cropId}`);
       reasons.push({
         code: "WATER_DEFICIT_CONFIRMED",
         type: "hard_gate_violation",
-        message: `Crop ${s.cropId} requires reliable irrigation, but field is confirmed rainfed with no irrigation access.`,
+        message: `Crop ${s.cropId} is planned as irrigated, but the field is confirmed rainfed with no irrigation access.`,
         fieldSource: "farmer_constraint",
       });
-    } else if (isDrySeasonRice && input.availableWater === "unknown") {
+    } else if (isPaddy && input.availableWater === "occasional_irrigation") {
+      unconfirmedFactors.push(`WATER_RELIABILITY_UNCONFIRMED:${s.cropId}`);
+      reasons.push({
+        code: "WATER_RELIABILITY_UNCONFIRMED",
+        type: "missing_evidence",
+        message: `Irrigated ${s.cropId} needs a reliable supply through the season; occasional irrigation may not be enough. Check how often water is available.`,
+        fieldSource: "farmer_constraint",
+      });
+    } else if (input.availableWater === "unknown") {
       unconfirmedFactors.push(`WATER_ACCESS_UNCONFIRMED:${s.cropId}`);
       reasons.push({
         code: "WATER_ACCESS_UNCONFIRMED",
         type: "missing_evidence",
-        message: `Irrigation access is unconfirmed for dry-season crop ${s.cropId}. Check water availability.`,
+        message: `Irrigation access is unconfirmed for irrigated crop ${s.cropId}. Check water availability.`,
         fieldSource: "farmer_constraint",
+      });
+    }
+  }
+
+  // 1b. Disease-break gate for host-specific soil wilts. A veto only where the farmer confirms wilt in the field.
+  for (const w of hostReturnIntervals(rotation)) {
+    if (input.knownWiltInField === true) {
+      hardConstraintVetoes.push(`DISEASE_BREAK:${w.cropId}`);
+      reasons.push({ code: "DISEASE_BREAK_TOO_SHORT", type: "hard_gate_violation", message: w.text, fieldSource: "biophysical_model" });
+    } else {
+      unconfirmedFactors.push(`DISEASE_BREAK_REVIEW:${w.cropId}`);
+      reasons.push({
+        code: "DISEASE_BREAK_REVIEW",
+        type: "missing_evidence",
+        message: `${w.text} Has this field had wilt? If yes, this rotation should not be used as planned.`,
+        fieldSource: "biophysical_model",
       });
     }
   }

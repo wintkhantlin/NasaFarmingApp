@@ -1,4 +1,5 @@
 import { getCropById } from "../data/crops";
+import { HOST_ORGANISMS, sharedOrganisms, type Carryover } from "../data/crops/host-organisms";
 import type { Rotation, RuleScope } from "../types";
 
 /**
@@ -15,9 +16,47 @@ export interface SequenceCheck {
   text: string;
   scope: RuleScope | null;
   ref: string | null;
+  /** Named pests and pathogens both crops host that carry over at this gap. Empty when none are listed. */
+  shared: SharedHost[];
+  /** Days from the first crop's harvest to the next crop's planting. Null when it cannot be worked out. */
+  gapDays: number | null;
 }
 
-export function pestSequence(rotation: Pick<Rotation, "slots">): SequenceCheck[] {
+export interface SharedHost {
+  organismId: string;
+  name: string;
+  scientific: string;
+  carryover: Carryover;
+  /** Soil-borne carry-over is a caution; mobile insects and vectors are information. */
+  severity: "caution" | "info";
+  advice: string;
+  ref: string;
+  scope: RuleScope;
+}
+
+const DAY_MS = 86_400_000;
+const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / DAY_MS;
+
+/**
+ * Organisms the two crops share at this gap. Soil-borne ones always carry over to the next crop; mobile insects
+ * and vectors only count when the next host is sown within their bridge window (or the gap is unknown).
+ */
+export function sharedHostsForPair(fromCropId: string, toCropId: string, gapDays: number | null): SharedHost[] {
+  return sharedOrganisms(fromCropId, toCropId)
+    .filter((o) => o.bridgeDays === undefined || gapDays === null || gapDays <= o.bridgeDays)
+    .map((o) => ({
+      organismId: o.id,
+      name: o.name,
+      scientific: o.scientific,
+      carryover: o.carryover,
+      severity: o.carryover === "soil-borne" || o.carryover === "host-specific-soil" ? "caution" : "info",
+      advice: o.advice,
+      ref: o.ref,
+      scope: o.scope,
+    }));
+}
+
+export function pestSequence(rotation: Pick<Rotation, "slots"> & Partial<Pick<Rotation, "cycleYears">>): SequenceCheck[] {
   const crops = [...rotation.slots].filter((s) => s.kind !== "fallow").sort((a, b) => a.plantDate.localeCompare(b.plantDate));
   if (crops.length < 2) return [];
   const out: SequenceCheck[] = [];
@@ -28,13 +67,17 @@ export function pestSequence(rotation: Pick<Rotation, "slots">): SequenceCheck[]
     const cb = b.cropId ? getCropById(b.cropId) : undefined;
     const fromName = ca?.names.common ?? "Unknown crop";
     const toName = cb?.names.common ?? "Unknown crop";
+    const wraps = i + 1 >= crops.length;
+    const gapDays = wraps && !rotation.cycleYears ? null : Math.round(dayNumber(b.plantDate) + (wraps ? 365.25 * (rotation.cycleYears ?? 0) : 0) - dayNumber(a.harvestDate));
     if (!ca || !cb || !cb.profile) {
-      out.push({ fromCropId: a.cropId ?? null, toCropId: b.cropId ?? null, fromName, toName, result: "unknown", text: "No rotation rule in the library for this pair.", scope: null, ref: null });
+      out.push({ fromCropId: a.cropId ?? null, toCropId: b.cropId ?? null, fromName, toName, result: "unknown", text: "No rotation rule in the library for this pair.", scope: null, ref: null, shared: [], gapDays });
       continue;
     }
+    const shared = sharedHostsForPair(ca.id, cb.id, gapDays);
+    const sharedText = shared.length ? ` Both host ${shared.map((h) => h.name.toLowerCase()).join(", ")}.` : "";
     const rule = cb.profile.rotationRules.find((r) => r.avoidAfterFamilies.includes(ca.family));
     if (rule) {
-      out.push({ fromCropId: ca.id, toCropId: cb.id, fromName, toName, result: "same-family", text: `${toName} follows ${fromName}, both ${ca.family}. ${rule.reason}`, scope: rule.scope, ref: rule.ref });
+      out.push({ fromCropId: ca.id, toCropId: cb.id, fromName, toName, result: "same-family", text: `${toName} follows ${fromName}, both ${ca.family}.${sharedText || ` ${rule.reason}`}`, scope: rule.scope, ref: rule.ref, shared, gapDays });
     } else {
       out.push({
         fromCropId: ca.id,
@@ -42,9 +85,13 @@ export function pestSequence(rotation: Pick<Rotation, "slots">): SequenceCheck[]
         fromName,
         toName,
         result: "different-family",
-        text: `${toName} (${cb.family}) follows ${fromName} (${ca.family}). Different families share fewer pests and diseases, but this does not prove the cycle is broken.`,
+        text: shared.length
+          ? `${toName} (${cb.family}) follows ${fromName} (${ca.family}). The families differ, but${sharedText.replace(" Both", " both")}`
+          : `${toName} (${cb.family}) follows ${fromName} (${ca.family}). Different families share fewer pests and diseases, but this does not prove the cycle is broken.`,
         scope: "analyst-assumption",
         ref: "General host-family rotation guidance; confirm local pest and disease advice.",
+        shared,
+        gapDays,
       });
     }
   }
@@ -135,4 +182,49 @@ export function detectMultiYearDiseasePressure(
   }
 
   return warnings;
+}
+
+export interface ReturnIntervalWarning {
+  organismId: string;
+  name: string;
+  cropId: string;
+  cropName: string;
+  /** Years between crops of the host, from how often it appears in the cycle. */
+  returnYears: number;
+  minReturnYears: number;
+  text: string;
+  ref: string;
+  scope: RuleScope;
+}
+
+/**
+ * Host-specific soil pathogens (chickpea and pigeon pea wilts) need years between crops of their host. The cycle
+ * repeats, so a host grown k times in an n-year cycle comes back every n / k years.
+ */
+export function hostReturnIntervals(rotation: Pick<Rotation, "slots" | "cycleYears">): ReturnIntervalWarning[] {
+  const counts = new Map<string, number>();
+  for (const s of rotation.slots) if (s.kind === "crop" && s.cropId) counts.set(s.cropId, (counts.get(s.cropId) ?? 0) + 1);
+  const out: ReturnIntervalWarning[] = [];
+  for (const o of HOST_ORGANISMS) {
+    if (o.carryover !== "host-specific-soil" || o.minReturnYears === undefined) continue;
+    for (const host of o.hosts) {
+      const k = counts.get(host);
+      if (!k) continue;
+      const returnYears = rotation.cycleYears / k;
+      if (returnYears >= o.minReturnYears) continue;
+      const cropName = getCropById(host)?.names.common ?? host;
+      out.push({
+        organismId: o.id,
+        name: o.name,
+        cropId: host,
+        cropName,
+        returnYears,
+        minReturnYears: o.minReturnYears,
+        text: `${cropName} comes back every ${returnYears === 1 ? "year" : `${returnYears} years`}. ${o.name} (${o.scientific}) is suggested to need at least ${o.minReturnYears} years between ${cropName.toLowerCase()} crops in a field that has had it. ${o.advice}`,
+        ref: o.ref,
+        scope: o.scope,
+      });
+    }
+  }
+  return out;
 }

@@ -139,10 +139,16 @@ body {
 
   body {
     background: var(--color-surface);
+    caret-color: var(--color-field);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
+  }
+
+  ::selection {
+    background: var(--color-field-soft);
+    color: var(--color-ink);
   }
 
   /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3) */

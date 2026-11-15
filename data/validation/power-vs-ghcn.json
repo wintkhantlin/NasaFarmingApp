@@ -1,0 +1,1298 @@
+{
+  "generatedAt": "2026-11-15T03:30:29.350Z",
+  "product": "NASA POWER daily point (T2M_MAX, T2M_MIN, PRECTOTCORR)",
+  "powerTimeStandard": "UTC",
+  "groundTruth": "NOAA GHCN-Daily, all 5 Myanmar stations, 2015-01-01 to 2024-12-31, NCEI quality-flagged values removed",
+  "stations": [
+    {
+      "station": {
+        "id": "BMM00048097",
+        "name": "Yangon International",
+        "lat": 16.907,
+        "lon": 96.133,
+        "elevationM": 33.2,
+        "region": "yangon-delta-edge"
+      },
+      "powerCell": {
+        "lat": 16.907,
+        "lon": 96.133,
+        "elevationM": 10.91
+      },
+      "elevationDiffM": -22,
+      "period": {
+        "start": "2015-01-01",
+        "end": "2024-12-31"
+      },
+      "qcRejected": {
+        "prcp": 0,
+        "tmax": 9,
+        "tmin": 4
+      },
+      "tmax": {
+        "variable": "tmax",
+        "daily": {
+          "n": 2257,
+          "meanObs": 33.91847585290206,
+          "meanModel": 33.102241914045194,
+          "bias": -0.8162339388568682,
+          "relBias": -0.02406458186378181,
+          "mae": 2.046140894993354,
+          "rmse": 2.4651775413033037,
+          "r": 0.829401586192952,
+          "grade": "usable-with-care",
+          "gradeReason": "bias -0.82 °C, RMSE 2.47 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 593,
+            "meanObs": 37.136762225969676,
+            "meanModel": 38.099797639123125,
+            "bias": 0.9630354131534489,
+            "relBias": 0.025932131813042113,
+            "mae": 2.133355817875211,
+            "rmse": 2.5095174653581505,
+            "r": 0.7412022276647812
+          },
+          "monsoon": {
+            "n": 865,
+            "meanObs": 31.904971098265897,
+            "meanModel": 30.338890173410398,
+            "bias": -1.5660809248554983,
+            "relBias": -0.04908579669393959,
+            "mae": 1.920439306358381,
+            "rmse": 2.271970752070962,
+            "r": 0.50893677478383
+          },
+          "cool": {
+            "n": 799,
+            "meanObs": 33.709762202753446,
+            "meanModel": 32.38478097622024,
+            "bias": -1.324981226533204,
+            "relBias": -0.03930556432180878,
+            "mae": 2.11749687108886,
+            "rmse": 2.627592872836606,
+            "r": 0.6196164936869096
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 1005,
+            "misses": 640,
+            "falseAlarms": 55,
+            "correctNegatives": 557,
+            "pod": 0.6109422492401215,
+            "far": 0.05188679245283019,
+            "csi": 0.5911764705882353,
+            "freqBias": 0.6443768996960486,
+            "thresholdC": 32,
+            "kind": "heat",
+            "observedEvents": 1645,
+            "grade": "usable-with-care",
+            "gradeReason": "detects 61% of observed days, 5% of flagged days are false alarms"
+          },
+          {
+            "hits": 534,
+            "misses": 102,
+            "falseAlarms": 80,
+            "correctNegatives": 1541,
+            "pod": 0.839622641509434,
+            "far": 0.13029315960912052,
+            "csi": 0.7458100558659218,
+            "freqBias": 0.9654088050314465,
+            "thresholdC": 35,
+            "kind": "heat",
+            "observedEvents": 636,
+            "grade": "good",
+            "gradeReason": "detects 84% of observed days, 13% of flagged days are false alarms"
+          },
+          {
+            "hits": 190,
+            "misses": 33,
+            "falseAlarms": 200,
+            "correctNegatives": 1834,
+            "pod": 0.852017937219731,
+            "far": 0.5128205128205128,
+            "csi": 0.4491725768321513,
+            "freqBias": 1.748878923766816,
+            "thresholdC": 38,
+            "kind": "heat",
+            "observedEvents": 223,
+            "grade": "poor",
+            "gradeReason": "detects 85% of observed days, 51% of flagged days are false alarms"
+          }
+        ]
+      },
+      "tmin": {
+        "variable": "tmin",
+        "daily": {
+          "n": 2823,
+          "meanObs": 21.989656393907108,
+          "meanModel": 23.34667375132833,
+          "bias": 1.3570173574212205,
+          "relBias": 0.06171162173308096,
+          "mae": 1.623662770102729,
+          "rmse": 2.0326046730724823,
+          "r": 0.857770527171318,
+          "grade": "usable-with-care",
+          "gradeReason": "bias 1.36 °C, RMSE 2.03 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 689,
+            "meanObs": 23.34252539912918,
+            "meanModel": 25.228359941944863,
+            "bias": 1.885834542815683,
+            "relBias": 0.08078965367157902,
+            "mae": 1.9958200290275754,
+            "rmse": 2.3622227607812465,
+            "r": 0.7698315253881629
+          },
+          "monsoon": {
+            "n": 1172,
+            "meanObs": 23.374317406143295,
+            "meanModel": 24.770102389078478,
+            "bias": 1.395784982935183,
+            "relBias": 0.05971447031725253,
+            "mae": 1.5088054607508514,
+            "rmse": 1.9120982702836817,
+            "r": 0.2800837776557357
+          },
+          "cool": {
+            "n": 962,
+            "meanObs": 19.333783783783794,
+            "meanModel": 20.264823284823287,
+            "bias": 0.9310395010394927,
+            "relBias": 0.048156093574419814,
+            "mae": 1.4970478170478183,
+            "rmse": 1.9165311591496972,
+            "r": 0.7879396105953658
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 8,
+            "misses": 33,
+            "falseAlarms": 12,
+            "correctNegatives": 2770,
+            "pod": 0.1951219512195122,
+            "far": 0.6,
+            "csi": 0.1509433962264151,
+            "freqBias": 0.4878048780487805,
+            "thresholdC": 15,
+            "kind": "cold",
+            "observedEvents": 41,
+            "grade": "poor",
+            "gradeReason": "detects 20% of observed days, 60% of flagged days are false alarms"
+          }
+        ]
+      },
+      "rain": {
+        "daily": {
+          "n": 604,
+          "meanObs": 20.21788079470199,
+          "meanModel": 11.094172185430473,
+          "bias": -9.123708609271517,
+          "relBias": -0.45126928494218577,
+          "mae": 17.349238410596033,
+          "rmse": 28.03101625316911,
+          "r": 0.16834215877478062
+        },
+        "lagR": {
+          "0": 0.16834215877478062,
+          "1": 0.13691567580312763,
+          "-1": 0.22535573860117217
+        },
+        "bestLag": -1,
+        "wetDays": {
+          "hits": 475,
+          "misses": 33,
+          "falseAlarms": 35,
+          "correctNegatives": 61,
+          "pod": 0.9350393700787402,
+          "far": 0.06862745098039216,
+          "csi": 0.8747697974217311,
+          "freqBias": 1.0039370078740157
+        },
+        "monthly": {
+          "n": 0,
+          "meanObs": null,
+          "meanModel": null,
+          "bias": null,
+          "relBias": null,
+          "mae": null,
+          "rmse": null,
+          "r": null,
+          "grade": "insufficient-data",
+          "gradeReason": "0 complete months, need 24"
+        },
+        "monthlyBySeason": {
+          "hot": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          },
+          "monsoon": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          },
+          "cool": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          }
+        },
+        "monthsCompared": 0,
+        "rainCoverage": 0.18940106616494198,
+        "wetDaysOnly": true
+      }
+    },
+    {
+      "station": {
+        "id": "BMM00048042",
+        "name": "Mandalay",
+        "lat": 21.983,
+        "lon": 96.1,
+        "elevationM": 76,
+        "region": "mandalay-dry-zone"
+      },
+      "powerCell": {
+        "lat": 21.983,
+        "lon": 96.1,
+        "elevationM": 352.38
+      },
+      "elevationDiffM": 276,
+      "period": {
+        "start": "2015-01-01",
+        "end": "2024-12-31"
+      },
+      "qcRejected": {
+        "prcp": 0,
+        "tmax": 4,
+        "tmin": 5
+      },
+      "tmax": {
+        "variable": "tmax",
+        "daily": {
+          "n": 2261,
+          "meanObs": 34.43157894736832,
+          "meanModel": 34.14754533392312,
+          "bias": -0.28403361344520306,
+          "relBias": -0.008249218366644565,
+          "mae": 1.7991242812914676,
+          "rmse": 2.253700637499908,
+          "r": 0.7743817725399745,
+          "grade": "usable-with-care",
+          "gradeReason": "bias -0.28 °C, RMSE 2.25 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 535,
+            "meanObs": 37.63121495327101,
+            "meanModel": 36.45181308411213,
+            "bias": -1.1794018691588803,
+            "relBias": -0.03134105211918924,
+            "mae": 1.8900560747663548,
+            "rmse": 2.367035766049387,
+            "r": 0.6837823023874953
+          },
+          "monsoon": {
+            "n": 937,
+            "meanObs": 35.18751334044828,
+            "meanModel": 35.12883671291355,
+            "bias": -0.05867662753473013,
+            "relBias": -0.0016675411805039649,
+            "mae": 1.9075987193169686,
+            "rmse": 2.3735313832602345,
+            "r": 0.4369508254303369
+          },
+          "cool": {
+            "n": 789,
+            "meanObs": 31.364258555133112,
+            "meanModel": 31.419721166032954,
+            "bias": 0.05546261089984128,
+            "relBias": 0.0017683380208828243,
+            "mae": 1.608643852978457,
+            "rmse": 2.016326014237467,
+            "r": 0.6746260486411219
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 1525,
+            "misses": 156,
+            "falseAlarms": 149,
+            "correctNegatives": 431,
+            "pod": 0.9071980963712076,
+            "far": 0.08900836320191159,
+            "csi": 0.8333333333333334,
+            "freqBias": 0.9958358120166567,
+            "thresholdC": 32,
+            "kind": "heat",
+            "observedEvents": 1681,
+            "grade": "good",
+            "gradeReason": "detects 91% of observed days, 9% of flagged days are false alarms"
+          },
+          {
+            "hits": 694,
+            "misses": 297,
+            "falseAlarms": 275,
+            "correctNegatives": 995,
+            "pod": 0.7003027245206862,
+            "far": 0.2837977296181631,
+            "csi": 0.5481832543443917,
+            "freqBias": 0.9778002018163471,
+            "thresholdC": 35,
+            "kind": "heat",
+            "observedEvents": 991,
+            "grade": "good",
+            "gradeReason": "detects 70% of observed days, 28% of flagged days are false alarms"
+          },
+          {
+            "hits": 145,
+            "misses": 172,
+            "falseAlarms": 79,
+            "correctNegatives": 1865,
+            "pod": 0.45741324921135645,
+            "far": 0.35267857142857145,
+            "csi": 0.3661616161616162,
+            "freqBias": 0.7066246056782335,
+            "thresholdC": 38,
+            "kind": "heat",
+            "observedEvents": 317,
+            "grade": "poor",
+            "gradeReason": "detects 46% of observed days, 35% of flagged days are false alarms"
+          }
+        ]
+      },
+      "tmin": {
+        "variable": "tmin",
+        "daily": {
+          "n": 2755,
+          "meanObs": 22.729437386569842,
+          "meanModel": 21.645927404718677,
+          "bias": -1.083509981851165,
+          "relBias": -0.047669898881499785,
+          "mae": 1.6418039927404722,
+          "rmse": 2.0342916379515392,
+          "r": 0.9255746991541497,
+          "grade": "usable-with-care",
+          "gradeReason": "bias -1.08 °C, RMSE 2.03 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 631,
+            "meanObs": 23.851030110935014,
+            "meanModel": 23.349033280507147,
+            "bias": -0.501996830427867,
+            "relBias": -0.021047176079733172,
+            "mae": 1.750364500792391,
+            "rmse": 2.238046111275753,
+            "r": 0.7681209313817862
+          },
+          "monsoon": {
+            "n": 1188,
+            "meanObs": 26.141582491582497,
+            "meanModel": 24.50755050505054,
+            "bias": -1.6340319865319586,
+            "relBias": -0.06250700343248583,
+            "mae": 1.7681060606060608,
+            "rmse": 2.0840065376956582,
+            "r": 0.5132630699491288
+          },
+          "cool": {
+            "n": 936,
+            "meanObs": 17.642521367521372,
+            "meanModel": 16.865726495726495,
+            "bias": -0.7767948717948769,
+            "relBias": -0.044029697094481124,
+            "mae": 1.4083119658119652,
+            "rmse": 1.8142850773459902,
+            "r": 0.8515343491599991
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 160,
+            "misses": 37,
+            "falseAlarms": 142,
+            "correctNegatives": 2416,
+            "pod": 0.8121827411167513,
+            "far": 0.47019867549668876,
+            "csi": 0.471976401179941,
+            "freqBias": 1.532994923857868,
+            "thresholdC": 15,
+            "kind": "cold",
+            "observedEvents": 197,
+            "grade": "usable-with-care",
+            "gradeReason": "detects 81% of observed days, 47% of flagged days are false alarms"
+          }
+        ]
+      },
+      "rain": {
+        "daily": {
+          "n": 2411,
+          "meanObs": 2.829614267938615,
+          "meanModel": 1.249560348403153,
+          "bias": -1.5800539195354621,
+          "relBias": -0.5583990501597723,
+          "mae": 3.30677312318541,
+          "rmse": 9.843825075622409,
+          "r": 0.1540816684115453
+        },
+        "lagR": {
+          "0": 0.1540816684115453,
+          "1": 0.10601341681091633,
+          "-1": 0.16124986877868455
+        },
+        "bestLag": -1,
+        "wetDays": {
+          "hits": 330,
+          "misses": 153,
+          "falseAlarms": 546,
+          "correctNegatives": 1382,
+          "pod": 0.6832298136645962,
+          "far": 0.6232876712328768,
+          "csi": 0.3206997084548105,
+          "freqBias": 1.813664596273292
+        },
+        "monthly": {
+          "n": 43,
+          "meanObs": 68.67441860465114,
+          "meanModel": 33.71976744186047,
+          "bias": -34.95465116279067,
+          "relBias": -0.5089908567558413,
+          "mae": 49.260697674418594,
+          "rmse": 77.4400265321644,
+          "r": 0.47673316022467205,
+          "grade": "poor",
+          "gradeReason": "relative bias -51%, r 0.48"
+        },
+        "monthlyBySeason": {
+          "hot": {
+            "n": 5,
+            "meanObs": 110.16,
+            "meanModel": 40.718,
+            "bias": -69.442,
+            "relBias": -0.6303740014524328,
+            "mae": 70.018,
+            "rmse": 78.74774701539086,
+            "r": 0.9416818061455284
+          },
+          "monsoon": {
+            "n": 18,
+            "meanObs": 116.7722222222222,
+            "meanModel": 55.23222222222223,
+            "bias": -61.53999999999997,
+            "relBias": -0.5270088967124981,
+            "mae": 79.77888888888889,
+            "rmse": 107.82113599228431,
+            "r": -0.4419751041883568
+          },
+          "cool": {
+            "n": 20,
+            "meanObs": 15.014999999999997,
+            "meanModel": 12.608999999999998,
+            "bias": -2.405999999999999,
+            "relBias": -0.1602397602397602,
+            "mae": 16.604999999999997,
+            "rmse": 29.669842095973472,
+            "r": 0.2925732118652142
+          }
+        },
+        "monthsCompared": 43,
+        "rainCoverage": 0.8020625415834997,
+        "wetDaysOnly": false
+      }
+    },
+    {
+      "station": {
+        "id": "BMM00048062",
+        "name": "Sittwe",
+        "lat": 20.133,
+        "lon": 92.873,
+        "elevationM": 8.2,
+        "region": "rakhine-coast"
+      },
+      "powerCell": {
+        "lat": 20.133,
+        "lon": 92.873,
+        "elevationM": 29.63
+      },
+      "elevationDiffM": 21,
+      "period": {
+        "start": "2015-01-01",
+        "end": "2024-12-31"
+      },
+      "qcRejected": {
+        "prcp": 0,
+        "tmax": 0,
+        "tmin": 1
+      },
+      "tmax": {
+        "variable": "tmax",
+        "daily": {
+          "n": 2323,
+          "meanObs": 31.5867843306069,
+          "meanModel": 28.99391304347833,
+          "bias": -2.5928712871285704,
+          "relBias": -0.08208721913538172,
+          "mae": 2.6638140335772733,
+          "rmse": 2.9855202722035306,
+          "r": 0.7603831439742514,
+          "grade": "poor",
+          "gradeReason": "bias -2.59 °C, RMSE 2.99 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 605,
+            "meanObs": 33.475041322314055,
+            "meanModel": 30.93042975206614,
+            "bias": -2.544611570247916,
+            "relBias": -0.07601518832335867,
+            "mae": 2.5952561983471067,
+            "rmse": 2.9221374776037723,
+            "r": 0.5908164919625708
+          },
+          "monsoon": {
+            "n": 938,
+            "meanObs": 31.36044776119407,
+            "meanModel": 29.32191897654587,
+            "bias": -2.0385287846482,
+            "relBias": -0.06500317853148477,
+            "mae": 2.16456289978678,
+            "rmse": 2.4697750301111117,
+            "r": 0.6382272868913174
+          },
+          "cool": {
+            "n": 780,
+            "meanObs": 30.39435897435899,
+            "meanModel": 27.097423076923103,
+            "bias": -3.296935897435887,
+            "relBias": -0.10847196679545759,
+            "mae": 3.3173717948717947,
+            "rmse": 3.547848734236798,
+            "r": 0.7856744770880779
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 119,
+            "misses": 853,
+            "falseAlarms": 1,
+            "correctNegatives": 1350,
+            "pod": 0.12242798353909465,
+            "far": 0.008333333333333333,
+            "csi": 0.1223021582733813,
+            "freqBias": 0.12345679012345678,
+            "thresholdC": 32,
+            "kind": "heat",
+            "observedEvents": 972,
+            "grade": "poor",
+            "gradeReason": "detects 12% of observed days, 1% of flagged days are false alarms"
+          },
+          {
+            "hits": 1,
+            "misses": 83,
+            "falseAlarms": 0,
+            "correctNegatives": 2239,
+            "pod": 0.011904761904761904,
+            "far": 0,
+            "csi": 0.011904761904761904,
+            "freqBias": 0.011904761904761904,
+            "thresholdC": 35,
+            "kind": "heat",
+            "observedEvents": 84,
+            "grade": "poor",
+            "gradeReason": "detects 1% of observed days, 0% of flagged days are false alarms"
+          },
+          {
+            "hits": 0,
+            "misses": 2,
+            "falseAlarms": 0,
+            "correctNegatives": 2321,
+            "pod": 0,
+            "far": null,
+            "csi": 0,
+            "freqBias": 0,
+            "thresholdC": 38,
+            "kind": "heat",
+            "observedEvents": 2,
+            "grade": "insufficient-data",
+            "gradeReason": "2 observed days past the limit, need 20"
+          }
+        ]
+      },
+      "tmin": {
+        "variable": "tmin",
+        "daily": {
+          "n": 2768,
+          "meanObs": 19.800686416185012,
+          "meanModel": 24.756994219653233,
+          "bias": 4.956307803468221,
+          "relBias": 0.2503098983183205,
+          "mae": 4.958114161849716,
+          "rmse": 5.292740304204018,
+          "r": 0.9031254806652306,
+          "grade": "poor",
+          "gradeReason": "bias 4.96 °C, RMSE 5.29 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 703,
+            "meanObs": 21.106401137980075,
+            "meanModel": 25.706201991465168,
+            "bias": 4.5998008534850925,
+            "relBias": 0.2179339255145656,
+            "mae": 4.604352773826461,
+            "rmse": 4.980617995668477,
+            "r": 0.8024165905349492
+          },
+          "monsoon": {
+            "n": 1147,
+            "meanObs": 22.485876198779458,
+            "meanModel": 27.222920662598042,
+            "bias": 4.7370444638185845,
+            "relBias": 0.2106675506856928,
+            "mae": 4.737794245858768,
+            "rmse": 4.969222124899543,
+            "r": 0.3293241014645002
+          },
+          "cool": {
+            "n": 918,
+            "meanObs": 15.445751633986905,
+            "meanModel": 20.949030501089307,
+            "bias": 5.503278867102402,
+            "relBias": 0.3562972523132485,
+            "mae": 5.504302832244004,
+            "rmse": 5.883601125198385,
+            "r": 0.8266283205041546
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 0,
+            "misses": 457,
+            "falseAlarms": 0,
+            "correctNegatives": 2311,
+            "pod": 0,
+            "far": null,
+            "csi": 0,
+            "freqBias": 0,
+            "thresholdC": 15,
+            "kind": "cold",
+            "observedEvents": 457,
+            "grade": "poor",
+            "gradeReason": "detects 0% of observed days, 0% of flagged days are false alarms"
+          }
+        ]
+      },
+      "rain": {
+        "daily": {
+          "n": 758,
+          "meanObs": 33.971767810026385,
+          "meanModel": 46.28796833773085,
+          "bias": 12.316200527704467,
+          "relBias": 0.362542232025661,
+          "mae": 37.74667546174141,
+          "rmse": 65.46186235477221,
+          "r": 0.30883462341030105
+        },
+        "lagR": {
+          "0": 0.30883462341030105,
+          "1": 0.20063508003027675,
+          "-1": 0.3406847844484732
+        },
+        "bestLag": -1,
+        "wetDays": {
+          "hits": 633,
+          "misses": 3,
+          "falseAlarms": 60,
+          "correctNegatives": 62,
+          "pod": 0.9952830188679245,
+          "far": 0.08658008658008658,
+          "csi": 0.9094827586206896,
+          "freqBias": 1.0896226415094339
+        },
+        "monthly": {
+          "n": 0,
+          "meanObs": null,
+          "meanModel": null,
+          "bias": null,
+          "relBias": null,
+          "mae": null,
+          "rmse": null,
+          "r": null,
+          "grade": "insufficient-data",
+          "gradeReason": "0 complete months, need 24"
+        },
+        "monthlyBySeason": {
+          "hot": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          },
+          "monsoon": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          },
+          "cool": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          }
+        },
+        "monthsCompared": 0,
+        "rainCoverage": 0.25283522348232157,
+        "wetDaysOnly": true
+      }
+    },
+    {
+      "station": {
+        "id": "BMM00048008",
+        "name": "Myitkyina",
+        "lat": 25.367,
+        "lon": 97.4,
+        "elevationM": 147,
+        "region": "kachin-north"
+      },
+      "powerCell": {
+        "lat": 25.367,
+        "lon": 97.4,
+        "elevationM": 617.5
+      },
+      "elevationDiffM": 471,
+      "period": {
+        "start": "2015-01-01",
+        "end": "2024-12-31"
+      },
+      "qcRejected": {
+        "prcp": 2,
+        "tmax": 3,
+        "tmin": 13
+      },
+      "tmax": {
+        "variable": "tmax",
+        "daily": {
+          "n": 2335,
+          "meanObs": 30.941456102783633,
+          "meanModel": 29.051730192719504,
+          "bias": -1.8897259100641293,
+          "relBias": -0.06107423980909939,
+          "mae": 2.6004925053533166,
+          "rmse": 3.0886410045225365,
+          "r": 0.7951810806734754,
+          "grade": "usable-with-care",
+          "gradeReason": "bias -1.89 °C, RMSE 3.09 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 627,
+            "meanObs": 32.985645933014375,
+            "meanModel": 32.39339712918661,
+            "bias": -0.5922488038277649,
+            "relBias": -0.017954743255004756,
+            "mae": 2.1457097288676255,
+            "rmse": 2.6740080961443637,
+            "r": 0.7037055711593402
+          },
+          "monsoon": {
+            "n": 918,
+            "meanObs": 32.35424836601308,
+            "meanModel": 29.946263616557733,
+            "bias": -2.4079847494553484,
+            "relBias": -0.07442561243316799,
+            "mae": 2.9552396514161243,
+            "rmse": 3.4922780206364576,
+            "r": 0.5505695671936467
+          },
+          "cool": {
+            "n": 790,
+            "meanObs": 27.67734177215193,
+            "meanModel": 25.360075949367083,
+            "bias": -2.3172658227848473,
+            "relBias": -0.08372429122208576,
+            "mae": 2.549215189873418,
+            "rmse": 2.8895323085276803,
+            "r": 0.7582144479151498
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 437,
+            "misses": 494,
+            "falseAlarms": 87,
+            "correctNegatives": 1317,
+            "pod": 0.46938775510204084,
+            "far": 0.16603053435114504,
+            "csi": 0.4292730844793713,
+            "freqBias": 0.5628356605800214,
+            "thresholdC": 32,
+            "kind": "heat",
+            "observedEvents": 931,
+            "grade": "poor",
+            "gradeReason": "detects 47% of observed days, 17% of flagged days are false alarms"
+          },
+          {
+            "hits": 104,
+            "misses": 225,
+            "falseAlarms": 45,
+            "correctNegatives": 1961,
+            "pod": 0.3161094224924012,
+            "far": 0.30201342281879195,
+            "csi": 0.27807486631016043,
+            "freqBias": 0.45288753799392095,
+            "thresholdC": 35,
+            "kind": "heat",
+            "observedEvents": 329,
+            "grade": "poor",
+            "gradeReason": "detects 32% of observed days, 30% of flagged days are false alarms"
+          },
+          {
+            "hits": 13,
+            "misses": 32,
+            "falseAlarms": 8,
+            "correctNegatives": 2282,
+            "pod": 0.28888888888888886,
+            "far": 0.38095238095238093,
+            "csi": 0.24528301886792453,
+            "freqBias": 0.4666666666666667,
+            "thresholdC": 38,
+            "kind": "heat",
+            "observedEvents": 45,
+            "grade": "poor",
+            "gradeReason": "detects 29% of observed days, 38% of flagged days are false alarms"
+          }
+        ]
+      },
+      "tmin": {
+        "variable": "tmin",
+        "daily": {
+          "n": 2858,
+          "meanObs": 18.848250524842452,
+          "meanModel": 18.424303708887273,
+          "bias": -0.4239468159551798,
+          "relBias": -0.022492634814908024,
+          "mae": 1.4372148355493346,
+          "rmse": 1.8065139501825986,
+          "r": 0.9397924422411971,
+          "grade": "good",
+          "gradeReason": "bias -0.42 °C, RMSE 1.81 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 718,
+            "meanObs": 19.583008356545985,
+            "meanModel": 19.697409470752103,
+            "bias": 0.11440111420611743,
+            "relBias": 0.005841855966316673,
+            "mae": 1.318635097493036,
+            "rmse": 1.6717057157286983,
+            "r": 0.8423814543472515
+          },
+          "monsoon": {
+            "n": 1195,
+            "meanObs": 23.18384937238498,
+            "meanModel": 22.344786610878632,
+            "bias": -0.839062761506348,
+            "relBias": -0.036191693106226885,
+            "mae": 1.4575564853556489,
+            "rmse": 1.7576465817325588,
+            "r": 0.6430684474323982
+          },
+          "cool": {
+            "n": 945,
+            "meanObs": 12.807407407407434,
+            "meanModel": 12.499365079365095,
+            "bias": -0.30804232804233855,
+            "relBias": -0.02405188796166317,
+            "mae": 1.501587301587302,
+            "rmse": 1.9595917942265433,
+            "r": 0.7300059726533856
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 729,
+            "misses": 64,
+            "falseAlarms": 108,
+            "correctNegatives": 1957,
+            "pod": 0.9192938209331651,
+            "far": 0.12903225806451613,
+            "csi": 0.8091009988901221,
+            "freqBias": 1.055485498108449,
+            "thresholdC": 15,
+            "kind": "cold",
+            "observedEvents": 793,
+            "grade": "good",
+            "gradeReason": "detects 92% of observed days, 13% of flagged days are false alarms"
+          }
+        ]
+      },
+      "rain": {
+        "daily": {
+          "n": 1562,
+          "meanObs": 6.933674775928303,
+          "meanModel": 3.397919334186944,
+          "bias": -3.535755441741359,
+          "relBias": -0.5099396144186732,
+          "mae": 6.962887323943678,
+          "rmse": 17.922946763259027,
+          "r": 0.2905349159397225
+        },
+        "lagR": {
+          "0": 0.2905349159397225,
+          "1": 0.1824716357292163,
+          "-1": 0.3292185009378432
+        },
+        "bestLag": -1,
+        "wetDays": {
+          "hits": 448,
+          "misses": 73,
+          "falseAlarms": 279,
+          "correctNegatives": 762,
+          "pod": 0.8598848368522073,
+          "far": 0.38376891334250346,
+          "csi": 0.56,
+          "freqBias": 1.3953934740882918
+        },
+        "monthly": {
+          "n": 21,
+          "meanObs": 193.8047619047619,
+          "meanModel": 106.93285714285713,
+          "bias": -86.87190476190477,
+          "relBias": -0.4482444286100396,
+          "mae": 104.85285714285713,
+          "rmse": 189.45814508248313,
+          "r": 0.8399035351671713,
+          "grade": "insufficient-data",
+          "gradeReason": "21 complete months, need 24"
+        },
+        "monthlyBySeason": {
+          "hot": {
+            "n": 5,
+            "meanObs": 149.42000000000002,
+            "meanModel": 72.89000000000001,
+            "bias": -76.53,
+            "relBias": -0.5121804309998661,
+            "mae": 78.50600000000001,
+            "rmse": 142.63086405122846,
+            "r": 0.8738412736651584
+          },
+          "monsoon": {
+            "n": 9,
+            "meanObs": 364.52222222222224,
+            "meanModel": 192.46444444444447,
+            "bias": -172.05777777777777,
+            "relBias": -0.4720090224647179,
+            "mae": 189.16888888888886,
+            "rmse": 268.4698253683891,
+            "r": 0.6913690889940174
+          },
+          "cool": {
+            "n": 7,
+            "meanObs": 6.014285714285714,
+            "meanModel": 21.279999999999998,
+            "bias": 15.265714285714283,
+            "relBias": 2.538242280285035,
+            "mae": 15.265714285714285,
+            "rmse": 21.9737583754545,
+            "r": 0.9703741898952191
+          }
+        },
+        "monthsCompared": 21,
+        "rainCoverage": 0.5084635416666666,
+        "wetDaysOnly": true
+      }
+    },
+    {
+      "station": {
+        "id": "BMM00048112",
+        "name": "Kawthaung (Victoria Point)",
+        "lat": 9.967,
+        "lon": 98.583,
+        "elevationM": 47,
+        "region": "tanintharyi-south"
+      },
+      "powerCell": {
+        "lat": 9.967,
+        "lon": 98.583,
+        "elevationM": 162
+      },
+      "elevationDiffM": 115,
+      "period": {
+        "start": "2015-01-01",
+        "end": "2024-12-31"
+      },
+      "qcRejected": {
+        "prcp": 0,
+        "tmax": 0,
+        "tmin": 2
+      },
+      "tmax": {
+        "variable": "tmax",
+        "daily": {
+          "n": 2335,
+          "meanObs": 31.842098501069817,
+          "meanModel": 28.767143468950785,
+          "bias": -3.074955032119032,
+          "relBias": -0.09656885622710203,
+          "mae": 3.1472805139186346,
+          "rmse": 3.5086531149348765,
+          "r": 0.7708803190659139,
+          "grade": "poor",
+          "gradeReason": "bias -3.07 °C, RMSE 3.51 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 599,
+            "meanObs": 34.218864774624635,
+            "meanModel": 31.110884808013328,
+            "bias": -3.107979966611307,
+            "relBias": -0.09082650716443588,
+            "mae": 3.183005008347248,
+            "rmse": 3.60599371201409,
+            "r": 0.7399588335466948
+          },
+          "monsoon": {
+            "n": 936,
+            "meanObs": 30.538141025641327,
+            "meanModel": 27.85544871794872,
+            "bias": -2.6826923076926086,
+            "relBias": -0.08784726959771677,
+            "mae": 2.7959188034188034,
+            "rmse": 3.175018339000808,
+            "r": 0.6580298034751747
+          },
+          "cool": {
+            "n": 800,
+            "meanObs": 31.5881250000003,
+            "meanModel": 28.07895,
+            "bias": -3.509175000000301,
+            "relBias": -0.11109158900695333,
+            "mae": 3.5316249999999996,
+            "rmse": 3.794877270742757,
+            "r": 0.734683992745928
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 202,
+            "misses": 898,
+            "falseAlarms": 0,
+            "correctNegatives": 1235,
+            "pod": 0.18363636363636363,
+            "far": 0,
+            "csi": 0.18363636363636363,
+            "freqBias": 0.18363636363636363,
+            "thresholdC": 32,
+            "kind": "heat",
+            "observedEvents": 1100,
+            "grade": "poor",
+            "gradeReason": "detects 18% of observed days, 0% of flagged days are false alarms"
+          },
+          {
+            "hits": 50,
+            "misses": 234,
+            "falseAlarms": 3,
+            "correctNegatives": 2048,
+            "pod": 0.176056338028169,
+            "far": 0.05660377358490566,
+            "csi": 0.17421602787456447,
+            "freqBias": 0.18661971830985916,
+            "thresholdC": 35,
+            "kind": "heat",
+            "observedEvents": 284,
+            "grade": "poor",
+            "gradeReason": "detects 18% of observed days, 6% of flagged days are false alarms"
+          },
+          {
+            "hits": 4,
+            "misses": 7,
+            "falseAlarms": 2,
+            "correctNegatives": 2322,
+            "pod": 0.36363636363636365,
+            "far": 0.3333333333333333,
+            "csi": 0.3076923076923077,
+            "freqBias": 0.5454545454545454,
+            "thresholdC": 38,
+            "kind": "heat",
+            "observedEvents": 11,
+            "grade": "insufficient-data",
+            "gradeReason": "11 observed days past the limit, need 20"
+          }
+        ]
+      },
+      "tmin": {
+        "variable": "tmin",
+        "daily": {
+          "n": 2834,
+          "meanObs": 20.517290049400128,
+          "meanModel": 23.410409315455194,
+          "bias": 2.8931192660550664,
+          "relBias": 0.14100883981701345,
+          "mae": 2.9232251235003504,
+          "rmse": 3.226744723437678,
+          "r": 0.49841687932620027,
+          "grade": "poor",
+          "gradeReason": "bias 2.89 °C, RMSE 3.23 °C"
+        },
+        "bySeason": {
+          "hot": {
+            "n": 714,
+            "meanObs": 21.374509803921576,
+            "meanModel": 24.265364145658253,
+            "bias": 2.890854341736677,
+            "relBias": 0.1352477492235304,
+            "mae": 2.8920308123249305,
+            "rmse": 3.148688602571932,
+            "r": 0.555550256995503
+          },
+          "monsoon": {
+            "n": 1154,
+            "meanObs": 20.457365684575382,
+            "meanModel": 23.815346620450637,
+            "bias": 3.357980935875254,
+            "relBias": 0.16414532485026326,
+            "mae": 3.3875303292894263,
+            "rmse": 3.6639831036331025,
+            "r": 0.3614791821795255
+          },
+          "cool": {
+            "n": 966,
+            "meanObs": 19.95527950310558,
+            "meanModel": 22.294741200828128,
+            "bias": 2.339461697722548,
+            "relBias": 0.11723522576361133,
+            "mae": 2.3916149068323,
+            "rmse": 2.6796367681291664,
+            "r": 0.4382345889068916
+          }
+        },
+        "thresholds": [
+          {
+            "hits": 0,
+            "misses": 0,
+            "falseAlarms": 0,
+            "correctNegatives": 2834,
+            "pod": null,
+            "far": null,
+            "csi": null,
+            "freqBias": null,
+            "thresholdC": 15,
+            "kind": "cold",
+            "observedEvents": 0,
+            "grade": "insufficient-data",
+            "gradeReason": "0 observed days past the limit, need 20"
+          }
+        ]
+      },
+      "rain": {
+        "daily": {
+          "n": 721,
+          "meanObs": 21.417337031900143,
+          "meanModel": 14.783689320388339,
+          "bias": -6.633647711511804,
+          "relBias": -0.3097326106243409,
+          "mae": 15.431816920943133,
+          "rmse": 26.994123729991113,
+          "r": 0.40722349604977426
+        },
+        "lagR": {
+          "0": 0.40722349604977426,
+          "1": 0.18555764310696954,
+          "-1": 0.47453590405826285
+        },
+        "bestLag": -1,
+        "wetDays": {
+          "hits": 605,
+          "misses": 9,
+          "falseAlarms": 65,
+          "correctNegatives": 42,
+          "pod": 0.9853420195439739,
+          "far": 0.09701492537313433,
+          "csi": 0.8910162002945509,
+          "freqBias": 1.0912052117263844
+        },
+        "monthly": {
+          "n": 0,
+          "meanObs": null,
+          "meanModel": null,
+          "bias": null,
+          "relBias": null,
+          "mae": null,
+          "rmse": null,
+          "r": null,
+          "grade": "insufficient-data",
+          "gradeReason": "0 complete months, need 24"
+        },
+        "monthlyBySeason": {
+          "hot": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          },
+          "monsoon": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          },
+          "cool": {
+            "n": 0,
+            "meanObs": null,
+            "meanModel": null,
+            "bias": null,
+            "relBias": null,
+            "mae": null,
+            "rmse": null,
+            "r": null
+          }
+        },
+        "monthsCompared": 0,
+        "rainCoverage": 0.2385837193911317,
+        "wetDaysOnly": true
+      }
+    }
+  ]
+}

@@ -85,6 +85,23 @@ describe("AppEEARS job state machine", () => {
     expect(geometryHash(field.geometry)).not.toBe(geometryHash({ type: "Point", coordinates: [94.96, 20.15] }));
     expect(periodFor("smap").end).toBe("2025-12-31");
     expect(periodFor("srtm")).toEqual({ start: "2000-02-11", end: "2000-02-21" });
+    expect(periodFor("modis")).toEqual({ start: "2016-01-01", end: "2025-12-31" });
+    expect(periodFor("ecostress-lst")).toEqual({ start: "2018-05-20", end: "2025-12-31" });
+    expect(periodFor("ecostress-et")).toEqual({ start: "2018-05-20", end: "2025-12-31" });
+  });
+
+  test("ECOSTRESS submits distinct LST and ET products with native units", async () => {
+    const lst = fakeAppeears({ status: "processing" });
+    const et = fakeAppeears({ status: "processing" });
+    const lstState = await advance("ecostress-lst", field, { fetch: lst.f, env, cache: memoryCache() });
+    resetAppeearsToken();
+    const etState = await advance("ecostress-et", field, { fetch: et.f, env, cache: memoryCache() });
+    expect(lstState.status).toBe("pending");
+    expect(etState.status).toBe("pending");
+    const lstTask = lst.bodies[0] as { params: { layers: Array<{ product: string; layer: string }> } };
+    const etTask = et.bodies[0] as { params: { layers: Array<{ product: string; layer: string }> } };
+    expect(lstTask.params.layers).toContainEqual({ product: "ECO_L2T_LSTE.002", layer: "LST" });
+    expect(etTask.params.layers).toContainEqual({ product: "ECO_L3T_JET.002", layer: "ETdaily" });
   });
 });
 

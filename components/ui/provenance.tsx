@@ -4,20 +4,38 @@ import { missingText, provenanceLine, type DerivedIndicator } from "@/lib/eviden
 import type { RuleScope } from "@/lib/types";
 import { SourceLine } from "./source-line";
 
-/** What kind of rule or value this is: a published value, a reference, or a starting value nobody has checked locally. */
-export function ScopeBadge({ scope, className }: { scope: RuleScope; className?: string }) {
+/**
+ * DESIGN_SYSTEM.md 9.6. The evidence behind a finding: "Based on: <citation>", with a link when one exists.
+ * Falls back to the kind of source when a rule carries no citation text.
+ */
+export function Evidence({
+  scope,
+  refText,
+  url,
+  className,
+}: {
+  scope: RuleScope;
+  refText?: string | null;
+  url?: string | null;
+  className?: string;
+}) {
+  const source = refText?.trim() || copy.scope[scope];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-pill border px-2 py-0.5 text-source",
-        scope === "analyst-assumption" ? "border-drought text-drought" : "border-line-strong text-ink-muted",
-        className,
-      )}
-    >
-      {copy.scope[scope]}
+    <span className={cn("inline-flex max-w-full flex-wrap items-baseline gap-x-1 text-source text-ink-muted", className)}>
+      <span className="font-medium text-ink">Based on:</span>
+      <span className="break-words">{source}</span>
+      {refText && refText.trim() !== copy.scope[scope] ? <span>({copy.scope[scope]})</span> : null}
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer" className="text-field underline">
+          open
+        </a>
+      ) : null}
     </span>
   );
 }
+
+/** Kept so existing imports keep working. */
+export const ScopeBadge = Evidence;
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="grid gap-x-3 gap-y-0.5 sm:grid-cols-[9rem_minmax(0,1fr)]">

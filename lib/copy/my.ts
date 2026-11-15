@@ -207,7 +207,7 @@ export const copyMy = {
     dateConfidenceLabel: "ရက်စွဲတိကျမှု",
     confidenceExact: "အတိအကျသိသည်",
     confidenceApprox: "ခန့်မှန်းရက်",
-    confidenceTypical: "ပုံမှန်စိုက်ပျိုးချိန်",
+    confidenceTypical: "အကြံပြုရက်စွဲ",
     irrigatedLabel: "စိုက်ပျိုးရေပေးသွင်းမှု",
     irrigatedHelp: "မိုးရေအပြင် အခြားစိုက်ပျိုးရေပေးသွင်းခဲ့ပါက အမှန်ခြစ်ပါ",
     tillageLabel: "ထွန်ယက်မှုပုံစံ",

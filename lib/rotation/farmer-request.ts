@@ -36,6 +36,8 @@ export type EnvironmentSnapshot = {
   source: string;
   basis?: "synthetic" | "historical_normals" | "observed" | "forecast";
   spatial_resolution_km?: number | null;
+  /** Known biases of the source at this location, from the ground-truth checks in docs/validation. */
+  known_biases?: string[];
   monthly: MonthlyCondition[];
 };
 

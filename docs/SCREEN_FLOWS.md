@@ -1,24 +1,26 @@
 # Field Shift — Comprehensive Screen Flows & Process Architecture
 
-**Document Version:** 1.0.0  
-**Status:** Approved Specification & Implementation Reference  
-**Scope:** Complete screen inventory (S01–S18), user journeys, interaction mechanics, data contracts, and background processes for the Field Shift rotation planner.
+**Document Version:** 1.1.0  
+**Status:** Approved Master Specification & Engineering Reference  
+**Last Updated:** 15 November 2026  
+**Scope:** Complete screen inventory (S01–S18), guided farmer workflows, transition policies (*Ye-pyan* relay broadcast), feasibility gates, data contracts, and background calculation engines.
 
 ---
 
 ## 1. System Overview & Architectural Paradigm
 
-Field Shift is an offline-first, local-first crop rotation decision-support tool. It empowers smallholder farmers and agricultural extension officers (initially in Myanmar's Central Dry Zone and Ayeyarwady Delta) to evaluate current crop rotations against resilient alternatives using historical NASA Earth observation data and modeled soil characteristics.
+Field Shift is an offline-first, local-first crop rotation decision-support tool. It empowers smallholder farmers and agricultural extension officers (initially across Myanmar's Central Dry Zone and Ayeyarwady Delta) to evaluate their current crop rotations against resilient alternatives using historical NASA Earth observation data and modeled soil characteristics.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
 │                           CLIENT BROWSER / DEVICE                              │
 │                                                                                │
 │  ┌────────────────────────┐  ┌───────────────────────┐  ┌───────────────────┐  │
-│  │   UI View Hierarchy    │  │  Zustand Stores       │  │    Local MCDA     │  │
-│  │  • Next.js App Router  │  │  • fields-store.ts    │  │     Engine        │  │
-│  │  • Tailwind CSS / CSS  │  │  • settings-store.ts  │  │  • Rank-sum MCDA  │  │
-│  │  • Light-only tokens   │  │  • locale-store.ts    │  │  • Limit checks   │  │
+│  │   UI View Hierarchy    │  │  Zustand Stores       │  │    Local Engine   │  │
+│  │  • Next.js App Router  │  │  • fields-store.ts    │  │  • Feasibility    │  │
+│  │  • Guided Farmer View  │  │  • settings-store.ts  │  │  • 3-Zone Hydro   │  │
+│  │  • Advanced View       │  │  • locale-store.ts    │  │  • Rank-sum MCDA  │  │
+│  │  • Light-only tokens   │  │                       │  │  • Transition Pol │  │
 │  └───────────┬────────────┘  └───────────┬───────────┘  │  • What-If sim    │  │
 │              │                           │              └─────────┬─────────┘  │
 │              ▼                           ▼                        ▼            │
@@ -44,23 +46,26 @@ Field Shift is an offline-first, local-first crop rotation decision-support tool
 
 1. **Local-First & Offline-First:**
    - No mandatory user account, password, or cloud database.
-   - All entered fields, crop sequences, and custom soil test values reside in `localStorage`.
-   - Results are computed client-side by the MCDA engine.
+   - All fields, crop sequences, and custom soil test values reside in `localStorage`.
+   - Results are computed client-side by the biophysical and MCDA engines.
    - When network connectivity is absent, cached data and stored rotations remain completely functional.
 
 2. **Honesty & Provenance First:**
-   - Every metric explicitly declares its source, temporal span, and spatial resolution (e.g., *NASA POWER ~10 km grid*, *SoilGrids 250 m*).
-   - Coarse measurements are honestly labeled **around your field**, never pretending to be meter-precision plot readings.
+   - Every metric explicitly declares its source, temporal span, and spatial resolution (e.g., *NASA POWER ~50 km grid*, *SoilGrids 250 m*).
+   - Coarse measurements are labeled **regional context around your field**, strictly preventing any claim of "measured in your field".
    - Data colors (`water`, `heat`, `drought`, `frost`, `healthy`) are never shown alone; they are always paired with icons and plain-language verdicts.
 
 3. **Light Mode Only:**
    - Strict design requirement (`DESIGN.md`, The Light-Only Rule). Natural parchment backgrounds (`#f4f3ee`), warm off-white surfaces (`#ffffff`), and high-contrast ink (`#1c1b18`) ensure readability under direct sunlight in outdoor field conditions.
 
+4. **Hard Feasibility Gate Before MCDA Ranking:**
+   - Additive utility formulas (MCDA) cannot allow high market profit to mask a physical water shortage or labor impossibility. Options are filtered through a hard feasibility check before being scored.
+
 ---
 
 ## 2. Global Route Map & Navigation Matrix
 
-The field is the core entity. The application structures views into **Tab Roots**, **Push Navigations**, **Modal Sheets**, and **System Overlays**.
+The field is the core entity. Views are structured into **Tab Roots**, **Push Navigations**, **Modal Sheets**, and **System Overlays**.
 
 | ID | Screen Name | Route Path | Container Type | Primary Responsibility |
 |:---|:---|:---|:---|:---|
@@ -71,9 +76,9 @@ The field is the core entity. The application structures views into **Tab Roots*
 | **S05** | Farm Profile & Limits | `/fields/:id/profile` | Tab Sub-screen | Soil overrides, irrigation type, labor, and economic limits. |
 | **S06** | Field Hub (Overview) | `/fields/:id` | Tab Sub-screen | Central management dashboard, current crop status, next step banner. |
 | **S07** | Conditions & History | `/fields/:id/conditions` | Tab Sub-screen | NASA POWER weather, rainfall patterns, SoilGrids profile, dry spells. |
-| **S08** | Rotation Editor | `/fields/:id/rotation` | Tab Sub-screen | Define current crop sequences, sowing/harvest months, residue rules. |
+| **S08** | Rotation Editor & Guided Flow | `/fields/:id/rotation` | Tab Sub-screen | Dual-mode editor: Guided or Detailed. Detailed shows the crop sequence first, the timeline on request, and field practices grouped per crop. |
 | **S09** | Priorities & Limits | `/fields/:id/profile#limits`| Sheet / Section | Rank-sum priority weighting (water, soil, earnings, livestock). |
-| **S10** | Compare Rotations | `/fields/:id/compare` | Tab Sub-screen | Multi-criteria matrix: current rotation vs. 2+ alternatives. |
+| **S10** | Compare Rotations | `/fields/:id/compare` | Tab Sub-screen | Feasibility-gated matrix: current rotation vs. 2+ alternatives. |
 | **S11** | Option Detail | `/fields/:id/compare` (Expanded) | Push / View | In-depth breakdown of a single strategy (agronomic fit, risks, checks). |
 | **S12** | Finding / Evidence Detail | `/fields/:id/conditions` (Deep) | Push / Modal | Detailed dataset citations, spatial resolution, and calculation logic. |
 | **S13** | Explain a Term | `/learn#terms` | Modal Sheet | Plain-language glossaries for technical agronomic terms. |
@@ -102,7 +107,7 @@ flowchart TD
     S04_Save --> S06_Screen[S06: Field Overview Hub]
     
     S06_Screen -->|Prompt: Record what you grow now| S08_Screen[S08: Rotation Editor]
-    S08_Screen -->|Add Crop 1: Sowing & Harvest| S08_Add[Add Crop 2 / Fallow]
+    S08_Screen -->|Choose Guided Flow or Advanced| S08_Add[Define Crop Sequence]
     S08_Add -->|Save Rotation| S07_Fetch[Background: Fetch NASA POWER & SoilGrids]
     
     S07_Fetch --> S07_Screen[S07: View Conditions]
@@ -112,55 +117,90 @@ flowchart TD
     S11_Screen -->|Print / Export| S16_Screen[S16: 1-Page Adviser Report]
 ```
 
-#### Detailed Process Steps:
-1. **First Launch (`/welcome`):**
-   - User lands on S01. The UI displays language selection (Myanmar Unicode / English) and a transparent data disclosure.
-   - User taps **Continue**. The timestamp is saved to `localStorage` under `fieldshift.settings.v1`.
-   - Next.js router replaces route with `/fields/new`.
+---
 
-2. **Delineate Field (`/fields/new`):**
-   - User searches village/town or uses device geolocation.
-   - User drops a center coordinate or traces a bounding box polygon.
-   - User enters Field Name (e.g., *"North Creek Field"*) and optional acres.
-   - User taps **Save Field**. State is committed to `useFieldsStore`, and user is navigated to `/fields/:id`.
+### 3.2 Journey 2: Guided Farmer Decision Flow (3-Step Mobile Journey)
 
-3. **Record Current Rotation (`/fields/:id/rotation`):**
-   - User clicks **Record what you grow now**.
-   - User adds Crop 1 (e.g., *Monsoon Sesame*, May–Aug) and Crop 2 (e.g., *Winter Chickpea*, Oct–Jan).
-   - User marks date certainty (*Exact*, *About*, *Usual time*) and residue practice (*Left on field*, *Grazed*, *Burned*).
-   - Tapping **Save rotation** writes the sequence to `useFieldsStore.rotations`.
+The Guided Farmer Flow (`FarmerGuidedFlow`) shows useful options first and treats farm details as optional refinements. Saved field details are summarised, never asked again.
 
-4. **Environmental Diagnostics (`/fields/:id/conditions`):**
-   - The app initiates parallel API calls to NASA POWER (10-year daily weather series) and ISRIC SoilGrids.
-   - If offline, regional climate baseline models populate the values with an explicit indicator.
-   - Conditions dashboard displays: seasonal rainfall totals, dry spell risks, temperature bounds, and soil texture.
+```mermaid
+flowchart LR
+    Step1[1. What matters most?<br/>Field summary + 1–2 priorities] --> Step2[2. Compare options<br/>Optional water / machinery / budget]
+    Step2 --> Step3[3. Your plan<br/>Suggested dates + checklist]
+```
 
-5. **Multi-Criteria Comparison (`/fields/:id/compare`):**
-   - Client engine evaluates the current rotation against regional agronomic templates (e.g., *Pigeon Pea intercrop*, *Green gram short-season relay*).
-   - MCDA algorithm computes scores across 4 key criteria: **Water Conservation**, **Soil Health**, **Gross Margin**, and **Climate Resilience**.
-   - Cards display comparative performance, historical stress strips (10 seasons), and critical drawbacks.
+#### Detailed Step-by-Step Breakdown:
+1. **Step 1: What matters most?**
+   - A compact field summary (name, region, area with acre/ha toggle, saved water) with an **Edit field** link to `/fields/:id/profile`.
+   - Choose 1–2 of 5 priorities: `profit`, `low_water`, `low_cash`, `reliable_harvest`, `soil_improvement`. English label first, Burmese beneath as help text.
+2. **Step 2: Compare options**
+   - Up to 3 candidates appear straight away, checked with `classifyRotationFeasibility`: **Passes your answers**, **Needs a check**, **Ruled out by your answers**.
+   - A readiness note says the options are ready and how many of the 3 optional farm details are answered. **Add farm details (optional)** opens water, machinery and budget.
+   - Water defaults from the saved field; machinery and budget default to unanswered. Each card lists what to add under **Add to check**.
+   - Budget answers: a stated per-acre limit (converted to MMK/ha and checked against whole-sequence cost), *No fixed limit*, *Not sure yet*, or unanswered. An unanswered budget is never treated as unlimited.
+3. **Step 3: Your plan**
+   - Crop sequence with **Suggested dates** ("sow around 15 Jun") because candidate dates come from the usual season.
+   - Before-planting checklist, including anything still unchecked. **Save this plan** stores it and opens Compare.
 
 ---
 
-### 3.2 Journey 2: The Decision Loop (Compare, Option Detail & Evidence)
+### 3.3 Journey 3: Dual-Mode Rotation Editing & Relay Broadcast (*Ye-pyan*) Scheduling
+
+Farmers and extension officers can toggle between two perspectives in S08 (`/fields/:id/rotation`):
+
+```
+┌────────────────────────────────────────────────────────┐
+│  Mode: [ 🌾 Guided Farmer View ]  [ 🔬 Advanced View ] │
+└────────────────────────────────────────────────────────┘
+```
+
+#### Transition Dynamics & Relay Broadcast Rules (`lib/engine/transition.ts`):
+In traditional rotation calendars, overlapping crops (where Crop 2 plants before Crop 1 harvests) are flagged as errors. In Myanmar lowland rice systems, pre-harvest relay broadcasting (**Ye-pyan**) is an essential agronomic practice where legume seeds (black gram / green gram) are broadcast directly into standing rice water 7 to 10 days before drainage and harvest:
+
+```
+Monsoon Rice:      [═══════════════════════════════] (Harvest: Nov 15)
+                                          ▲
+                                          │ -7 to -10 days overlap (Ye-pyan)
+                                          ▼
+Winter Black Gram:                     [═════════════════════════] (Plant: Nov 8)
+```
+
+1. **Policy Rules:**
+   - Standard turnaround: Minimum +14 days bare window required between harvest and tillage.
+   - Zero-tillage turnaround: Minimum +7 days required.
+   - Relay broadcast (*Ye-pyan*): Negative gap of up to **-12 days** is permitted **if and only if**:
+     1. The next slot selects `establishmentMode: "relay_broadcast"`;
+     2. The pair is an eligible biological combination (e.g., `Rice` $\rightarrow$ `Black Gram` or `Green Gram`).
+2. **1-Click Repair Helpers:**
+   - If an invalid collision is detected, S08 provides immediate action buttons:
+     - `[ Snap to Relay (-7d) ]`
+     - `[ Snap to Turnaround (+14d) ]`
+
+---
+
+### 3.4 Journey 4: The Decision Loop (Compare, Option Detail & Evidence)
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Farmer as Farmer / Adviser
     participant UI as S10 Compare UI
-    participant Engine as Client MCDA Engine
+    participant Engine as Client Engine
     participant Detail as S11 Option Detail
     participant Evid as S12 Finding Detail
 
     Farmer->>UI: Opens /fields/:id/compare
-    UI->>Engine: runComparison(field, currentRotation, limits, priorities)
-    Engine-->>UI: Return Ranked Options (Current + Alternatives A & B)
+    UI->>Engine: classifyRotationFeasibility + rankSumMCDA
+    Engine-->>UI: Return Viable Ranked Candidates
     UI->>Farmer: Display 3 Comparative Cards & 10-Season Strips
     
     Farmer->>UI: Taps Alternative Option Card (e.g., "Legume Relay")
     UI->>Detail: Navigate to /fields/:id/compare (Option Detail View)
     Detail->>Farmer: Render 5-Part Explanation (Fit, Soil, Water, Unknowns, Checks)
+    
+    Farmer->>Detail: Taps Year in 10-Season Strip ("2020: Dry Spell")
+    Detail->>Farmer: Ground-Truth Recall: "How was 2020 at your field? (Dry/Normal/Wet)"
+    Farmer->>Detail: Selects "Dry" -> Reveals Satellite Model Agreement
     
     Farmer->>Detail: Taps Evidence Metric ("Rainfall deficit in 4/10 years")
     Detail->>Evid: Expand Provenance Drawer (S12)
@@ -169,28 +209,19 @@ sequenceDiagram
 
 ---
 
-### 3.3 Journey 3: Answering Unknowns (Closing Data Gaps)
+### 3.5 Journey 5: Answering Unknowns (Closing Data Gaps)
 
 ```mermaid
 flowchart LR
     S10[S10: Compare Screen] -->|Badge: 2 Unknowns| S11[S11: Option Detail]
     S11 -->|Tap: 'Water source in dry season?'| S14[S14: Question Modal Sheet]
     S14 -->|User selects: 'Canal water available until Dec'| Store[Update Field Soil & Water Profile]
-    Store -->|Recalculate MCDA| S10_Updated[S10: Updated Comparison & Higher Confidence]
+    Store -->|Recalculate Feasibility & MCDA| S10_Updated[S10: Updated Comparison & Higher Confidence]
 ```
-
-#### Detailed Process Steps:
-1. When comparison rules detect an unmeasured boundary condition (e.g., whether irrigation water is available in January), an **Unknown Chip** appears on the option card.
-2. The user taps the chip, which opens **S14 Answer an Unknown** (`/fields/:id/questions/:questionId`) as a focused sheet.
-3. The screen asks a single targeted multiple-choice question:
-   - *"Do you have access to supplemental irrigation in the dry season (Nov–Feb)?"*
-   - Options: `No, rainfed only` | `Yes, tubewell / pump` | `Yes, canal / river scheme`
-4. Selecting an answer immediately updates `field.waterAccess` in the store and closes the sheet.
-5. The comparison matrix dynamically re-scores the rotations; previously penalized or blocked strategies become active with refreshed score badges.
 
 ---
 
-### 3.4 Journey 4: "What-If" Climate Stress Testing
+### 3.6 Journey 6: Climate Stress Testing ("What-If" Simulation)
 
 ```mermaid
 flowchart TD
@@ -205,7 +236,7 @@ flowchart TD
 
 ---
 
-### 3.5 Journey 5: Extension Consultation & Reporting
+### 3.7 Journey 7: Extension Consultation & Reporting
 
 ```mermaid
 flowchart LR
@@ -260,10 +291,6 @@ flowchart LR
    - Commits `new Date().toISOString()` to `localStorage.setItem('fieldshift.settings.v1')`.
    - Router pushes `/fields/new` (if 0 fields) or `/` (if fields exist).
 
-#### State & Edge Cases:
-- **Offline:** Allowed. The notice explicitly reassures the user that satellite data will load when connected.
-- **Zawgyi Encoding Check:** Warns users if their device environment uses non-standard Zawgyi fonts instead of standard Myanmar Unicode.
-
 ---
 
 ### S02 — Field List (Home View)
@@ -314,11 +341,7 @@ flowchart LR
 - **Route:** `/fields/map`
 - **Container:** Tab root full-viewport interactive map.
 - **Primary Goal:** Spatial overview of all farm plots against regional satellite basemaps.
-
-#### Key Mechanics:
-- Renders Mapbox GL JS map centered on the bounding box containing all user fields.
-- Clicking any polygon or pin opens a bottom sheet card displaying field name, crop, and link to `/fields/:fieldId`.
-- Toggleable data layer overlays: NASA SRTM elevation contours, MODIS NDVI seasonal vegetation.
+- **Key Mechanics:** Renders Mapbox GL JS map centered on the bounding box containing all user fields. Tapping any polygon opens a card linking to `/fields/:fieldId`.
 
 ---
 
@@ -350,15 +373,10 @@ flowchart LR
 ```
 
 #### Process & Interactions:
-1. **Map Interaction:**
-   - User drags map, searches by settlement name, or clicks **Use My Location**.
-   - User chooses geometry mode: **Pin (approximate point)**, **Box**, or **Custom polygon**.
-2. **Area Calculation:** Computes geodesic area in local acres (`1 acre = 4,046.86 m²`).
-3. **Persistence:** On **Save This Field**:
-   - Creates a unique UUID `f-<timestamp>`.
-   - Saves geometry to `useFieldsStore.addField`.
-   - Automatically kicks off prefetching of environmental diagnostics in the background.
-   - Pushes user to `/fields/:fieldId`.
+1. User searches settlement or clicks **Use My Location**.
+2. Selects geometry mode: **Pin (approximate point)**, **Box**, or **Polygon**.
+3. Computes geodesic area in local acres (`1 acre = 4,046.86 m²`).
+4. On save: creates UUID `f-<timestamp>`, commits to store, initiates background diagnostic prefetch, and navigates to `/fields/:fieldId`.
 
 ---
 
@@ -367,47 +385,20 @@ flowchart LR
 - **Route:** `/fields/:fieldId/profile`
 - **Container:** Inset grouped form within Field Shell.
 - **Primary Goal:** Record farm-specific management limits and soil overrides.
-
-#### Fields Collected:
-- **Water Source:** Rainfed only / Shallow tubewell / River lift / Canal irrigation.
-- **Soil Texture Override:** Farmer's observed texture (Clay / Sandy Loam / Loam / Black Cotton Soil) which overrides coarse satellite SoilGrids data.
-- **Soil Test Data (Optional):** Observed pH, Nitrogen, Phosphorus, Potassium levels.
-- **Machinery & Labor Constraints:** Tractor access, draft animals, peak harvest labor shortages.
+- **Fields Collected:**
+  - Water source (Rainfed / Tubewell / Canal)
+  - Observed soil texture (overrides coarse SoilGrids)
+  - Custom soil test values (pH, N, P, K)
+  - Labor and equipment constraints
 
 ---
 
 ### S06 — Field Hub (Overview Dashboard)
 
 - **Route:** `/fields/:fieldId`
-- **Container:** Field Shell with 5-tab top bar (Overview, Profile, Crops, Conditions, Compare).
+- **Container:** Field Shell with 4-tab top bar (Overview, Crops, Compare, Farm). Conditions and Trends open from the Overview and highlight its tab.
 - **Primary Goal:** Central mission control for a field.
-
-```
-┌──────────────────────────────────────────────┐
-│ < Fields          North Creek Field          │
-│ [Overview] [Farm] [Crops] [Conditions] [Comp]│
-│                                              │
-│ ┌──────────────────────────────────────────┐ │
-│ │ Next Step: Compare rotation options      │ │
-│ │ 3 alternative strategies ready to test.  │ │
-│ │ [       Compare Options Now            ] │ │
-│ └──────────────────────────────────────────┘ │
-│                                              │
-│ ┌──────────────────────────────────────────┐ │
-│ │ Current Sequence                         │ │
-│ │ Monsoon Rice  ->  Winter Chickpea        │ │
-│ │ Sown: June        Sown: November         │ │
-│ │ [Edit Rotation]                          │ │
-│ └──────────────────────────────────────────┘ │
-│                                              │
-│ ┌──────────────────────────────────────────┐ │
-│ │ Local Conditions Snapshot                │ │
-│ │ • Annual Rainfall: 840 mm (NASA POWER)   │ │
-│ │ • Dominant Risk: 22-day mid-season dry   │ │
-│ │ • Soil Texture: Sandy Clay Loam (250m)   │ │
-│ └──────────────────────────────────────────┘ │
-└──────────────────────────────────────────────┘
-```
+- **Content:** Displays current crop status, next step banner, and local weather/soil highlights.
 
 ---
 
@@ -416,57 +407,54 @@ flowchart LR
 - **Route:** `/fields/:fieldId/conditions`
 - **Container:** Field Sub-screen.
 - **Primary Goal:** Explain seasonal rainfall, dry spell patterns, temperature extremes, and soil properties.
-
-#### Sections Displayed:
-1. **Headline Finding:** One plain-language verdict (e.g., *"Dry spells over 20 days occurred in 6 of the last 10 monsoon seasons."*).
-2. **Rainfall & Water Balance Panel:**
-   - 10-year monthly bar charts from NASA POWER.
-   - Wet season onset date and duration.
-3. **Temperature & Heat Stress Panel:**
-   - Days exceeding 38°C during critical flowering windows.
-4. **Soil Grids Profile:**
-   - Soil pH, Organic Carbon, Clay %, Sand %, and Cation Exchange Capacity.
-   - If farmer entered a local soil test, displays badge: **Your soil test (overrides satellite model)**.
-5. **Data Provenance Line:** Shows spatial grid cell size (e.g. *NASA POWER 0.1° cell ~10 km around your field*).
+- **Sections:**
+  1. Headline plain-language verdict (e.g., *"Dry spells over 20 days occurred in 6 of the last 10 seasons"*).
+  2. 10-year monthly rainfall bar charts.
+  3. Heat stress screening (>35°C during flowering).
+  4. SoilGrids profile with local override indicator.
+  5. Attribution line showing 0.1° (~10 km) cell scale.
 
 ---
 
-### S08 — Rotation Editor
+### S08 — Rotation Editor & Guided Flow
 
 - **Route:** `/fields/:fieldId/rotation`
-- **Container:** Field Sub-screen.
-- **Primary Goal:** Capture farmer's real crop sequence, planting/harvest windows, and fallow periods.
+- **Container:** Field Sub-screen with dual view modes: `[ 🌾 Guided Farmer View | 🔬 Advanced Detail View ]`.
+- **Primary Goal:** Capture farmer's real crop sequence, validate turnarounds, and schedule pre-harvest relay broadcasting.
 
 ```
 ┌──────────────────────────────────────────────┐
 │ < Field Hub        Crop Rotation             │
-│                                              │
-│ Record crops in the order they are grown:    │
+│ Mode: [ 🌾 Guided Farmer View ] [ 🔬 Detail ]│
 │                                              │
 │ ┌──────────────────────────────────────────┐ │
-│ │ Crop 1: Monsoon Sesame                   │ │
-│ │ Sowing: May (About) · Harvest: August    │ │
-│ │ Residue: Cut and removed for fodder      │ │
-│ │ [ Edit ]                         [Remove]│ │
+│ │ Moisture Window: [ Field Check Needed ]  │ │
+│ │ "Check topsoil moisture before sowing"   │ │
 │ └──────────────────────────────────────────┘ │
+│                                              │
 │ ┌──────────────────────────────────────────┐ │
-│ │ Crop 2: Winter Chickpea                  │ │
-│ │ Sowing: October · Harvest: January       │ │
-│ │ Residue: Stubble retained in field       │ │
-│ │ [ Edit ]                         [Remove]│ │
+│ │ Slot 1: Monsoon Lowland Rice             │ │
+│ │ Sowing: Jun 15 · Harvest: Nov 15         │ │
+│ │ Method: Transplanting                    │ │
+│ └──────────────────────────────────────────┘ │
+│                     ▲                        │
+│                     │ -7d Relay Overlap      │
+│                     ▼                        │
+│ ┌──────────────────────────────────────────┐ │
+│ │ Slot 2: Winter Black Gram (Matpe)        │ │
+│ │ Sowing: Nov 8 · Harvest: Feb 20          │ │
+│ │ Method: [ 🌱 Relay Broadcast (Ye-pyan) ] │ │
 │ └──────────────────────────────────────────┘ │
 │                                              │
-│ [ + Add Next Crop / Fallow                 ] │
-│                                              │
-│ [             Save Rotation                ] │
+│ [ + Add Crop ]        [ Save Rotation ]      │
 └──────────────────────────────────────────────┘
 ```
 
 #### Process & Interactions:
-1. **Adding a Crop:** User selects crop name, typical sowing month, typical harvest month.
-2. **Gap Detection:** If a gap of >60 days exists between harvest of Crop 1 and sowing of Crop 2, the UI automatically flags a **Bare Soil / Fallow Gap**.
-3. **Validation:** Checks that sowing occurs before harvest within the sequence year.
-4. **Saving:** Saves array to `useFieldsStore.rotations`. Immediately triggers MCDA engine re-evaluation for `/fields/:fieldId/compare`.
+1. **Guided Mode:** Executes the 3-step `FarmerGuidedFlow` (Priorities $\rightarrow$ Compare with optional refinements $\rightarrow$ Plan).
+2. **Advanced Mode:** Provides timeline crop cards with explicit sowing/harvest month controls, residue fate options, and establishment modes.
+3. **Moisture Clock Ribbon:** If topsoil drainage is unconfirmed, displays *"Check topsoil moisture and drainage before sowing"*. When confirmed, displays the 3-phase seedbed drydown window.
+4. **Relay Handling:** Detects eligible rice $\rightarrow$ pulse relay pairs; allows negative gap up to -12 days; provides 1-click snap repair buttons.
 
 ---
 
@@ -474,26 +462,16 @@ flowchart LR
 
 - **Route:** `/fields/:fieldId/profile#limits` or Compare filter modal.
 - **Container:** Large modal sheet with draggable cards.
-- **Primary Goal:** Assign personal weights to agronomic and economic criteria.
-
-#### Mechanics:
-- 4 draggable priority cards:
-  1. **Save Water & Drought Resilience**
-  2. **Build Soil & Nitrogen**
-  3. **Earn Higher Income**
-  4. **Feed Farm Livestock**
-- Dragging cards changes rank order (1st to 4th).
-- Engine computes normalized rank-sum weights:
+- **Primary Goal:** Assign personal weights to agronomic and economic criteria using normalized rank-sum math:
   $$w_i = \frac{n - r_i + 1}{\sum_{j=1}^n (n - r_j + 1)}$$
-  (For 4 criteria: 1st = 40%, 2nd = 30%, 3rd = 20%, 4th = 10%).
 
 ---
 
-### S10 — Compare Rotations (Core Decision Matrix)
+### S10 — Compare Rotations (Feasibility-Gated Matrix)
 
 - **Route:** `/fields/:fieldId/compare`
-- **Container:** Tab Sub-screen with Segmented Depth Control.
-- **Primary Goal:** Compare current rotation side-by-side with at least 2 viable alternative rotations.
+- **Container:** Tab Sub-screen with Segmented Depth Control (*Answer / Reasons / Evidence*).
+- **Primary Goal:** Compare current rotation side-by-side with feasible alternative rotations.
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -501,34 +479,31 @@ flowchart LR
 │ View: [ Answer ] [ Reasons ] [ Evidence ]    │
 │                                              │
 │ ┌──────────────────────────────────────────┐ │
-│ │ Current: Sesame -> Chickpea              │ │
-│ │ Score: 62/100 · Moderate Dry Risk        │ │
+│ │ Current: Rice -> Fallow                  │ │
+│ │ Score: 52/100 · High Moisture Loss       │ │
 │ │ 10-Yr History: [■■■■■□□■■■] 3 Stress Yrs │ │
-│ │ Main drawback: High nitrogen depletion   │ │
+│ │ Drawback: Residual moisture wasted       │ │
 │ └──────────────────────────────────────────┘ │
 │ ┌──────────────────────────────────────────┐ │
-│ │ Alternative A: Sesame -> Green Gram Relay│ │
-│ │ Score: 78/100 · [ Best Soil Fit ]        │ │
+│ │ Alternative A: Rice -> Black Gram Relay  │ │
+│ │ Status: [ Suitable ] · Score: 81/100     │ │
 │ │ 10-Yr History: [■■■■■■■■□■] 1 Stress Yr  │ │
-│ │ Advantage: Adds ~30 kg N/ha, saves water │ │
+│ │ Advantage: Utilizes residual moisture    │ │
 │ │ [ Inspect Option Details > ]             │ │
 │ └──────────────────────────────────────────┘ │
 │ ┌──────────────────────────────────────────┐ │
-│ │ Alternative B: Sorghum -> Chickpea       │ │
-│ │ Score: 71/100 · [ Best Drought Fit ]     │ │
-│ │ 10-Yr History: [■■■■■■■■■■] 0 Stress Yrs │ │
-│ │ Advantage: Deep roots resist dry spells  │ │
-│ │ [ Inspect Option Details > ]             │ │
+│ │ Alternative B: Summer Sesame             │ │
+│ │ Status: [ Blocked ]                      │ │
+│ │ Reason: Requires reliable dry irrigation │ │
 │ └──────────────────────────────────────────┘ │
 │                                              │
 │ [ What-If Simulator ]     [ Printable Report]│
 └──────────────────────────────────────────────┘
 ```
 
-#### Depth Control Toggles:
-- **Answer Mode:** Clean, plain-language summary sentences with primary win and drawback.
-- **Reasons Mode:** Shows specific quantitative metrics (water consumed in mm, nitrogen balance in kg/ha, gross margin in MMK/acre).
-- **Evidence Mode:** Displays dataset sources, temporal windows, and confidence ratings.
+#### Feasibility & Depth Mechanics:
+- Rotations that violate hard constraints (e.g. insufficient water, excessive upfront capital) are marked **Blocked** with the exact blocking constraint stated plainly.
+- Toggling between **Answer**, **Reasons**, and **Evidence** shifts the data density from concise summaries to detailed physical balances and satellite metadata.
 
 ---
 
@@ -537,15 +512,10 @@ flowchart LR
 - **Route:** Pushed from S10 card.
 - **Container:** Deep-dive view.
 - **Primary Goal:** Provide exhaustive technical and practical breakdown of one specific rotation.
-
-#### Sections:
-1. **Why It Was Suggested:** Matches current field soil texture and past rainfall distribution.
-2. **What It Does for the Field:** Soil organic carbon impact, erosion protection during monsoon onset.
-3. **10-Season Interactive Strip:**
-   - 10 squares representing years 2015 to 2024.
-   - Green = good rainfall & yield fit; Orange = moisture stress during flowering; Red = severe drought failure.
-   - **Ground-Truth Recall Probe:** Tapping a year prompts: *"How did your field do in 2020? (Dry / Normal / Wet)"*. Comparing the farmer's memory against satellite data builds trust.
-4. **Unknowns & Local Checks:** Questions extension officer must verify (e.g. seed availability in local market).
+- **Key Features:**
+  - 5-part explanation: Why suggested, Soil impact, Water resilience, Unknowns, Local checks.
+  - Interactive 10-season history strip with ground-truth recall probe.
+  - Cash-at-risk envelope and break-even yield analysis.
 
 ---
 
@@ -553,12 +523,7 @@ flowchart LR
 
 - **Route:** Modal overlay from any metric link.
 - **Container:** Push or modal sheet.
-- **Primary Goal:** Complete scientific transparency on data provenance.
-- **Content:**
-  - Full scientific name of satellite sensor (e.g. *NASA GPM IMERG Final Precipitation V06*).
-  - Spatial resolution (0.1° × 0.1° cell).
-  - Frequency of update (Daily, 3-month latency).
-  - Methodology used to calculate dry spell index.
+- **Primary Goal:** Complete scientific transparency on data provenance (sensor name, resolution, dates, methodology).
 
 ---
 
@@ -566,7 +531,7 @@ flowchart LR
 
 - **Route:** Accessible from underlined terms across the app.
 - **Container:** Medium detent bottom sheet with VoiceOver / Read Aloud audio support.
-- **Content:** Concise explanation in plain Burmese and English. Example: *Legume Nitrogen Fixation: Bacteria on roots take nitrogen from the air and leave it in the soil for the next crop.*
+- **Content:** Concise explanation in plain Burmese and English.
 
 ---
 
@@ -574,8 +539,7 @@ flowchart LR
 
 - **Route:** `/fields/:fieldId/questions/:questionId`
 - **Container:** Focused modal sheet.
-- **Primary Goal:** Convert an agronomic unknown into known local ground truth.
-- **UX Rule:** One single question per sheet. Never show a long overwhelming survey. Selecting an answer immediately updates the model and dismisses the sheet.
+- **Primary Goal:** Convert an agronomic unknown into known local ground truth with a single targeted multiple-choice question.
 
 ---
 
@@ -584,7 +548,6 @@ flowchart LR
 - **Route:** `/learn`
 - **Container:** Tab root view.
 - **Primary Goal:** Reference guide for crops adapted to Myanmar's agro-ecological zones (Central Dry Zone, Shan Plateau, Delta).
-- **Content:** Planting calendars, water requirements, rooting depths, market uses, and nitrogen fixation capacities.
 
 ---
 
@@ -593,36 +556,8 @@ flowchart LR
 - **Route:** `/fields/:fieldId/report`
 - **Container:** Clean print-optimized document view.
 - **Primary Goal:** 1-page condensed field briefing designed to be taken to an extension office or agricultural bank.
-
-```
-┌────────────────────────────────────────────────────────┐
-│ FIELD SHIFT — ROTATION PLANNING REPORT                 │
-│ Field: North Creek Field · Ayeyarwady · 3.5 acres      │
-│ Date: 14 Nov 2026 · Field Shift Engine v2.1            │
-│ ────────────────────────────────────────────────────── │
-│ CURRENT ROTATION:                                      │
-│ Monsoon Rice -> Winter Sesame (Score: 62/100)          │
-│                                                        │
-│ RECOMMENDED ALTERNATIVE:                               │
-│ Monsoon Rice -> Green Gram Relay (Score: 78/100)       │
-│                                                        │
-│ KEY DIFFERENCES & ADVANTAGES:                          │
-│ • Soil: Adds ~30 kg N/ha instead of depleting N.       │
-│ • Water: Reduces late-season pumping requirement.      │
-│ • Climate Risk: Survived 9 of 10 recent seasons.       │
-│                                                        │
-│ QUESTIONS TO DISCUSS WITH YOUR ADVISER:                │
-│ 1. Is certified early-maturing green gram seed ready?  │
-│ 2. Is there a local market buyer for green gram?       │
-│ ────────────────────────────────────────────────────── │
-│ [Print / Save PDF]            [Privacy: Hide GPS Coords]│
-└────────────────────────────────────────────────────────┘
-```
-
-#### Process & Print Rules:
-- Implements CSS `@media print` with explicit page breaks (`break-inside: avoid`).
-- Hides headers, tab bars, and interactive buttons during print.
-- Renders high-contrast monochrome and grayscale patterns so information is 100% legible on inexpensive black-and-white local printers.
+- **Privacy Controls:** Includes an instant toggle to redact precise GPS coordinates to township level.
+- **Print Optimization:** High-contrast monochrome layout with clean `@media print` page boundaries.
 
 ---
 
@@ -630,8 +565,7 @@ flowchart LR
 
 - **Route:** `/fields/:fieldId/trends`
 - **Container:** Field Sub-screen.
-- **Primary Goal:** Display multi-decadal shift (1981–2024) in local temperature, precipitation onset, and heat stress days.
-- **Visuals:** Mann-Kendall trendline plots showing whether the monsoon onset is moving earlier or later in the farmer's township.
+- **Primary Goal:** Display multi-decadal shift (1981–2024) in local temperature, precipitation onset, and heat stress days using Mann-Kendall trendline plots.
 
 ---
 
@@ -639,18 +573,36 @@ flowchart LR
 
 - **Route:** Modal sheet from S10.
 - **Container:** Modal sheet with dual interactive range sliders.
-- **Primary Goal:** Stress-test crop rotations against hypothetical adverse climate shocks.
-- **Sliders:**
-  1. *Rainfall Variation:* `-30% (Severe Drought)` to `+30% (Excess Water)`.
-  2. *Temperature Anomaly:* `0.0°C (Historical)` to `+3.0°C (Extreme Heat)`.
-- **Feedback:** Real-time re-scoring showing which crop options survive the shock and which fail. Every screen explicitly carries the banner: **Hypothetical Simulation — Not a Weather Forecast**.
+- **Primary Goal:** Stress-test crop rotations against hypothetical adverse climate shocks (Rainfall $-30\%$ to $+30\%$; Temperature $+0.0^\circ\text{C}$ to $+3.0^\circ\text{C}$).
 
 ---
 
-## 5. State Management & Data Flow Architecture
+## 5. Core Calculation Engines & Decision Algorithms
 
-The application coordinates data between UI components, client stores, and background services.
+### 5.1 Hard Feasibility Gate (`lib/engine/farmer-decision.ts`)
+Before any MCDA ranking occurs, candidate rotations must pass hard operational gates:
+1. **Water Feasibility:** If candidate requires irrigation and farmer has `availableWater === "rainfed"`, the candidate is marked `infeasible` with code `WATER_DEFICIT_BLOCKED`.
+2. **Budget Feasibility:** If upfront cash requirement exceeds `budgetMaxMmkHa`, the candidate is marked `infeasible` with code `BUDGET_EXCEEDED`.
+3. **Turnaround Biological Feasibility:** Evaluated via `evaluateTransition`. Negative overlaps exceeding 12 days or between non-relay crops produce a hard veto `RELAY_WINDOW_EXCEEDED`.
 
+### 5.2 Hydrological Ledger (`lib/engine/water.ts`)
+- **Three-Zone Water Balance:** Tracks root-zone moisture across three explicit vertical compartments ($Z_1 = 0.12\text{ m}$ topsoil seedbed, $Z_2$ active root zone, $Z_3$ deep subsoil). Mass conservation residual is verified at $\le 10^{-9}\text{ mm/day}$.
+- **Paddy Drainage Handover:** Explicitly models surface pond drainage and plough pan conductance ($k_{\text{pan}} \in [2.5, 6.0]\text{ mm/day}$) after lowland rice harvest to determine legume seedbed moisture conditions.
+
+### 5.3 Reference Evapotranspiration (`lib/engine/et0.ts`)
+- Implements two-tier reference ET0: FAO-56 Penman-Monteith with net solar and longwave radiation ($R_{ns}, R_{nl}$), with automatic fallback to calibrated Hargreaves when radiation or humidity inputs are missing.
+
+---
+
+## 6. State Management, Schemas & Persistence
+
+### 6.1 Data Schemas (`lib/types.ts`)
+- `EstablishmentMode = "tillage" | "zero_till" | "relay_broadcast" | "unknown"`
+- `ResidueFate = "retain_incorporate" | "retain_mulch" | "remove_fodder" | "burn" | "unknown"`
+- `farmerObservedDrainage = "waterlogged" | "adequate" | "dry" | "unknown"`
+- `farmerObservedSoilCondition = "wet" | "moist" | "dry" | "unknown"`
+
+### 6.2 Zustand Stores & Hydration Safety
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                                ZUSTAND STORES                                │
@@ -675,16 +627,11 @@ The application coordinates data between UI components, client stores, and backg
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.1 Store Invariants & Hydration Safety
-
-- **Server-Side Rendering (SSR) Compatibility:**
-  To guarantee instant navigation and eliminate hydration mismatches in Next.js App Router, all stores initialize with inert static defaults (`hydrated: false`).
-  Stores hydrate from `localStorage` inside client-side `useEffect` hooks.
-  Layouts never conditionally unmount `{children}` based on hydration state, ensuring Next.js prerender boundaries and instant navigation validation remain uninterrupted.
+- **Next.js App Router Prerender Safety:** Stores initialize with static inert defaults (`hydrated: false`). Client-side hydration executes inside `useEffect`. Layouts never unmount `{children}` based on hydration state, ensuring Next.js static prerendering and instant-navigation validation remain intact.
 
 ---
 
-## 6. UI/UX Rules & Accessibility Guardrails
+## 7. UI/UX Rules & Accessibility Guardrails
 
 1. **Light-Only Surface Hierarchy:**
    - App Shell Background: `#f4f3ee`
@@ -695,17 +642,15 @@ The application coordinates data between UI components, client stores, and backg
    - Ink Text: `#1c1b18` (WCAG AAA contrast against parchment).
 
 2. **Never Color Alone:**
-   - Hazards (Drought, Heat, Flood, Disease) must never be signaled purely by color. Every chip combines:
-     - An explicit SVG icon (water drop, thermometer, flame, leaf).
-     - A clear textual severity label (*"Drought risk"*, *"In range"*, *"Deficit"*).
+   - Hazards (Drought, Heat, Flood, Disease) must never be signaled purely by color. Every chip combines an explicit SVG icon with a clear textual severity label.
 
 3. **Touch Targets & Outdoors Usability:**
-   - All interactive buttons, cards, and tabs have a minimum bounding tap target of **44 × 44 pt** (meeting Apple HIG and Android Material guidelines).
+   - All interactive buttons, cards, and tabs have a minimum bounding tap target of **44 × 44 pt**.
    - Generous padding and spacing prevent mis-taps when using mobile devices in farm fields with dusty or wet hands.
 
 ---
 
-## 7. Complete Summary Matrix
+## 8. Complete Screen Summary Matrix
 
 | Screen | Route | Key Data Ingest | Core Output / Decision |
 |:---|:---|:---|:---|
@@ -718,7 +663,7 @@ The application coordinates data between UI components, client stores, and backg
 | **S07** | `/fields/:id/conditions`| NASA POWER & ISRIC SoilGrids | Diagnostic climate & soil charts |
 | **S08** | `/fields/:id/rotation`| Sowing/harvest dates & crops | Chronological crop rotation array |
 | **S09** | `/fields/:id/profile#limits`| Priority drag order (1 to 4) | MCDA criterion weights ($w_i$) |
-| **S10** | `/fields/:id/compare` | MCDA engine matrix calculation | Ranked comparative cards |
+| **S10** | `/fields/:id/compare` | Feasibility gate & MCDA engine | Ranked comparative cards |
 | **S11** | `/fields/:id/compare` (Detail)| Option suitability rules | 5-part deep agronomic explanation |
 | **S12** | Evidence Drawer | Sensor metadata & cell resolution| Complete scientific transparency |
 | **S13** | `/learn#terms` | Whitepaper glossary content | Plain-language definitions & TTS |

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Alert from "@mui/material/Alert";
+import { Message } from "@/components/ui/message";
 import { Button, buttonClass } from "@/components/ui/button";
 import { FieldPageHeader } from "@/components/field/field-page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -100,7 +100,7 @@ function QuestionBody({ field, question }: { field: Field; question: Question })
         <p className="m-0 rounded-md bg-surface-sunken p-3 text-body-sm text-ink-muted">
           <span className="font-medium text-ink">Why we ask: </span>{benefit}
         </p>
-        {error ? <Alert severity="error">{error}</Alert> : null}
+        {error ? <Message tone="problem" role="alert" title="This did not save">{error}</Message> : null}
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="primary" size="lg" iconEnd="done" onClick={save} disabled={saving}>Save answer</Button>
           <Link href={backHref} className="text-label text-ink-muted hover:text-ink">Skip for now</Link>

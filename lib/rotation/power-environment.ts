@@ -1,5 +1,7 @@
 import type { DailyWeather } from "@/lib/nasa/power";
 import type { EnvironmentSnapshot, MonthlyCondition } from "./farmer-request";
+import { regionOfPoint } from "@/lib/data/regions";
+import { dryZoneRainCaution, isDryZone } from "@/lib/validation/source-checks";
 
 type MonthSample = {
   dates: Set<string>;
@@ -71,5 +73,8 @@ export function powerEnvironment(weather: DailyWeather, startDate: string, endDa
   if (weather.source.resolution) sourceParts.push(weather.source.resolution);
   if (retrievedAt) sourceParts.push(`retrieved ${retrievedAt}`);
   const synthetic = /synthetic|demo/i.test([weather.source.dataset, weather.source.resolution, weather.source.version].join(" "));
-  return { source: sourceParts.join(" · "), basis: synthetic ? "synthetic" : "historical_normals", spatial_resolution_km: null, monthly };
+  // Monthly rain here is POWER PRECTOTCORR, which read about half the station total in the Dry Zone (docs/validation).
+  const region = Number.isFinite(weather.latitude) && Number.isFinite(weather.longitude) ? regionOfPoint([weather.longitude, weather.latitude]) : null;
+  const known_biases = !synthetic && isDryZone(region) ? [dryZoneRainCaution()] : undefined;
+  return { source: sourceParts.join(" · "), basis: synthetic ? "synthetic" : "historical_normals", spatial_resolution_km: null, ...(known_biases ? { known_biases } : {}), monthly };
 }

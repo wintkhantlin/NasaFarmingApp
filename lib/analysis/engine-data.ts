@@ -56,6 +56,12 @@ export function buildEngineData(field: Field, conditions: ConditionsData | null,
     hlsInfo: info(remote?.hls),
     slope: remote?.srtm.data?.slope ?? null,
     srtmInfo: info(remote?.srtm),
+    modis: remote?.modis.data?.observations ?? [],
+    modisInfo: info(remote?.modis),
+    ecostressLst: remote?.ecostressLst.data?.observations ?? [],
+    ecostressLstInfo: info(remote?.ecostressLst),
+    ecostressEt: remote?.ecostressEt.data?.observations ?? [],
+    ecostressEtInfo: info(remote?.ecostressEt),
     soil: effectiveSoil(field, conditions?.soil ?? null),
   };
 }

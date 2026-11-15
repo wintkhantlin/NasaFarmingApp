@@ -18,17 +18,39 @@ function Chip({ c }: { c: LimitCheck }) {
   return <StatusTag tag="not-asked" />;
 }
 
-/** Compact table cell: one line per limit, each with a word and an icon. */
-export function LimitSummary({ checks }: { checks: LimitCheck[] }) {
+/**
+ * Compact view: answered limits one per line; unanswered limits folded into one quiet line,
+ * so five "not asked" tags never repeat under every option. Not asked is still never a pass.
+ */
+export function LimitSummary({ checks, fieldId }: { checks: LimitCheck[]; fieldId?: string }) {
+  const answered = checks.filter((c) => c.result !== "not-asked");
+  const unasked = checks.filter((c) => c.result === "not-asked");
   return (
-    <ul className="m-0 flex list-none flex-col gap-1 p-0">
-      {checks.map((c) => (
-        <li key={c.limit} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-body-sm text-ink-muted">{LIMIT_LABEL[c.limit]}</span>
-          <Chip c={c} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-1.5">
+      {answered.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {answered.map((c) => (
+            <li key={c.limit} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-body-sm text-ink-muted">{LIMIT_LABEL[c.limit]}</span>
+              <Chip c={c} />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {unasked.length > 0 ? (
+        <p className="m-0 text-body-sm text-ink-muted">
+          {answered.length === 0 ? "Not checked yet: you have not set any limits." : `Not set yet: ${unasked.map((c) => LIMIT_LABEL[c.limit].toLowerCase()).join(", ")}.`}
+          {fieldId ? (
+            <>
+              {" "}
+              <Link href={`/fields/${fieldId}/profile#limits`} className="text-field underline">
+                Set limits
+              </Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
