@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { ComparePage } from "../../app/(app)/fields/[fieldId]/compare/page";
-import { PlanEntry } from "../../app/(app)/plan/page";
+import { ComparePage } from "../../app/(app)/fields/[fieldId]/compare/compare-page";
+import { PlanEntry } from "../../app/(app)/plan/plan-entry";
 
 test("saved-field comparison renders for the requested field (the crop-screen link now lives inside it)", async () => {
   const content = await ComparePage({ params: Promise.resolve({ fieldId: "farm one" }) });

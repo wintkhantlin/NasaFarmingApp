@@ -14,6 +14,7 @@
 | `app/(app)/fields/[fieldId]/` | Field sub-routes (wrapped in `FieldShell`) | `page.tsx` (Overview), `rotation/`, `conditions/`, `pests/`, `compare/`, `trends/`, `profile/`, `report/`, `share/`, `questions/` |
 | `app/(map)/` | Full-screen map views (no header/tabbar) | `fields/new/page.tsx`, `fields/[fieldId]/location/page.tsx` |
 | `app/welcome/` | First launch onboarding cover (S01) | `page.tsx` |
+| `docs/` | Architectural specs & Hallmark design | `HALLMARK_DESIGN_SPEC.md`, `SCREEN_DIRECTORY.md` |
 | `components/field/` | Field-specific UI views & controls | `field-overview.tsx`, `rotation-editor.tsx`, `rotation-compare.tsx`, `conditions-view.tsx`, `farm-profile.tsx`, `report-view.tsx`, `what-if.tsx`, `question-form.tsx` |
 | `components/shell/` | Application chrome | `app-nav.tsx` (HeaderNav, TabBar), `welcome-gate.tsx` (First-launch guard), `brand-mark.tsx` |
 | `components/ui/` | Reusable design tokens & primitives | `button.tsx`, `panel.tsx`, `reading.tsx`, `risk-chip.tsx`, `status.tsx`, `icon.tsx`, `stepper.tsx`, `judgment-note.tsx` |

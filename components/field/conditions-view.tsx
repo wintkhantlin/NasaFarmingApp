@@ -296,6 +296,21 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
           {/* Heat and frost: first screen only when a limit is hit */}
           {tempFirst ? temperaturePanel : null}
 
+          <section aria-labelledby="history" className={supportingSection}>
+            <PanelHeader
+              id="history"
+              title={<span className="inline-flex items-center gap-2"><Icon name="trends" />Field history and vulnerabilities</span>}
+              description="Explore past evidence for water stress, flood, erosion, heat and cold. Past observations are not a forecast."
+            />
+            <TrendsView
+              fieldId={field.id}
+              embedded
+              conditions={data}
+              remote={analysis.remote}
+              comparison={comparison}
+            />
+          </section>
+
           <Disclosure title="Crop, climate and source details" className="border-0 bg-transparent [&>summary]:px-0 [&>div]:px-0">
             {!manyCrops ? cropPicker : null}
             {!tempFirst ? temperaturePanel : null}
@@ -319,9 +334,6 @@ export function ConditionsView({ fieldId }: { fieldId: string }) {
             ) : null}
 
             <SourceStatusPanel conditions={data} remote={analysis.remote} />
-            <Disclosure title="Long-term trends" lazy>
-              <TrendsView fieldId={field.id} embedded />
-            </Disclosure>
           </Disclosure>
 
           {/* Soil */}
