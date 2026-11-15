@@ -20,12 +20,12 @@ import { slot, rotation, syntheticField, syntheticWeather } from "../helpers/syn
 import type { ImergDay } from "../../lib/nasa/imerg";
 
 describe("regions", () => {
-  test("a point resolves to its region, and one outside the three is unsupported", () => {
+  test("a point resolves to its regional catalog or Myanmar national coverage", () => {
     expect(regionOfPoint([94.95, 20.15])).toBe("magway");
     expect(regionOfPoint([94.73, 16.78])).toBe("ayeyarwady"); // Pathein
     expect(regionOfPoint([97.04, 20.78])).toBe("shan"); // Taunggyi
     expect(regionOfPoint([36.8, -1.3])).toBe("unsupported"); // Nairobi
-    expect(regionOfPoint([96.16, 16.8])).toBe("unsupported"); // Yangon region is not one of the three
+    expect(regionOfPoint([96.16, 16.8])).toBe("myanmar"); // Yangon has national coverage without a regional catalog
   });
 
   test("a polygon that crosses a boundary is flagged", () => {
@@ -171,6 +171,21 @@ describe("suitability: unknown is not a pass", () => {
     expect(soil.ph?.from).toBe("farmer");
     expect(soil.texture?.from).toBe("soilgrids");
     expect(soil.soilGridsAvailable).toBe(true);
+  });
+
+  test("farmer's soilOverride sets pH, texture and salinity", () => {
+    const field = syntheticField({ soilOverride: { ph: 6.2, texture: "sandy loam", salinityDsM: 1.8 } });
+    const soil = effectiveSoil(field, {
+      clayPct: 30, sandPct: 30, siltPct: 40, ph: 7.4, socGKg: 12, cecCmolKg: null,
+      bulkDensityKgDm3: null, nitrogenGKg: null, fieldCapacityFrac: null, wiltingPointFrac: null,
+      texture: "clay loam", source: { dataset: "ISRIC SoilGrids v2", resolution: "250 m", depth: "0 to 30 cm" },
+    });
+    expect(soil.ph?.value).toBe(6.2);
+    expect(soil.ph?.from).toBe("farmer");
+    expect(soil.texture?.value).toBe("sandy loam");
+    expect(soil.texture?.from).toBe("farmer");
+    expect(soil.salinityDsM?.value).toBe(1.8);
+    expect(soil.salinityDsM?.note).toBe("your soil test");
   });
 
   test("a laboratory observation beats a farmer estimate, and a newer one beats an older one", () => {
@@ -334,8 +349,8 @@ describe("MCDA", () => {
     expect(res.ranking).toHaveLength(0);
   });
 
-  test("no priorities, no ranking; an infeasible option is not ranked; a tie on a relative scale is reported", () => {
-    expect(rankRotations(inputs([{}, {}, {}]), undefined).status).toBe("no-priorities");
+  test("no priorities means equal weights; an infeasible option is not ranked; a tie on a relative scale is reported", () => {
+    expect(rankRotations(inputs([{}, {}, {}]), undefined).status).toBe("unresolved");
     const res = rankRotations(
       inputs(
         [

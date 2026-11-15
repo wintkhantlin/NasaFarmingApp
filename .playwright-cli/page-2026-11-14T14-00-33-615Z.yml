@@ -1,0 +1,204 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e6] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f3e7]
+    - generic [ref=f3e96]:
+      - button "Open issues overlay" [ref=f3e97]:
+        - generic [ref=f3e98]:
+          - generic [aria-hidden] [ref=f3e99]: "0"
+          - generic [ref=f3e100]: "1"
+        - generic [ref=f3e101]: Insight
+      - button "Collapse issues badge" [ref=f3e102]
+  - alert [ref=f3e11]: Rotation planner
+  - generic [ref=f3e105]:
+    - link "Skip to content" [ref=f3e106] [cursor=pointer]:
+      - /url: "#main"
+    - banner [ref=f3e107]:
+      - generic [ref=f3e108]:
+        - link "Rotation planner" [ref=f3e109] [cursor=pointer]:
+          - /url: /
+        - button "Settings" [ref=f3e114]
+    - main [ref=f3e118]:
+      - generic [ref=f3e119]:
+        - link "Fields" [ref=f3e121] [cursor=pointer]:
+          - /url: /
+        - navigation "Pages for Layout test field" [ref=f3e125]:
+          - list [ref=f3e126]:
+            - listitem [ref=f3e127]:
+              - link "Overview" [ref=f3e128] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea
+            - listitem [ref=f3e132]:
+              - link "Farm details" [ref=f3e133] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/profile
+            - listitem [ref=f3e143]:
+              - link "Crops" [ref=f3e144] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/rotation
+            - listitem [ref=f3e148]:
+              - link "Conditions" [ref=f3e149] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/conditions
+            - listitem [ref=f3e155]:
+              - link "Compare" [ref=f3e156] [cursor=pointer]:
+                - /url: /fields/30d22744-c75c-435f-a253-c105bb64ecea/compare
+        - generic [ref=f3e161]:
+          - generic [ref=f3e163]:
+            - heading "Your farm" [level=1] [ref=f3e164]
+            - paragraph [ref=f3e165]: Tell us what matters to you. Add local details only when you know them.
+          - navigation "On this page" [ref=f3e166]:
+            - link "Priorities" [ref=f3e167] [cursor=pointer]:
+              - /url: "#priorities"
+            - link "Water and work" [ref=f3e169] [cursor=pointer]:
+              - /url: "#constraints"
+            - link "Soil" [ref=f3e173] [cursor=pointer]:
+              - /url: "#soil"
+          - region "What matters most" [ref=f3e176]:
+            - generic [ref=f3e178]:
+              - heading "What matters most" [level=2] [ref=f3e179]
+              - paragraph [ref=f3e182]: Choose what matters. Move the most important item to the top.
+            - list [ref=f3e183]:
+              - listitem [ref=f3e184]:
+                - generic [ref=f3e185]: "1"
+                - generic [ref=f3e186] [cursor=pointer]:
+                  - checkbox "Save water" [ref=f3e188]
+                  - generic [ref=f3e191]: Save water
+                - 'button "Move up: Save water" [disabled] [ref=f3e192]': ↑
+                - 'button "Move down: Save water" [ref=f3e193] [cursor=pointer]': ↓
+              - listitem [ref=f3e194]:
+                - generic [ref=f3e195]: "2"
+                - generic [ref=f3e196] [cursor=pointer]:
+                  - checkbox "Improve soil" [ref=f3e198]
+                  - generic [ref=f3e201]: Improve soil
+                - 'button "Move up: Improve soil" [ref=f3e202] [cursor=pointer]': ↑
+                - 'button "Move down: Improve soil" [ref=f3e203] [cursor=pointer]': ↓
+              - listitem [ref=f3e204]:
+                - generic [ref=f3e205]: "3"
+                - generic [ref=f3e206] [cursor=pointer]:
+                  - checkbox "Earn more" [ref=f3e208]
+                  - generic [ref=f3e211]: Earn more
+                - 'button "Move up: Earn more" [ref=f3e212] [cursor=pointer]': ↑
+                - 'button "Move down: Earn more" [ref=f3e213] [cursor=pointer]': ↓
+              - listitem [ref=f3e214]:
+                - generic [ref=f3e215]: "4"
+                - generic [ref=f3e216] [cursor=pointer]:
+                  - checkbox "Feed for animals" [ref=f3e218]
+                  - generic [ref=f3e221]: Feed for animals
+                - 'button "Move up: Feed for animals" [ref=f3e222] [cursor=pointer]': ↑
+                - 'button "Move down: Feed for animals" [ref=f3e223] [cursor=pointer]': ↓
+              - listitem [ref=f3e224]:
+                - generic [ref=f3e225]: "5"
+                - generic [ref=f3e226] [cursor=pointer]:
+                  - checkbox "Use fewer inputs" [ref=f3e228]
+                  - generic [ref=f3e231]: Use fewer inputs
+                - 'button "Move up: Use fewer inputs" [ref=f3e232] [cursor=pointer]': ↑
+                - 'button "Move down: Use fewer inputs" [disabled] [ref=f3e233]': ↓
+          - region "Water and work" [ref=f3e234]:
+            - heading "Water and work" [level=2] [ref=f3e237]
+            - generic [ref=f3e242]:
+              - generic [ref=f3e243]: Water for crops
+              - group "Water for crops" [ref=f3e244]:
+                - button "Rain only" [pressed] [ref=f3e245] [cursor=pointer]
+                - button "Some irrigation" [ref=f3e246] [cursor=pointer]
+                - button "Fully irrigated" [ref=f3e247] [cursor=pointer]
+            - group "Equipment" [ref=f3e248]:
+              - generic [ref=f3e250]:
+                - generic [ref=f3e251] [cursor=pointer]:
+                  - checkbox "Hand tools" [ref=f3e253]
+                  - generic [ref=f3e256]: Hand tools
+                - generic [ref=f3e257] [cursor=pointer]:
+                  - checkbox "Animal traction" [ref=f3e259]
+                  - generic [ref=f3e262]: Animal traction
+                - generic [ref=f3e263] [cursor=pointer]:
+                  - checkbox "Two-wheel tractor" [ref=f3e265]
+                  - generic [ref=f3e268]: Two-wheel tractor
+                - generic [ref=f3e269] [cursor=pointer]:
+                  - checkbox "Tractor" [ref=f3e271]
+                  - generic [ref=f3e274]: Tractor
+                - generic [ref=f3e275] [cursor=pointer]:
+                  - checkbox "Seeder" [ref=f3e277]
+                  - generic [ref=f3e280]: Seeder
+                - generic [ref=f3e281] [cursor=pointer]:
+                  - checkbox "Harvester" [ref=f3e283]
+                  - generic [ref=f3e286]: Harvester
+            - generic [ref=f3e287]:
+              - generic [ref=f3e288]:
+                - generic [ref=f3e289]: Labour at busy times
+                - group "Labour at busy times" [ref=f3e290]:
+                  - button "Low" [ref=f3e291] [cursor=pointer]
+                  - button "Medium" [ref=f3e292] [cursor=pointer]
+                  - button "High" [ref=f3e293] [cursor=pointer]
+              - generic [ref=f3e294]:
+                - generic [ref=f3e295]: Market access
+                - group "Market access" [ref=f3e296]:
+                  - button "Poor" [ref=f3e297] [cursor=pointer]
+                  - button "Fair" [ref=f3e298] [cursor=pointer]
+                  - button "Good" [ref=f3e299] [cursor=pointer]
+            - generic [ref=f3e300]:
+              - generic [ref=f3e301]:
+                - generic: Crops you want to grow
+                - generic [ref=f3e302]:
+                  - combobox "Crops you want to grow" [ref=f3e303] [cursor=pointer]
+                  - textbox [aria-hidden]
+                  - group [aria-hidden]:
+                    - generic: Crops you want to grow
+              - generic [ref=f3e304]:
+                - generic: Crops you will not grow
+                - generic [ref=f3e305]:
+                  - combobox "Crops you will not grow" [ref=f3e306] [cursor=pointer]
+                  - textbox [aria-hidden]
+                  - group [aria-hidden]:
+                    - generic: Crops you will not grow
+            - generic [ref=f3e307]:
+              - generic [ref=f3e308]:
+                - generic: From (month-day)
+                - generic [ref=f3e309]:
+                  - textbox "From (month-day)" [ref=f3e310]:
+                    - /placeholder: 05-15
+                  - group [aria-hidden]:
+                    - generic: From (month-day)
+              - generic [ref=f3e311]:
+                - generic: To (month-day)
+                - generic [ref=f3e312]:
+                  - textbox "To (month-day)" [ref=f3e313]:
+                    - /placeholder: 07-31
+                  - group [aria-hidden]:
+                    - generic: To (month-day)
+          - group [ref=f3e314]:
+            - 'generic "Other limits Optional: buyers, household needs, busy months and land" [ref=f3e315] [cursor=pointer]':
+              - text: Other limits
+              - generic [ref=f3e316]: "Optional: buyers, household needs, busy months and land"
+          - region "Soil around your field" [ref=f3e317]:
+            - generic [ref=f3e319]:
+              - heading "Soil around your field" [level=2] [ref=f3e320]
+              - paragraph [ref=f3e324]: Map estimates appear automatically. Your own test is more reliable for this field.
+            - generic [ref=f3e325]:
+              - generic [ref=f3e326]:
+                - term [ref=f3e327]: Soil acidity (pH)
+                - definition [ref=f3e328]: Loading map…
+                - paragraph [ref=f3e329]: Affects how crops take up nutrients.
+              - generic [ref=f3e330]:
+                - term [ref=f3e331]: Soil texture
+                - definition [ref=f3e332]: Loading map…
+                - paragraph [ref=f3e333]: Shows whether soil is sandy, loamy or clay-rich.
+              - generic [ref=f3e334]:
+                - term [ref=f3e335]: Soil salinity
+                - definition [ref=f3e336]: Needs a soil test
+                - paragraph [ref=f3e337]: Salt cannot be measured from this soil map.
+            - paragraph [ref=f3e338]: "Source: ISRIC SoilGrids v2. A map estimate may be unavailable here."
+            - group [ref=f3e339]:
+              - generic "Add your soil test or observation" [ref=f3e340] [cursor=pointer]
+          - group [ref=f3e342]:
+            - 'generic "Prices, yields and costs Optional: add your own ranges for crops you grow" [ref=f3e343] [cursor=pointer]':
+              - text: Prices, yields and costs
+              - generic [ref=f3e344]: "Optional: add your own ranges for crops you grow"
+          - generic [ref=f3e345]:
+            - button "Save your farm details" [ref=f3e346] [cursor=pointer]
+            - button "Save and view conditions" [ref=f3e347] [cursor=pointer]
+    - navigation "Main" [ref=f3e350]:
+      - list [ref=f3e351]:
+        - listitem [ref=f3e352]:
+          - link "Fields" [ref=f3e353] [cursor=pointer]:
+            - /url: /
+        - listitem [ref=f3e357]:
+          - link "Compare" [ref=f3e358] [cursor=pointer]:
+            - /url: /compare
+        - listitem [ref=f3e363]:
+          - link "Learn" [ref=f3e364] [cursor=pointer]:
+            - /url: /learn

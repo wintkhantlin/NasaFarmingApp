@@ -127,6 +127,11 @@ export function effectiveSoil(field: Field, profile: SoilProfile | null | undefi
 
   const drain = bestObservation(o, "drainage");
   const sal = pickNum("salinity");
+  const salinityDsM: EffectiveSoil["salinityDsM"] = sal
+    ? { value: sal.value as number, note: describe(sal) }
+    : field.soilOverride?.salinityDsM !== undefined
+      ? { value: field.soilOverride.salinityDsM, note: "your soil test" }
+      : null;
   const awc = resolveAwc({
     measured: pickNum("available-water-capacity"),
     sand: pickNum("sand"),
@@ -140,7 +145,7 @@ export function effectiveSoil(field: Field, profile: SoilProfile | null | undefi
     texture,
     organicCarbonGKg,
     drainage: drain ? { value: String(drain.value), note: describe(drain) } : null,
-    salinityDsM: sal ? { value: sal.value as number, note: describe(sal) } : null,
+    salinityDsM,
     awcMmPerM: awc,
     rootDepthM: root ? { value: root.units.includes("cm") ? (root.value as number) / 100 : (root.value as number), note: describe(root) } : null,
     observations: o ?? [],

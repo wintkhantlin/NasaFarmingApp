@@ -1,6 +1,7 @@
 import { IMERG } from "../nasa/imerg";
 import { HLS_QA_POLICY } from "../nasa/qa/hls-fmask";
 import { MODIS_QA_POLICY } from "../nasa/qa/modis-vi";
+import { ECOSTRESS_QA_POLICY } from "../nasa/qa/ecostress";
 import { LANDSAT_QA_POLICY, MPC_CONFIG } from "../nasa/planetary-computer";
 import { PRODUCT_DOI } from "../nasa/appeears/products";
 import { makeIndicator, type DerivedIndicator, type EvidenceKind, type MissingReason } from "../evidence/indicator";
@@ -206,20 +207,49 @@ export function srtmIndicator(c: Common): DerivedIndicator {
 }
 
 export function modisIndicator(c: Common): DerivedIndicator {
+  const i = c.data.modisInfo;
+  const viaMpc = i.provider === "planetary-computer";
   return makeIndicator({
     ...base(c),
     sourceId: "G",
     kind: "observation",
-    product: "MOD13Q1 vegetation indices",
+    product: `MOD13Q1 vegetation indices${viaMpc ? " (via Microsoft Planetary Computer)" : ""}`,
     productVersion: "061",
     variableOrLayer: "_250m_16_days_NDVI",
-    sourceUrl: "https://appeears.earthdatacloud.nasa.gov/api/product/MOD13Q1.061",
+    sourceUrl: viaMpc ? `https://planetarycomputer.microsoft.com/dataset/${MPC_CONFIG.modisViCollection}` : "https://appeears.earthdatacloud.nasa.gov/api/product/MOD13Q1.061",
     doi: PRODUCT_DOI["MOD13Q1.061"],
     sourceResolution: "250 m, 16-day composites",
     nativeFootprint: "250 m cell: mixed land cover, regional vegetation context",
     aggregationMethod: c.statistic,
     qaPolicy: MODIS_QA_POLICY,
-    missingReason: c.value === null ? "source-unconfigured" : null,
+    retrievedAt: i.retrievedAt,
+    timeStandard: "UTC acquisition/composite date",
+    sourceCrs: viaMpc ? "Sinusoidal source grid, windowed at the field" : "Native MODIS sinusoidal grid",
+    missingReason: c.value === null ? missingFor(i.status) : null,
+  });
+}
+
+export function ecostressIndicator(c: Common & { variable: "LST" | "ETdaily" }): DerivedIndicator {
+  const isLst = c.variable === "LST";
+  const i = isLst ? c.data.ecostressLstInfo : c.data.ecostressEtInfo;
+  const product = isLst ? "ECO_L2T_LSTE.002" : "ECO_L3T_JET.002";
+  return makeIndicator({
+    ...base(c),
+    sourceId: "E",
+    kind: "model-estimate",
+    product: isLst ? "ECOSTRESS tiled land-surface temperature" : "ECOSTRESS tiled modeled evapotranspiration",
+    productVersion: "002",
+    variableOrLayer: c.variable,
+    sourceUrl: `https://appeears.earthdatacloud.nasa.gov/api/product/${product}`,
+    doi: PRODUCT_DOI[product],
+    retrievedAt: i.retrievedAt,
+    sourceResolution: "About 70 m, irregular ISS overpasses",
+    nativeFootprint: "About 70 m pixels; clear land pixels within the field outline",
+    aggregationMethod: c.statistic,
+    timeStandard: "UTC acquisition date",
+    qaPolicy: ECOSTRESS_QA_POLICY,
+    sourceCrs: "UTM tile",
+    missingReason: c.value === null ? missingFor(i.status) : null,
   });
 }
 
@@ -269,3 +299,219 @@ export function libraryIndicator(c: Common & { variable: string }): DerivedIndic
     missingReason: c.value === null ? "not-evaluable" : null,
   });
 }
+
+/**
+ * Strict data provenance contract for every crop rotation engine input.
+ * Adheres to NASA Space Act Agreement & open-science attribution guidelines.
+ * Reuses existing evidence classifications and prevents false attribution.
+ */
+export interface EngineInputProvenance {
+  provider: "NASA" | "USGS" | "ISRIC" | "FAO" | "Farmer" | "Department_of_Agriculture" | "Calculated";
+  product: string;
+  variable: string;
+  observationDateOrRange: string | null;
+  temporalResolution: string;
+  spatialResolution: string;
+  footprintDescription: string;
+  unit: string;
+  isObserved: boolean;
+  isModeled: boolean;
+  isFarmerEntered: boolean;
+  quality: "verified" | "coarse_regional" | "uncalibrated" | "missing" | "unconfirmed" | "calculated";
+  fetchedAt: string | null;
+  assumption?: string;
+}
+
+const ENGINE_PROVENANCE_REGISTRY: Record<string, Omit<EngineInputProvenance, "observationDateOrRange" | "fetchedAt">> = {
+  temperature_t2m: {
+    provider: "NASA",
+    product: "NASA POWER Daily Point API (MERRA-2 assimilation)",
+    variable: "T2M",
+    temporalResolution: "daily",
+    spatialResolution: "0.5° × 0.625° (~50 km × ~60 km)",
+    footprintDescription: "Coarse regional atmospheric reanalysis grid; shared by thousands of parcels across the township.",
+    unit: "°C",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "coarse_regional",
+    assumption: "Uniform air temperature across regional grid cell.",
+  },
+  temperature_t2m_max: {
+    provider: "NASA",
+    product: "NASA POWER Daily Point API (MERRA-2 assimilation)",
+    variable: "T2M_MAX",
+    temporalResolution: "daily",
+    spatialResolution: "0.5° × 0.625° (~50 km × ~60 km)",
+    footprintDescription: "Coarse regional atmospheric reanalysis grid; screening tool for reproductive heat stress.",
+    unit: "°C",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "coarse_regional",
+    assumption: "Regional daytime maximum temperature.",
+  },
+  solar_radiation_allsky: {
+    provider: "NASA",
+    product: "NASA POWER Daily Point API (CERES SYN1deg assimilation)",
+    variable: "ALLSKY_SFC_SW_DWN",
+    temporalResolution: "daily",
+    spatialResolution: "1.0° × 1.0° (~110 km)",
+    footprintDescription: "Satellite-derived surface solar irradiance grid cell.",
+    unit: "MJ/m²/day",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "coarse_regional",
+  },
+  precipitation: {
+    provider: "NASA",
+    product: "GPM IMERG Final Daily (GPM_3IMERGDF) / NASA POWER MERRA-2",
+    variable: "precipitation",
+    temporalResolution: "daily (UTC)",
+    spatialResolution: "0.1° × 0.1° (~10 km) or 0.5° × 0.625°",
+    footprintDescription: "Satellite microwave/radar combined estimate with gauge calibration, or reanalysis backup.",
+    unit: "mm/day",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "coarse_regional",
+    assumption: "Regional precipitation total without micro-topographic cloudburst captures.",
+  },
+  reference_et0: {
+    provider: "FAO",
+    product: "FAO-56 Penman-Monteith equation (or Hargreaves fallback when solar/humidity missing)",
+    variable: "ET0",
+    temporalResolution: "daily",
+    spatialResolution: "derived per grid/location",
+    footprintDescription: "Standard hypothetical well-watered grass reference evapotranspiration.",
+    unit: "mm/day",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "calculated",
+    assumption: "Aerodynamic resistance 208 s/m, surface resistance 70 s/m, grass height 0.12 m.",
+  },
+  regional_soil_moisture: {
+    provider: "NASA",
+    product: "SMAP L4 Global 3-hourly 9 km Surface and Root Zone Soil Moisture (SPL4SMGP)",
+    variable: "Geophysical_Data_sm_rootzone",
+    temporalResolution: "3-hourly / daily",
+    spatialResolution: "9 km grid posting",
+    footprintDescription: "REGIONAL CONTEXT ONLY. 9 km model assimilation; NOT a direct field-level measurement of soil water on the farmer's parcel.",
+    unit: "m³/m³",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "coarse_regional",
+    assumption: "Catchment-scale hydrological state informing regional drought or flooding trends.",
+  },
+  soil_texture_soilgrids: {
+    provider: "ISRIC",
+    product: "SoilGrids 2.0 (ISRIC - World Soil Information)",
+    variable: "sand, clay, soc",
+    temporalResolution: "static (2020 map)",
+    spatialResolution: "250 m",
+    footprintDescription: "Machine-learning spatial interpolation from legacy soil profiles; NOT a field soil test. Uncalibrated against local delta alluvium.",
+    unit: "g/kg or %",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "uncalibrated",
+    assumption: "Interpolated regional soil characteristics; farmer manual override takes precedence.",
+  },
+  farmer_soil_observation: {
+    provider: "Farmer",
+    product: "Farmer on-site field observation",
+    variable: "farmer_soil_override",
+    temporalResolution: "current season",
+    spatialResolution: "parcel-level",
+    footprintDescription: "Direct physical observation by farmer on this specific parcel; overrides coarse global satellite models.",
+    unit: "categorical (sand/silt/clay)",
+    isObserved: true,
+    isModeled: false,
+    isFarmerEntered: true,
+    quality: "verified",
+  },
+  farmer_drainage_observation: {
+    provider: "Farmer",
+    product: "Farmer post-harvest drainage record",
+    variable: "farmer_observed_drainage",
+    temporalResolution: "event-based",
+    spatialResolution: "parcel-level",
+    footprintDescription: "Recorded date of surface water release and pond evacuation; critical for seedbed workable window.",
+    unit: "date / categorical (poor/moderate/good)",
+    isObserved: true,
+    isModeled: false,
+    isFarmerEntered: true,
+    quality: "verified",
+  },
+  crop_market_economics: {
+    provider: "Department_of_Agriculture",
+    product: "Myanmar Department of Agriculture / Central Statistical Organization & Township Wholesale Markets",
+    variable: "crop_price, crop_enterprise_costs",
+    temporalResolution: "seasonal / annual (2025-2026)",
+    spatialResolution: "township wholesale market",
+    footprintDescription: "Township trading center prices and input budget benchmarks; subject to transportation cost and market volatility.",
+    unit: "MMK/kg, MMK/acre, MMK/ha",
+    isObserved: true,
+    isModeled: false,
+    isFarmerEntered: false,
+    quality: "verified",
+    assumption: "Wholesale baseline price without individual forward contract or quality premium.",
+  },
+};
+
+/**
+ * Returns complete provenance metadata for an engine input variable.
+ */
+export function getEngineInputProvenance(
+  variable: string,
+  options?: {
+    observationDateOrRange?: string | null;
+    fetchedAt?: string | null;
+    isOverride?: boolean;
+  }
+): EngineInputProvenance {
+  const reg = ENGINE_PROVENANCE_REGISTRY[variable] ?? {
+    provider: "Calculated",
+    product: "NASA Farming App internal calculation",
+    variable,
+    temporalResolution: "step-based",
+    spatialResolution: "parcel-level",
+    footprintDescription: "Computed rotation parameter.",
+    unit: "dimensionless",
+    isObserved: false,
+    isModeled: true,
+    isFarmerEntered: false,
+    quality: "calculated",
+  };
+
+  return {
+    ...reg,
+    observationDateOrRange: options?.observationDateOrRange ?? null,
+    fetchedAt: options?.fetchedAt ?? null,
+  };
+}
+
+/**
+ * Validates that coarse SMAP or regional soil moisture is NEVER falsely labeled as
+ * measured in the farmer's field.
+ */
+export function assertTruthfulSoilMoistureLabel(label: string): void {
+  const forbiddenPatterns = [
+    /measured in (your|this)?\s*field/i,
+    /field soil moisture measurement/i,
+    /ground truth on your parcel/i,
+    /in-situ sensor on your field/i,
+  ];
+
+  for (const pattern of forbiddenPatterns) {
+    if (pattern.test(label)) {
+      throw new Error(
+        `Data truthfulness violation: Coarse satellite/model soil moisture (SMAP 9km) must NEVER be labeled as '${label}'. It provides regional context only.`
+      );
+    }
+  }
+}
+

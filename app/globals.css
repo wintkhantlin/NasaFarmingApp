@@ -1,56 +1,75 @@
+/* Hallmark · v2.0.0 · redesign: full · scope: app · shape: app screen · posture: restrained · surface: absolute · system: Field Shift locked · light only · signature: field state and next action */
+/* Critique · the field flow had complete data but weak priority; this pass makes progress and the next useful action visible before supporting records. */
+/* Hallmark · waive 7b · locked Field Shift light tokens specify white raised surfaces · outdoor field screens need the measured white contrast on raised surfaces and green actions */
+/* Hallmark · waive 26b · no aria-disabled control appears in the field evidence note · Check locally is static field guidance with no interactive states to style */
 @import "tailwindcss";
 
 /*
- * Field Almanac design tokens. Source of truth: DESIGN.md.
- * Light mode only (The Light-Only Rule): no dark palette, no prefers-color-scheme
- * switch, and Tailwind's `dark:` variant is bound to a class that is never set.
+ * Field Shift tokens. Source of truth: DESIGN_SYSTEM.md (light values). The repo stays
+ * light only (AGENTS.md): no dark palette, no prefers-color-scheme switch, and Tailwind's
+ * `dark:` variant is bound to a class that is never set.
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* static: emit every token as a CSS variable, used by a class yet or not */
 @theme static {
   /* Surfaces */
-  --color-surface: #f4f2ea; /* Parchment: page background */
-  --color-surface-raised: #fbfaf6; /* Cards, sheets, the recommendation */
-  --color-surface-sunken: #e9e6da; /* Inputs, chart plots, map frame */
-  --color-line: #d8d3c2; /* Hairlines; decorative only */
-  --color-line-strong: #8c8676; /* Control borders, 3:1+ on surfaces */
+  --color-surface: #f4f3ee; /* Parchment: page background */
+  --color-surface-raised: #ffffff; /* Cards, sheets, the recommendation */
+  --color-surface-sunken: #eceae3; /* Inputs, chart plots, map frame */
+  --color-line: #d9d6cc; /* Hairlines; decorative only */
+  --color-line-strong: #8f8c82; /* Control borders, 3:1+ on surfaces */
+  --color-line-high-contrast: #8f8c82;
 
   /* Text */
-  --color-ink: #1f1d17; /* Soil: primary text, 13:1+ on every surface */
-  --color-ink-muted: #5a564a; /* Reasons, metadata, source lines, 5.8:1+ */
+  --color-ink: #1c1b18; /* Soil: primary text, 13:1+ on every surface */
+  --color-ink-muted: #5a5850; /* Reasons, metadata, source lines, 5.8:1+ */
 
   /* Accent */
-  --color-field: #2e5e3a; /* Field Green: primary actions, active, focus */
-  --color-field-soft: #dfe8d8; /* Fill behind field text, in-range band */
-  --color-on-field: #fbfaf6; /* Label on a field fill */
+  --color-field: #0e6b4f; /* Field Green: primary actions, active, focus */
+  --color-field-soft: #e3f2ec; /* Fill behind field text, in-range band */
+  --color-on-field: #ffffff; /* Label on a field fill */
+
+  /* Design system semantics (DESIGN_SYSTEM.md 2.2) */
+  --color-accent-text: #0a5139; /* accent.text on accent.bg (best-match tag) */
+  --color-unknown-bg: #fbefd5; /* Not known */
+  --color-unknown-text: #7a4a00;
+  --color-unknown-border: #b77700; /* dashed outline: unknown or not asked only */
+  --color-stress: #9c3d12; /* stressed seasons, failed-limit reason. Never red */
+  --color-stress-bg: #f8e3d8;
+  --color-danger: #b42318; /* destructive actions only */
+  --color-danger-bg: #fdecea;
+  --color-viz-crop: #2f7d5b;
+  --color-viz-crop2: #7fb59a;
+  --color-viz-bare: #e7e1d2;
+  --color-ink-tertiary: #6e6c64; /* captions, timestamps */
 
   /* Data meaning only (never decorative, never color alone) */
-  --color-healthy: #2e5e3a;
+  --color-healthy: #0e6b4f;
   --color-water: #1d5c91;
   --color-water-soft: #dce8f2;
-  --color-heat: #a33d17;
-  --color-heat-soft: #f6e1d6;
-  --color-drought: #765709;
-  --color-drought-soft: #f1e6c8;
+  --color-heat: #9c3d12;
+  --color-heat-soft: #f8e3d8;
+  --color-drought: #7a4a00;
+  --color-drought-soft: #fbefd5;
   --color-frost: #4850a6;
   --color-frost-soft: #e3e4f5;
 
   /* Type scale (Geist / Geist Mono) */
-  --text-display: 2.5rem;
-  --text-display--line-height: 2.75rem;
+  --text-display: 2.125rem;
+  --text-display--line-height: 2.5625rem;
   --text-display--letter-spacing: -0.02em;
   --text-display--font-weight: 700;
-  --text-title: 1.5rem;
-  --text-title--line-height: 1.875rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
   --text-title--letter-spacing: -0.01em;
   --text-title--font-weight: 650;
-  --text-headline: 1.1875rem;
-  --text-headline--line-height: 1.625rem;
+  --text-headline: 1.0625rem;
+  --text-headline--line-height: 1.375rem;
   --text-headline--font-weight: 600;
-  --text-body: 1rem;
-  --text-body--line-height: 1.5rem;
-  --text-body-sm: 0.875rem;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.375rem;
+  --text-body-sm: 0.9375rem;
   --text-body-sm--line-height: 1.25rem;
   --text-label: 0.875rem;
   --text-label--line-height: 1.125rem;
@@ -62,8 +81,8 @@
   --text-data: 0.9375rem;
   --text-data--line-height: 1.25rem;
   --text-data--font-weight: 500;
-  --text-source: 0.75rem;
-  --text-source--line-height: 1rem;
+  --text-source: 0.8125rem;
+  --text-source--line-height: 1.125rem;
   --text-overline: 0.8125rem;
   --text-overline--line-height: 1.125rem;
   --text-overline--font-weight: 500;
@@ -71,7 +90,7 @@
   /* Radius */
   --radius-sm: 6px; /* Inputs, legend swatches, map parcels */
   --radius-md: 10px; /* Buttons, cards, row groups */
-  --radius-lg: 16px; /* Sheets, the recommendation block */
+  --radius-lg: 14px; /* Sheets, the recommendation block */
   --radius-pill: 999px; /* Risk chips and status pills only */
 
   /* Elevation: floating elements only */
@@ -83,8 +102,8 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, var(--font-myanmar), sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /*
@@ -103,6 +122,7 @@
   --space-7: 48px;
   --space-8: 64px;
   --icon: 16px;
+  --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom)); /* phone tab bar; 0 from lg */
 }
 
 /* A stray wide child never makes the page scroll sideways. clip, not hidden, so sticky still works. */
@@ -119,10 +139,21 @@ body {
 
   body {
     background: var(--color-surface);
+    caret-color: var(--color-field);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
+  }
+
+  ::selection {
+    background: var(--color-field-soft);
+    color: var(--color-ink);
+  }
+
+  /* Myanmar stacks vowel signs and medials: at least 1.6x leading (DESIGN_SYSTEM.md 3.3) */
+  :lang(my) {
+    line-height: 1.7;
   }
 
   :focus-visible {
@@ -137,6 +168,13 @@ body {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/* Increase Contrast: hairlines become strong borders (DESIGN_SYSTEM.md 2.4) */
+@media (prefers-contrast: more) {
+  :root {
+    --color-line: var(--color-line-high-contrast);
   }
 }
 
@@ -169,4 +207,18 @@ body {
   .mapboxgl-ctrl-bottom-right {
     margin-bottom: calc(var(--bar-h, 12rem) + var(--space-2));
   }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --tabbar-h: 0px;
+  }
+}
+
+/* Native feel: no grey tap flash, no double-tap zoom delay, no text selection on controls. */
+a,
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }

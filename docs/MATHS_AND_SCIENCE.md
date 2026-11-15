@@ -31,10 +31,10 @@
    - 5.4 [Thermal Radiometry: Land Surface Temperature ($LST$) vs. Air Temperature ($T_{air}$)](#54-thermal-radiometry-land-surface-temperature-lst-vs-air-temperature-t_air)
 6. [Agronomy, Biogeochemistry & Agro-Ecosystem Dynamics](#6-agronomy-biogeochemistry--agro-ecosystem-dynamics)
    - 6.1 [Biological Nitrogen Fixation (BNF) & Harvest Removal](#61-biological-nitrogen-fixation-bnf--harvest-removal)
-   - 6.2 [Host-Pathogen Crop Family Rotation Dynamics](#62-host-pathogen-crop-family-rotation-dynamics)
+   - 6.2 [Shared Hosts and Disease Breaks](#62-shared-hosts-and-disease-breaks)
    - 6.3 [Pedotransfer Transformations & SoilGrids Integration](#63-pedotransfer-transformations--soilgrids-integration)
    - 6.4 [Soil Cover & Erosion Exposure](#64-soil-cover--erosion-exposure)
-7. [Stochastic Farm Economics](#7-stochastic-farm-economics)
+7. [Interval-Based Gross Margin Estimation](#7-interval-based-gross-margin-estimation)
    - 7.1 [Interval Arithmetic for Gross Margin](#71-interval-arithmetic-for-gross-margin)
    - 7.2 [Cycle Annualization & Area Scaling](#72-cycle-annualization--area-scaling)
 8. [Scientific References](#8-scientific-references)
@@ -219,8 +219,14 @@ $$N_{\text{fixed,cycle}} = \sum_{s \in \text{legumes}} [N_{\text{fix,min},s}, \,
 $$N_{\text{removed,cycle}} = \sum_{s \in \text{crops}} \left( Y_s \cdot \frac{[N_{\text{grain},s}]}{100} \right)$$
 Requires farmer-entered yield; otherwise removal is marked `unknown`.
 
-### 6.2 Host-Pathogen Family Rotation
-Consecutive slots in cycle: identical botanical family flags a pest hazard; alternating families provides a disease break.
+### 6.2 Shared Hosts and Disease Breaks
+Botanical family alone is a weak proxy: two legumes can share few pathogens, while rice and green gram share *Rhizoctonia solani*. The check therefore uses named organisms (`lib/data/crops/host-organisms.ts`), each with documented host crops, how it carries over, and a reference:
+
+- **Soil-borne** (*Macrophomina phaseolina*, *R. solani*, *Athelia rolfsii*, root-knot nematodes): a caution whenever crop $b$ follows crop $a$ and both host the organism, at any gap.
+- **Vector-borne or mobile insects** (yellow mosaic viruses, *Helicoverpa armigera*, *Maruca vitrata*, fall armyworm): information only, and only when the gap $t_{	ext{plant},b} - t_{	ext{harvest},a} \le 30$ days (a green bridge). Rotation within one field does little against them.
+- **Host-specific soil wilts** (*Fusarium oxysporum* f. sp. *ciceris*, *F. udum*): a crop grown $k$ times in an $n$-year cycle returns every $n/k$ years. If $n/k$ is less than the suggested minimum (3 years), the option needs review. It becomes a hard veto when the farmer confirms wilt in the field.
+
+Same-family pairs with no named shared organism are still flagged as a caution. A crop missing from a host list has no entry; that does not show it is a non-host. All entries are analyst readings of the literature and need checking against Myanmar plant-protection records.
 
 ### 6.3 SoilGrids Pedotransfer Integration
 Depth-weighted $0\text{--}30\text{ cm}$:
@@ -229,10 +235,12 @@ Values scaled by $d\_factor$ (clay/sand/silt/pH/SOC by $10$, bulk density by $10
 
 ---
 
-## 7. Stochastic Farm Economics
+## 7. Interval-Based Gross Margin Estimation
 
 $$\text{GrossMargin} = [Y_{\min} \cdot P_{\min} - C_{\max}, \, Y_{\max} \cdot P_{\max} - C_{\min}]$$
-Calculated as closed intervals over farmer/local ranges.
+Calculated as closed intervals over farmer/local ranges. This is interval arithmetic, not a probability model: the bounds are the worst and best combinations of the inputs, and no likelihood is attached to any value between them. A stochastic version would need distributions for yield, price and cost and Monte Carlo sampling.
+
+**Ranking utility.** The income criterion is scored against a fixed regional anchor, not against the other options: $u = 	ext{clip}(M_{	ext{mid}} / M_{	ext{bench}}, 0, 1)$, where $M_{	ext{bench}}$ is the midpoint margin of the region's usual rotation (Ayeyarwady rice then black gram, Magway sesame then green gram, Shan maize then soybean) computed from the benchmark price, yield and cost table (`incomeAnchorFor` in `lib/engine/economics.ts`). Adding or removing an option therefore never changes another option's income score. A loss scores 0, and every option above the benchmark scores 1, though their margins are still shown side by side.
 
 ---
 

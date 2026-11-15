@@ -226,6 +226,7 @@ function evaluateOne(sequence: string[], req: Request): Scenario {
     else unknowns.push("Irrigation access is reported, but capacity and crop water demand are not validated; water adequacy remains unknown.");
     if (["observed", "historical_normals", "historical_analogue", "synthetic"].includes(environment.basis ?? "")) cautions.push("Climate values are not a validated future-season forecast; seasonal suitability is provisional.");
     if (environment.spatial_resolution_km !== undefined && environment.spatial_resolution_km !== null) cautions.push(`Environmental grid resolution ${environment.spatial_resolution_km} km is not field-scale ground truth.`);
+    for (const bias of environment.known_biases ?? []) if (typeof bias === "string" && bias) cautions.push(bias);
   }
 
   const nonfallow = sequence.filter((id) => id !== "fallow");

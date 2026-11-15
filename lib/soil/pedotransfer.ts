@@ -31,6 +31,8 @@ export interface PtfResult {
   thetaWp: number;
   /** Volumetric water content at -33 kPa, m3/m3. */
   thetaFc: number;
+  /** Saturated volumetric water content (porosity), m3/m3. */
+  thetaSat: number;
   /** Plant-available water, mm per m of soil: 1000 (thetaFc - thetaWp). */
   awcMmPerM: number;
 }
@@ -50,6 +52,10 @@ export function saxtonRawls({ sand: S, clay: C, omPct: OM }: PtfInput): PtfResul
   const theta33t = -0.251 * S + 0.195 * C + 0.011 * OM + 0.006 * (S * OM) - 0.027 * (C * OM) + 0.452 * (S * C) + 0.299;
   const thetaFc = theta33t + (1.283 * theta33t * theta33t - 0.374 * theta33t - 0.015);
 
-  if (!(thetaWp > 0) || !(thetaFc > thetaWp) || thetaFc >= 1) return null;
-  return { thetaWp, thetaFc, awcMmPerM: 1000 * (thetaFc - thetaWp) };
+  const thetaS33t = 0.278 * S + 0.034 * C + 0.022 * OM - 0.018 * (S * OM) - 0.027 * (C * OM) - 0.584 * (S * C) + 0.078;
+  const thetaS33 = thetaS33t + (0.636 * thetaS33t - 0.107);
+  const thetaSat = Math.max(thetaFc + 0.01, Math.min(0.70, thetaFc + thetaS33 - 0.097 * S + 0.043));
+
+  if (!(thetaWp > 0) || !(thetaFc > thetaWp) || thetaFc >= 1 || !(thetaSat > thetaFc)) return null;
+  return { thetaWp, thetaFc, thetaSat, awcMmPerM: 1000 * (thetaFc - thetaWp) };
 }

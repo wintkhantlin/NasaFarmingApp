@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FieldsList } from "@/components/field/fields-list";
 import { buttonClass } from "@/components/ui/button";
-import { PlusGlyph } from "@/components/ui/icons";
+import { Icon } from "@/components/ui/icon";
 import { copy } from "@/lib/copy/en";
 
 export default function Home() {
@@ -14,10 +14,11 @@ export default function Home() {
         </div>
         <div className="flex flex-wrap gap-2 max-sm:w-full">
           <Link href="/plan" className={buttonClass("secondary", "max-sm:w-full")}>
-            Explore crop rotations
+            <Icon name="rotation" />
+            {copy.home.exploreRotations}
           </Link>
           <Link href="/fields/new" className={buttonClass("secondary", "max-sm:w-full")}>
-            <PlusGlyph />
+            <Icon name="add" />
             {copy.home.addField}
           </Link>
         </div>

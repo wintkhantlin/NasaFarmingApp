@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import cropData from "@/rotation-engine/data/crops.json";
 import dryZone from "@/rotation-engine/examples/dryzone_demo.json";
 import delta from "@/rotation-engine/examples/ayeyarwady_demo.json";
-import { en } from "./messages";
+import { en } from "../messages";
 import { SequenceEvidence, SequenceReasoning } from "@/components/field/sequence-reasoning";
 import { farmerReasons, statusText, temperatureScreenText, type EngineResult, type Scenario } from "@/lib/rotation/presentation";
 import type { FarmerRequest, Irrigation, Priority } from "@/lib/rotation/farmer-request";

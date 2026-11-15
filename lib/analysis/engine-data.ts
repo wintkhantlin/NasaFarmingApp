@@ -20,7 +20,7 @@ const info = (s: RemoteState<unknown> | undefined): RemoteInfo => ({
  */
 export function buildEngineData(field: Field, conditions: ConditionsData | null, remote: RemoteData | null): EngineData {
   const weather = conditions?.weather ?? null;
-  const region = field.region ?? checkRegion(field.geometry, field.centroid).region;
+  const region = field.region && field.region !== "unsupported" ? field.region : checkRegion(field.geometry, field.centroid).region;
   const imerg = conditions?.imerg;
   return {
     field,
@@ -56,6 +56,12 @@ export function buildEngineData(field: Field, conditions: ConditionsData | null,
     hlsInfo: info(remote?.hls),
     slope: remote?.srtm.data?.slope ?? null,
     srtmInfo: info(remote?.srtm),
+    modis: remote?.modis.data?.observations ?? [],
+    modisInfo: info(remote?.modis),
+    ecostressLst: remote?.ecostressLst.data?.observations ?? [],
+    ecostressLstInfo: info(remote?.ecostressLst),
+    ecostressEt: remote?.ecostressEt.data?.observations ?? [],
+    ecostressEtInfo: info(remote?.ecostressEt),
     soil: effectiveSoil(field, conditions?.soil ?? null),
   };
 }

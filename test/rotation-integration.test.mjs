@@ -467,7 +467,7 @@ test('Mapbox search from the new app supplies real locations with coordinates', 
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.mode, 'connected');
-    assert.deepEqual(body.locations[0], { id: 'place-1', kind: 'farm', label: 'My township, Magway, Myanmar', lat: 20.2, lon: 95.1 });
+    assert.deepEqual(body.locations[0], { id: 'place-1', kind: 'farm', name: 'My township', context: 'Magway, Myanmar', label: 'My township, Magway, Myanmar', lat: 20.2, lon: 95.1 });
   } finally {
     global.fetch = previousFetch;
     if (previousUrl === undefined) delete process.env.FIELDSHIFT_LOCATION_SEARCH_URL;
@@ -520,7 +520,7 @@ test('a location provider returns searchable real places with coordinates', asyn
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.mode, 'connected');
-    assert.deepEqual(body.locations[0], { id: 'place-1', kind: 'farm', label: 'My township, Myanmar', lat: 20.2, lon: 95.1 });
+    assert.deepEqual(body.locations[0], { id: 'place-1', kind: 'farm', name: 'My township', context: 'Myanmar', label: 'My township, Myanmar', lat: 20.2, lon: 95.1 });
   } finally {
     global.fetch = previousFetch;
     if (previousUrl === undefined) delete process.env.FIELDSHIFT_LOCATION_SEARCH_URL;

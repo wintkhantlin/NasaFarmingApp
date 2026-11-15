@@ -39,6 +39,8 @@ export type EnvironmentSnapshot = {
   observation_period?: { start_date: string; end_date: string };
   units?: { temp_c: "C"; rain_mm: "mm"; soil_moisture_anomaly?: "unitless" };
   spatial_resolution_km?: number | null;
+  /** Known biases of the source at this location, from the ground-truth checks in docs/validation. */
+  known_biases?: string[];
   monthly: MonthlyCondition[];
   /** Separate provenance is essential when temperature and rainfall come from different products. */
   variable_sources?: {

@@ -1,6 +1,7 @@
 import { pointInPolygon } from "../geo/shapes";
 import type { FieldGeometry, LngLat, RegionId } from "../types";
 import { REGION_BOUNDARIES } from "./region-boundaries";
+import nationalBoundary from "./myanmar-boundary.json";
 
 export interface RegionInfo {
   id: RegionId;
@@ -14,6 +15,10 @@ export interface RegionInfo {
 }
 
 export const REGIONS: Record<RegionId, RegionInfo> = {
+  myanmar: {
+    id: "myanmar", name: "Elsewhere in Myanmar", focus: "Field history supported; regional crop templates not yet available",
+    candidateCropIds: ["rice", "black-gram", "green-gram", "sesame", "groundnut", "chickpea", "pigeon-pea", "maize", "soybean", "lablab", "sunn-hemp"],
+  },
   ayeyarwady: {
     id: "ayeyarwady",
     name: "Ayeyarwady",
@@ -36,7 +41,7 @@ export const REGIONS: Record<RegionId, RegionInfo> = {
   },
 };
 
-export const REGION_IDS = Object.keys(REGIONS) as RegionId[];
+export const REGION_IDS: RegionId[] = ["ayeyarwady", "magway", "shan", "myanmar"];
 
 export type ResolvedRegion = RegionId | "unsupported";
 
@@ -44,9 +49,15 @@ const asRings = (polygon: number[][][]): LngLat[][] => polygon as unknown as Lng
 
 export function regionOfPoint(point: LngLat): ResolvedRegion {
   for (const id of REGION_IDS) {
+    if (id === "myanmar") continue;
     for (const polygon of REGION_BOUNDARIES[id]) {
       if (pointInPolygon(point, asRings(polygon))) return id;
     }
+  }
+  for (const feature of nationalBoundary.features) {
+    const geometry = feature.geometry;
+    const polygons = geometry.type === "MultiPolygon" ? geometry.coordinates : [geometry.coordinates];
+    for (const polygon of polygons) if (pointInPolygon(point, polygon as unknown as LngLat[][])) return "myanmar";
   }
   return "unsupported";
 }
@@ -70,5 +81,5 @@ export function checkRegion(geometry: FieldGeometry, center: LngLat): RegionChec
 }
 
 export function regionName(region: ResolvedRegion | undefined): string {
-  return region && region !== "unsupported" ? REGIONS[region].name : "Outside the supported regions";
+  return region && region !== "unsupported" ? REGIONS[region].name : "Region not listed";
 }

@@ -18,9 +18,9 @@ import { centroid } from "@/lib/geo/shapes";
 import type { FieldGeometry, LngLat } from "@/lib/types";
 import { MAPBOX_STYLE } from "./mapbox-config";
 
-export type DrawTool = "pin" | "box" | "outline";
+export type DrawTool = "box" | "outline";
 
-const MODE_FOR_TOOL: Record<DrawTool, string> = { pin: "point", box: "rectangle", outline: "polygon" };
+const MODE_FOR_TOOL: Record<DrawTool, string> = { box: "rectangle", outline: "polygon" };
 const SHAPE_MODES = new Set(["point", "rectangle", "polygon"]);
 
 export interface MapFocus {
@@ -84,7 +84,7 @@ const boxRing = (b: Box): LngLat[] => [
   [b.west, b.south],
 ];
 
-/** The Mapbox satellite map where a field is pinned, boxed or outlined. */
+/** The Mapbox satellite map where a field is boxed or outlined. Point mode remains for older saved fields. */
 export function FieldMap({
   token,
   geometry,

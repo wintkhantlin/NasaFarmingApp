@@ -125,6 +125,12 @@ export function engineData(field: Field, weather: DailyWeather | null, over: Par
     hlsInfo: { status: "unconfigured", provider: null, retrievedAt: null, start: null, end: null },
     slope: null,
     srtmInfo: { status: "unconfigured", provider: null, retrievedAt: null, start: null, end: null },
+    modis: [],
+    modisInfo: { status: "unconfigured", provider: null, retrievedAt: null, start: null, end: null },
+    ecostressLst: [],
+    ecostressLstInfo: { status: "unconfigured", provider: null, retrievedAt: null, start: null, end: null },
+    ecostressEt: [],
+    ecostressEtInfo: { status: "unconfigured", provider: null, retrievedAt: null, start: null, end: null },
     soil: effectiveSoil(field, null),
     ...over,
   };

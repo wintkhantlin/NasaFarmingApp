@@ -1,0 +1,24 @@
+- generic [active] [ref=f3e1]:
+  - button "Open Next.js Dev Tools" [ref=f3e7] [cursor=pointer]
+  - alert [ref=f3e11]
+  - main [ref=f3e12]:
+    - generic [ref=f3e13]:
+      - heading "Add a field" [level=1] [ref=f3e14]
+      - generic:
+        - region "Find your field" [ref=f3e17]:
+          - generic [ref=f3e18]:
+            - button "Back to your fields" [ref=f3e19]
+            - generic [ref=f3e22]: Search for a village, town or address
+            - searchbox "Search for a village, town or address" [ref=f3e23]
+            - button "Search" [disabled] [ref=f3e24]
+        - region "Mark your field" [ref=f3e28]:
+          - generic [ref=f3e29]:
+            - group "Draw a field area" [ref=f3e30]:
+              - button "Draw a box" [pressed] [ref=f3e31]
+              - button "Trace outline" [ref=f3e34]
+            - generic [ref=f3e37]:
+              - button "Find my area" [ref=f3e38] [cursor=pointer]
+              - button "Use coordinates" [ref=f3e42] [cursor=pointer]
+        - region "Your field" [ref=f3e45]:
+          - status [ref=f3e46]: Drag from one corner of the field to the opposite corner.
+          - button "Continue" [disabled] [ref=f3e48]

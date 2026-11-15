@@ -73,12 +73,82 @@ export interface PenmanMonteithDetails {
   et0Mm: number;
 }
 
-/** Converts solar radiation to MJ/m2/day. Only responses declaring kWh/m2/day are multiplied by 3.6. */
+/** Converts solar radiation to MJ/m2/day. Only responses declaring kWh/m2/day are multiplied by 3.6. Sentinels (-999) return null. */
 export function normalizeSolarRadiation(rs: number, unit?: string | null): number {
+  if (!Number.isFinite(rs) || rs <= -900) return 0;
   if (unit && /(kwh|kw-hr)/i.test(unit)) {
     return rs * 3.6;
   }
   return rs;
+}
+
+export interface DailyEt0Evaluation {
+  et0Mm: number | null;
+  method: "penman-monteith" | "hargreaves" | "none";
+  inputsUsed: string[];
+  limitations?: string;
+}
+
+/**
+ * Evaluates daily reference ET0 using FAO-56 Penman-Monteith when complete meteorological inputs exist,
+ * and gracefully falls back to Hargreaves-Samani with explicit provenance and limitation labels.
+ */
+export function evaluateDailyEt0(input: {
+  latDeg: number;
+  doy: number;
+  elevationM: number;
+  tmaxC: number | null;
+  tminC: number | null;
+  tmeanC?: number | null;
+  rhMeanPct?: number | null;
+  u2?: number | null;
+  rsMj?: number | null;
+  pressureKpa?: number | null;
+}): DailyEt0Evaluation {
+  const { latDeg, doy, elevationM, tmaxC, tminC, tmeanC, rhMeanPct, u2, rsMj, pressureKpa } = input;
+
+  if (tmaxC === null || tminC === null || !Number.isFinite(tmaxC) || !Number.isFinite(tminC) || tmaxC <= -900 || tminC <= -900) {
+    return { et0Mm: null, method: "none", inputsUsed: [], limitations: "Missing valid daily minimum and maximum air temperatures." };
+  }
+
+  // Check if complete Penman-Monteith meteorological inputs are available
+  const hasRh = rhMeanPct !== null && rhMeanPct !== undefined && Number.isFinite(rhMeanPct) && rhMeanPct >= 0 && rhMeanPct <= 100 && rhMeanPct > -900;
+  const hasWind = u2 !== null && u2 !== undefined && Number.isFinite(u2) && u2 >= 0 && u2 > -900;
+  const hasRadiation = rsMj !== null && rsMj !== undefined && Number.isFinite(rsMj) && rsMj >= 0 && rsMj > -900;
+
+  if (hasRh && hasWind && hasRadiation) {
+    const details = penmanMonteithDetails({
+      latDeg,
+      doy,
+      elevationM,
+      tmaxC,
+      tminC,
+      tmeanC: tmeanC ?? undefined,
+      rhMeanPct: rhMeanPct!,
+      u2: u2!,
+      rsMj: rsMj!,
+      pressureKpa: pressureKpa ?? undefined,
+    });
+    return {
+      et0Mm: details.et0Mm,
+      method: "penman-monteith",
+      inputsUsed: ["Tmax", "Tmin", "RH", "Wind", "SolarRadiation"],
+    };
+  }
+
+  // Fallback to Hargreaves-Samani with explicit limitations
+  const missingInputs: string[] = [];
+  if (!hasRadiation) missingInputs.push("solar radiation");
+  if (!hasRh) missingInputs.push("relative humidity");
+  if (!hasWind) missingInputs.push("wind speed");
+
+  const et0 = hargreavesEt0(latDeg, doy, tmaxC, tminC);
+  return {
+    et0Mm: et0,
+    method: "hargreaves",
+    inputsUsed: ["Tmax", "Tmin", "ExtraterrestrialRadiation"],
+    limitations: `Fallback Hargreaves-Samani equation used due to missing ${missingInputs.join(", ")}. Does not capture atmospheric humidity or wind anomalies directly.`,
+  };
 }
 
 /**

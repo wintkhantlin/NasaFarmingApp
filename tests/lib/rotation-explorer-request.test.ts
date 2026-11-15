@@ -21,6 +21,9 @@ const remote = (fieldId: string): RemoteData => ({ fieldId, checkedAt: "2026-11-
   smap: { kind: "smap", status: "unconfigured", start: "2016-01-01", end: "2025-12-31" },
   hls: { kind: "hls", status: "unconfigured", start: "2021-01-01", end: "2025-12-31" },
   srtm: { kind: "srtm", status: "unconfigured", start: "2000-01-01", end: "2000-12-31" },
+  modis: { kind: "modis", status: "unconfigured", start: "2021-01-01", end: "2025-12-31" },
+  ecostressLst: { kind: "ecostress-lst", status: "unconfigured", start: "2021-01-01", end: "2025-12-31" },
+  ecostressEt: { kind: "ecostress-et", status: "unconfigured", start: "2021-01-01", end: "2025-12-31" },
 });
 
 describe("unified Rotation Explorer requests", () => {

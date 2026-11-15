@@ -1,4 +1,4 @@
-import { en } from "@/app/plan/messages";
+import { en } from "@/app/(app)/plan/messages";
 import type { Scenario } from "@/lib/rotation/presentation";
 
 export function SequenceReasoning({ steps, names }: { steps: Scenario["sequence_reasoning"]; names: Record<string, string> }) {

@@ -1,4 +1,4 @@
-import { en } from "@/app/plan/messages";
+import { en } from "@/app/(app)/plan/messages";
 import type { EnvironmentSnapshot } from "./farmer-request";
 
 export type Scenario = {

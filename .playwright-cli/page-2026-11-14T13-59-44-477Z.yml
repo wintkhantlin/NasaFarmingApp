@@ -1,0 +1,54 @@
+- generic [ref=f3e1]:
+  - generic [ref=f3e6] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=f3e7]
+    - generic [ref=f3e51]:
+      - button "Open issues overlay" [ref=f3e52]:
+        - generic [ref=f3e53]:
+          - generic [aria-hidden] [ref=f3e54]: "0"
+          - generic [ref=f3e55]: "1"
+        - generic [ref=f3e56]: Insight
+      - button "Collapse issues badge" [ref=f3e57]
+  - alert [ref=f3e11]
+  - main [ref=f3e12]:
+    - generic [ref=f3e13]:
+      - heading "Add a field" [level=1] [ref=f3e14]
+      - generic [ref=f3e60]:
+        - region "Map" [ref=f3e61]
+        - generic:
+          - button "Toggle attribution" [ref=f3e63] [cursor=pointer]
+          - link "Mapbox homepage" [ref=f3e66] [cursor=pointer]:
+            - /url: https://www.mapbox.com/
+      - generic:
+        - region "Find your field" [ref=f3e17]:
+          - generic [ref=f3e18]:
+            - button "Back to your fields" [ref=f3e19]
+            - generic [ref=f3e22]: Search for a village, town or address
+            - searchbox "Search for a village, town or address" [ref=f3e23]
+            - button "Search" [disabled] [ref=f3e24]
+        - region "Mark your field" [ref=f3e28]:
+          - generic [ref=f3e29]:
+            - group "Draw a field area" [ref=f3e30]:
+              - button "Draw a box" [ref=f3e31]
+              - button "Trace outline" [ref=f3e34]
+            - generic [ref=f3e37]:
+              - button "Find my area" [ref=f3e38] [cursor=pointer]
+              - button "Use coordinates" [expanded] [ref=f3e42] [cursor=pointer]
+          - generic [ref=f3e68]:
+            - paragraph [ref=f3e69]: Enter the south-west and north-east corners of the field.
+            - generic [ref=f3e70]:
+              - textbox "South latitude" [ref=f3e71]: "16.80"
+              - textbox "West longitude" [ref=f3e72]: "96.13"
+              - textbox "North latitude" [ref=f3e73]: "16.81"
+              - textbox "East longitude" [ref=f3e74]: "96.14"
+            - button "Draw box from coordinates" [ref=f3e75] [cursor=pointer]
+        - region "Your field" [ref=f3e45]:
+          - generic [ref=f3e82]:
+            - generic [ref=f3e83]:
+              - heading "Name your field" [level=2] [ref=f3e84]
+              - button "Back to the map" [ref=f3e85]
+            - generic [ref=f3e89]:
+              - generic [ref=f3e90]: Field name
+              - textbox "Field name" [active] [ref=f3e91]:
+                - /placeholder: e.g. South plot
+            - paragraph [ref=f3e92]: Add water and soil details on the next page.
+            - button "Save field and continue" [ref=f3e93] [cursor=pointer]

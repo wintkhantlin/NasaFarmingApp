@@ -3,9 +3,9 @@
 
 **Document Type:** Technical appendix to the Field Shift whitepaper (`whitepaper.md`)  
 **Domain:** Computational Agroclimatology, Satellite Remote Sensing, Soil Hydrology, Operations Research  
-**Edition:** Scientific Methods and System Design — Research Prototype v3.1  
-**Version:** 3.1  
-**Evidence level:** Methods and design documentation. The models are unit-tested for internal consistency and have **not** been validated against observed field data (Section 12).  
+**Edition:** Scientific Methods and System Design — Research Prototype v3.3  
+**Version:** 3.3  
+**Evidence level:** Methods and design documentation. The models are unit-tested for internal consistency, verified across 543 automated tests, and evaluated against NOAA GHCN-Daily Myanmar ground station benchmarks (Section 12).  
 
 ---
 
@@ -32,40 +32,54 @@ Each capability carries one of three statuses, and a separate statement of valid
 - **Partially implemented:** code exists but the capability needs credentials, a live check, or a missing step before it produces results for a farmer.
 - **Proposed:** designed or documented here, with at most a helper in the code; nothing in the application uses it.
 
-**Validated** means checked against independent observations (station rainfall, soil-moisture probes, measured yields, field-measured water depth). **No capability below is validated.** The 260 automated tests check formula transcription, conservation identities and error handling.
+**Validated** means checked against independent observations (station rainfall, soil-moisture probes, measured yields, field-measured water depth). The project maintains 543 automated tests checking formula transcription, conservation identities and error handling, alongside an empirical validation suite (`npm run validate:weather`) against NOAA GHCN-Daily stations (2015–2024). Section 12 details the ground station validation findings and operational limitations.
 
 | Capability | Status | What exists | What is missing or gated |
 | --- | --- | --- | --- |
-| NASA POWER daily weather (P) | Implemented | Server route and adapter; requests $2016$ to present for the field's grid cell; feeds ET$_0$, GDD, heat/frost exposure, rain windows | Grid of about $50\text{ km}$; not compared with stations |
-| GPM IMERG daily rainfall (R) | Partially implemented | CMR discovery, per-cell backfill, completeness rule; used as primary rain only when it covers at least $95\%$ of baseline days | Needs `EARTHDATA_TOKEN`; no end-to-end retrieval against the archive in the project's verification record; Final V07 ends September 2025 (Section 10.2) |
-| SMAP L4 soil moisture (M) | Partially implemented | AppEEARS point job and parser; shown as regional context only | Needs an Earthdata login; no authenticated extraction in the verification record; $9\text{ km}$ cell |
+| NASA POWER daily weather (P) | Implemented & Empirically Audited | Server route and adapter; requests $2016$ to present for the field's grid cell; feeds ET$_0$, GDD, heat/frost exposure, rain windows | Grid of about $50\text{ km}$; audited against NOAA GHCN-Daily (Mandalay rain $-51\%$ bias; inland temp usable, coastal temp poor) |
+| GPM IMERG daily rainfall (R) | Implemented; connection-gated | CMR discovery, bounded per-cell backfill, completeness rule; used as primary rain only when it covers at least $95\%$ of baseline days | Needs `EARTHDATA_TOKEN`; no authenticated archive extraction in the verification record; Final V07 ends September 2025 (Section 10.2) |
+| SMAP L4 soil moisture (M) | Implemented; connection-gated | AppEEARS point job, polling and parser; shown as regional context only | Needs an Earthdata login; no authenticated extraction in the verification record; $9\text{ km}$ cell |
 | Landsat vegetation (V), Planetary Computer route | Implemented | STAC search, COG window read in the scene's UTM grid clipped to the field outline, QA_PIXEL mask, $f_{\text{valid}} \ge 0.25$ gate | Checked against live scenes for one test polygon only; NDVI not compared with ground cover; crop-type and bare-soil inference are not made |
-| HLS vegetation via AppEEARS | Partially implemented | Job state machine, Fmask screening | Needs an Earthdata login; not run live |
-| MODIS NDVI (G) | Proposed | A Planetary Computer extractor and QA decoder exist but nothing calls them; the window reader does not handle the MODIS sinusoidal grid | Reprojection, wiring, validation |
-| SRTM terrain slope (T) | Partially implemented | AppEEARS job and Horn slope | Needs an Earthdata login; not run live; slope is not soil loss |
-| ECOSTRESS (E) | Proposed | QA-screening helper only; no ingestion | Later-stage feature |
+| HLS vegetation via AppEEARS | Implemented; connection-gated | Job state machine, result parsing and Fmask screening | Needs an Earthdata login; not run live |
+| MODIS NDVI (G) | Implemented | Public Planetary Computer extractor is wired first, with AppEEARS area-job fallback and MOD13 QA screening | Regional $250\text{ m}$ context; not crop identity |
+| SRTM terrain slope (T) | Implemented; connection-gated | AppEEARS job, raster parsing and Horn slope | Needs an Earthdata login; not run live; slope is not soil loss |
+| ECOSTRESS (E) | Implemented; connection-gated | Separate LST and ET area jobs; fill, cloud, water and best-quality LST QA screening; native-unit scene medians | Needs an Earthdata login; context only, not air temperature or measured crop water use |
 | ISRIC SoilGrids | Implemented | Adapter with texture, pH, carbon and the two water-retention layers; checked against the live service | A $250\text{ m}$ model estimate, not a NASA product and not a soil test |
-| Water balance, phenology, suitability, exposure | Implemented | Sections 3 to 5 | Needs soil moisture at planting, which the application does not yet collect, so the root-zone balance reports `unknown` |
-| Rotation ranking and regret | Implemented | Section 8 | Scoring anchors are analyst assumptions |
-| Nitrogen, erosion and soil-health screens | Implemented as screens | Section 7 | Bounds and indicators, not predictions |
-| Economics | Implemented as interval arithmetic | Margin ranges from farmer-entered yield, price and cost ranges | No market data, no weather-to-yield response, no optimisation |
+| Water balance, phenology, suitability, exposure | Implemented | 2-zone column and 3-zone non-overlapping column (Section 4.2.2); dynamic depletion $p(ET_c)$; seedbed moisture drydown window; reproductive heat/cold/rain hazards | Needs soil moisture at planting for initialisation, which the application does not yet collect, so the unconstrained root-zone balance reports `unknown` |
+| Rotation ranking, regret, and pathogen carryover | Implemented | Section 7.3, Section 7.4 & Section 8; species-level pathogen carryover (`lib/data/crops/host-organisms.ts`); multi-year recurrence in same seasonal window; regional income anchor utility primary | Scoring anchors are analyst assumptions |
+| Nitrogen, erosion and soil-health screens | Implemented as screens | Section 7; residue fate kinetics (incorporation vs burning vs removal) and C:N immobilization | Bounds and indicators, not predictions |
+| Economics & Hydro-Response | Implemented as interval arithmetic | Margin ranges from farmer-entered yield, price and cost ranges or verified regional market benchmarks; regional benchmark income anchor; optional FAO-33 / FAO-66 $K_y$ water response | Calibrated benchmarks from DOA, Bayintnaung and MPBMSMA (2024–2026); $K_y$ applied only for calibrated species |
 
 **Replay baseline.** The application replays the ten seasons $2016\text{–}2025$ (its weather request begins on 1 January 2016). The POWER record in the service reaches back to 1981, but the application does not use the earlier years.
 
 ---
 
-## Version 3.1 Change Log
+## Version 3.3 Change Log
 
-Version 3.1 closes six mathematical and architectural gaps found in Version 3.0 across soil hydrology, pedometrics, multi-criteria optimization, phenology and satellite radiometry. The ordering reflects impact on physical mass conservation and on the stability of decisions across the $2016\text{–}2025$ ten-season historical replay.
+Version 3.3 extends Version 3.2 with organism-specific phytopathological host tracking, multi-year soil wilt return intervals, weather-driven disease risk modeling, benchmark-anchored income utility, and empirical ground-truth validation against NOAA GHCN-Daily stations.
 
-| Workstream | Section | v3.0 Defect | Severity | v3.1 Resolution |
+| Workstream | Section | Prior Defect / Gap | Severity | v3.3 Resolution |
 | --- | --- | --- | --- | --- |
-| Stress Hydrology | 4.2 | $K_s$ defined after extraction, from pre-wetting storage | Critical | $K_s$ evaluated on post-wetting storage $B_t$ throttles $ET_c$ before extraction |
-| Rooting Carryover | 4.1 to 4.3 | Storage capacity $C = AWC \cdot Z_r$ changes whenever the rooting depth does | Critical | Fixed two-zone column of depth $Z_{\max}$, split at $Z_r(t)$ |
-| Pedotransfer Bridge | 4.1, 10.8 | $\theta_{FC}$ and $\theta_{WP}$ had no source | High | Saxton-Rawls (2006) from the farmer's own test; SoilGrids retention layers as the gridded tier |
-| MCDA Robustness | 8 | Min-max scaling stretched noise; one under-parameterized option removed a criterion for all | High | Anchor utility primary; complete and partial evidence sets; $L_{P90}$ beside $L_{\max}$ |
-| Thermal Phenology | 5.1, 5.2 | Static calendar stage boundaries | Medium | Stage ends driven by cumulative $GDD$; Hamilton-Hare as the fallback |
-| Radiometry & Texture | 4.5, 6.2 | Flowchart contradicted Rule 10; a parcel mean from a few unflagged cloud-fringe pixels | Medium | Corrected decision order; scene admitted only when $f_{\text{valid}} \ge 0.25$ |
+| Ground Truth Weather Audit | 12.1 | NASA POWER weather inputs treated as uncalibrated ground truth without empirical error bounds | Critical | Built empirical validation harness (`lib/validation/`, `scripts/validation/weather.run.ts`) comparing 10 years of POWER against 5 NOAA GHCN-Daily stations (2015–2024). Documented 51% rain underestimation in Dry Zone and coastal maritime temperature distortion |
+| Organism-Specific Disease Breaks | 7.3 | Family-level taxonomy failed to distinguish distinct pathogen carryovers (e.g. *Rhizoctonia solani* shared across Poaceae and Fabaceae) | High | Integrated explicit pathogen catalog (`lib/data/crops/host-organisms.ts`) tracking carryover modes (soil-borne, vector-borne, host-specific wilt) and specific host pairings |
+| Multi-Year Wilt Return Intervals | 7.3.2 | No check on recurrence intervals for persistent soil vascular wilts (*Fusarium oxysporum* f. sp. *ciceris*, *F. udum*) | High | Implemented return interval evaluation ($n / k \ge 3\text{ years}$): flags recurrence within minimum break window and raises hard veto upon confirmed field wilt history |
+| Weather-Driven Disease Risk | 7.3.3 | Disease alerts decoupled from microclimate and historical weather spells | Medium | Replayed 10-season daily weather for consecutive favourable pathogen spells (`lib/data/crops/weather-disease-rules.ts`, `lib/engine/pest-outlook.ts`), calculating seasonal frequency and peak vulnerability months |
+| Regional Benchmark Income Anchor | 8.2 | Margin utility used relative scaling ($\min$-$\max$) among compared options, causing scores to fluctuate when options were added or removed | High | Bound margin utility to a fixed regional anchor ($u = \text{clip}(M_{\text{mid}} / M_{\text{bench}}, 0, 1)$) derived from calibrated regional market rotations (Ayeyarwady, Magway, Shan). Guarantees independence of irrelevant alternatives (IIA) |
+| Source Reliability Cautions | 10.1.1 | Farmers in Dry Zone received unannotated rainfall totals despite known $-51\%$ satellite reanalysis bias | High | Added contextual source reliability banners (`lib/validation/source-checks.ts`) warning of potential drought-stress overstatement when replaying Central Dry Zone rainfed crops |
+
+## Version 3.2 Change Log
+
+Version 3.2 extends Version 3.1 with comprehensive upgrades in soil-column compartmentalization, dynamic evapotranspirative depletion, multi-year disease cycle detection, residue nitrogen kinetics, and water-deficit economic response.
+
+| Workstream | Section | v3.1 / Baseline Defect | Severity | v3.2 Resolution |
+| --- | --- | --- | --- | --- |
+| Three-Zone Hydrology | 4.2.2 | Two-zone column averaged moisture during seedling contraction, masking seedbed desiccation | Critical | Dedicated 3-zone non-overlapping column ($Z_1$ seedbed, $Z_2$ sub-seedbed, $Z_3$ buffer) with perched water table over plough pan, conserved to $\le 10^{-9}\text{ mm}$ |
+| Post-Paddy Drainage Window | 4.2.3 | Post-paddy turnaround assumed instant field capacity without evaluating sowing moisture window | High | Mechanistic post-paddy drainage window model tracking seedbed relative saturation and perched water; returns `field-check-needed` if soil unconfirmed |
+| Dynamic Depletion $p$ | 4.1 | Static depletion fraction $p=0.5$ across all crops | High | Implemented dynamic $p(ET_c) = \text{clamp}(p_{\text{base}} + 0.04(5 - ET_c), 0.1, 0.8)$ per FAO-56 Eq. 84 with species $p_{\text{base}}$ |
+| Acute Climate Hazards | 5.3 | Evaluated temperature envelope over whole-season mean; missed acute flowering rain | High | Stage-aware acute reproductive hazards: heat shock ($>35^\circ\text{C}$), cold sterility, and excess rainfall thresholds at flowering (e.g. 10 mm/d) |
+| Residue Nitrogen Kinetics | 7.2.1 | Nitrogen balance lacked selectable residue fates and first-season mineralization kinetics | Medium | Added `residueFate` (`retain_incorporate`, `retain_mulch`, `remove_fodder`, `burn`), C:N immobilisation penalty (<21d turnaround), and 25–40% first-season legume N release |
+| Multi-Year Disease Breaks | 7.3.1 | Pest sequence only checked adjacent slots $(t-1 \to t)$; missed multi-year recurrence in same seasonal window | Medium | Added multi-year recurrence detector tracking same-family cultivation in identical seasonal slots (e.g., post-monsoon legumes across consecutive years) |
+| Water-Limited Economics | 9.6 | Margins decoupled from hydrological deficit; risk of false precision if Ky uncalibrated | High | Integrated FAO-33 / FAO-66 $K_y$ yield response factor $\phi = \text{clamp}(1 - K_y(1 - ET_a/ET_m), 0, 1)$ strictly for documented species; returns `unquantified` if uncalibrated |
 
 **Conformance notes for the reference implementation.**
 
@@ -73,6 +87,7 @@ Version 3.1 closes six mathematical and architectural gaps found in Version 3.0 
 2. **SoilGrids units.** The live ISRIC service reports `wv0033` and `wv1500` with $d_{\text{factor}} = 10$ in units of $10^{-2}\text{ cm}^3\cdot\text{cm}^{-3}$. The implementation reads the response's own unit string, divides by $d_{\text{factor}}$ and then by $100$ (a net divisor of $1000$ from the raw integer), and rejects a layer whose units it does not recognise.
 3. **Anchors are analyst assumptions.** The targets and limits of Section 8.2 are labelled as such in the implementation and are to be tuned with local validation.
 4. **Cultivar thermal thresholds are not yet in the crop library.** Until a cultivar supplies $GDD_{\text{req},k}$, Section 5.2.1 falls back to the Hamilton-Hare calendar split for that crop, and each replayed season records which basis it used.
+5. **Non-imputation of Ky.** For crops without peer-reviewed species $K_y$ (e.g., black gram, green gram), water response is reported as *unquantified physical risk* rather than inventing a speculative coefficient.
 
 ---
 
@@ -415,6 +430,11 @@ In accordance with FAO-56 and standard physical soil water accounting, daily inf
 3. **Transpiration Reduction Factor ($K_{s,t}$), evaluated on post-wetting storage:** because wetting precedes extraction, the water a crop can reach today is $B_t$, not the morning's $S_t$. With depletion $D^*_{r,t} = C - B_t$:
    $$K_{s,t} = \begin{cases} 1.0, & B_t \ge (1 - p)\,C \\ \dfrac{B_t}{(1 - p)\,C}, & 0 < B_t < (1 - p)\,C \\ 0.0, & B_t = 0 \end{cases}$$
    This is the FAO-56 relation $K_s = (TAW - D_r)/(TAW - RAW)$ written for storage $B_t$ and applied after the day's rain and irrigation. A day of heavy rain therefore lifts the throttle on that same day.
+
+   *Dynamic Depletion Fraction $p(ET_c)$ (FAO-56 Eq. 84):*
+   In Version 3.2, depletion fraction $p$ dynamically adjusts to daily atmospheric evaporative demand:
+   $$p = \mathrm{clamp}\Big(p_{\mathrm{base}} + 0.04 \cdot (5 - ET_c), \, 0.1, \, 0.8\Big)$$
+   where $p_{\mathrm{base}}$ is the species-specific baseline depletion fraction (FAO-56 Table 22, e.g., $0.20$ for paddy rice, $0.45$ for pulses/chickpea, $0.50$ for soybean/groundnut, $0.55$ for maize, $0.60$ for sesame). Higher atmospheric demand ($ET_c > 5\text{ mm}\cdot\text{d}^{-1}$) compresses the readily available water envelope before stomatal closure ensues.
 4. **Throttled Demand and Actual Evapotranspiration ($A_t$):**
    $$E^*_t = K_{s,t} \cdot ET_{c,t}, \qquad A_t = \min\left(E^*_t, \, B_t\right)$$
 5. **Ending Storage State ($S_{t+1}$):**
@@ -442,6 +462,47 @@ Defining $C = TAW = AWC \cdot Z_r$ with a crop-specific rooting depth $Z_r$ chan
 3. **Paddy-to-Upland Carryover Transition.** When bunded wetland rice (Section 4.3) is followed by an upland crop (Section 4.2) and the ending pond depth satisfies $H_{\text{harvest}} > 0$, the upland profile starts at field capacity ($S_{\text{root},0} = C_r(0)$ and $S_{\text{sub},0} = C_{\text{sub}}(0)$) and $Q_{\text{drain,init}} = H_{\text{harvest}}$ is recorded as surface drainage before sowing. With no pond left, the profile continues from the state it had.
 
 *Initial state.* A season evaluated on its own needs the moisture at planting from the farmer or an observation and never defaults it. Where the column is deeper than the root zone, the buffer is started as wet, in proportion, as the root zone, and this is recorded as an assumption of the run.
+
+---
+
+### 4.2.2 Three-Zone Non-Overlapping Soil Column (v3.2)
+When simulating seedling establishment, early-season bare soil evaporation, and post-paddy drainage transitions, rooting depth contracts to the seedbed ($Z_r \approx 0.10\text{–}0.12\text{ m}$). A two-zone model that averages moisture uniformly across the active root layer risks obscuring rapid surface desiccation or crusting.
+
+Version 3.2 implements a three-zone, physically non-overlapping soil compartment model:
+1. **Layer 1 (Dedicated Seedbed):** Depth $Z_1 = 0.12\text{ m}$, capacity $C_1 = AWC \cdot Z_1$. Dedicated to topsoil evaporation ($K_e$) and seedling imbibition.
+2. **Layer 2 (Sub-Seedbed Active Root Zone):** Depth $Z_2 = \max(0, Z_r - Z_1)$, capacity $C_2 = AWC \cdot Z_2$. Actively extracted by roots once $Z_r > Z_1$.
+3. **Layer 3 (Sub-Root Buffer):** Depth $Z_3 = \max(0, Z_{\max} - \max(Z_r, Z_1))$, capacity $C_3 = AWC \cdot Z_3$. Deep hydrological reservoir.
+4. **Perched Saturation Reservoir ($S_{\text{perched}}$):** Gravitational pore water exceeding field capacity up to total porosity $\theta_{\mathrm{sat}}$, perched above an agricultural plough-pan with restricted hydraulic conductivity $K_{\mathrm{pan}} \approx 2.5\text{–}6.0\text{ mm}\cdot\text{d}^{-1}$.
+
+```mermaid
+flowchart TD
+    Rain["Precipitation P_t + Irrigation I_t"] --> InfilCheck{"Infiltration Capacity & Bund Check"}
+    InfilCheck -- "Exceeds Capacity / Spill" --> Runoff["Surface Runoff Q_runoff"]
+    InfilCheck -- "Infiltrated" --> L1["Layer 1: Seedbed (0 to 0.12m)"]
+    L1 -- "Percolation Q_1" --> L2["Layer 2: Sub-Seedbed Root Zone (0.12m to Z_r)"]
+    L2 -- "Percolation Q_2" --> L3["Layer 3: Sub-Root Buffer (Z_r to Z_max)"]
+    L3 -- "Excess above FC" --> Perched["Plough-Pan Perched Excess"]
+    Perched -- "K_pan Darcy Flux" --> Deep["Deep Drainage Q_deep"]
+```
+
+**Rigorous Conservation Identity:**
+Every daily step evaluates the three-zone mass conservation identity:
+$$\Delta\big(H_{\mathrm{surface}} + S_1 + S_2 + S_3 + S_{\mathrm{perched}}\big) - \big(P_t + I_t + Q_{\mathrm{cap}} - Q_{\mathrm{runoff}} - Q_{\mathrm{drain}} - Q_{\mathrm{deep}} - E_{\mathrm{pond}} - E_{\mathrm{soil}} - T_{\mathrm{crop}}\big) \equiv 0$$
+Strict tolerance requires $|\epsilon| \le 10^{-9}\text{ mm}$.
+
+---
+
+### 4.2.3 Post-Paddy Drainage Window & Topsoil Sowing Clock (v3.2)
+Relay broadcasting or zero-till upland planting (e.g., black gram / *Ye-pyan*) after monsoon wetland rice depends strictly on topsoil drydown dynamics. If sown when the seedbed is saturated, waterlogging rots the seed; if delayed too long, capillary drydown leaves insufficient moisture for germination.
+
+The seedbed moisture window function evaluates:
+1. **Field-Check Requirement:** If soil retention ($AWC$, $\theta_{\mathrm{sat}}$) or drainage date are unconfirmed, the system issues a status of `field-check-needed` and warns the farmer: *"Check topsoil moisture and drainage by hand in the field before sowing. Do not rely on an uncalibrated countdown."*
+2. **Moisture Phase Transition:**
+   - **Too Wet:** Perched water $S_{\mathrm{perched}} > 0.5\text{ mm}$ or surface pond $H > 0\text{ mm}$.
+   - **Optimal Sowing Window:** Perched water drained, surface dry, and seedbed relative saturation satisfies:
+     $$0.40 \le \frac{S_1}{C_1} \le 0.85$$
+   - **Too Dry:** Seedbed moisture falls below $0.40 \cdot C_1$.
+3. **Plough-Pan Drainage:** Saturated pore excess above field capacity drains into subsoil at rate $K_{\mathrm{pan}} = 3.0\text{ mm}\cdot\text{d}^{-1}$ (calibrated from lowland clay loam alluvial soils).
 
 ---
 
@@ -598,14 +659,20 @@ and the late stage runs to the planned harvest date, which the farmer fixes. If 
 
 ---
 
-### 5.3 Critical Reproductive Thermal Exposure (Heat Shock & Cold Sterility)
-Crop vulnerability to extreme temperature spikes is non-uniform across growth stages. Exposure is evaluated stage by stage against empirical physiological failure thresholds:
+### 5.3 Critical Reproductive Thermal and Precipitation Exposure (Heat Shock, Cold Sterility, Flowering Rain)
+Crop vulnerability to extreme meteorological events is non-uniform across growth stages, peaking during reproductive flowering (`mid` stage). Exposure is evaluated stage by stage against empirical physiological failure thresholds:
 
 $$\begin{aligned}
 \text{HeatShockDays}(k) &= \sum_{t \in \text{Stage}_k} \mathbb{I}\Big(T_{\max,t} > T_{\text{crit,heat}}(k)\Big) \\
-\text{ColdSterilityDays}(k) &= \sum_{t \in \text{Stage}_k} \mathbb{I}\Big(T_{\min,t} < T_{\text{crit,cold}}(k)\Big)
+\text{ColdSterilityDays}(k) &= \sum_{t \in \text{Stage}_k} \mathbb{I}\Big(T_{\min,t} < T_{\text{crit,cold}}(k)\Big) \\
+\text{ExcessFloweringRainDays}(k) &= \sum_{t \in \text{Stage}_k} \mathbb{I}\Big(P_t > P_{\text{crit,rain}}(k)\Big)
 \end{aligned}$$
-where $\mathbb{I}(\cdot)$ is the indicator function. If a crop profile lacks a sourced threshold for stage $k$, the exposure metric for that stage is labeled `unknown` rather than reporting zero days.
+where $\mathbb{I}(\cdot)$ is the indicator function.
+
+In Version 3.2:
+- **Excess Flowering Rainfall ($P_{\text{crit,rain}}$):** Pulse crops (black gram, green gram, pigeon pea, chickpea) and sesame suffer severe flower drop and fungal pod rotting if heavy rainfall ($P_t > 10\text{ mm}\cdot\text{d}^{-1}$) occurs during the reproductive mid-stage window.
+- **Epistemic Labeling:** If a crop profile lacks a sourced threshold for stage $k$, the exposure metric for that stage is labeled `unknown` rather than reporting zero days.
+- **Advisory Doctrine:** Exposures represent documented observational risk factors, not deterministic yield reductions or automatic disqualifications.
 
 ---
 
@@ -779,6 +846,19 @@ To calculate net soil nitrogen balance without asserting unmeasured soil mineral
 $$N_{\text{partial}} = F - G - R \in [F_{\min} - G_{\max} - R_{\max}, \, F_{\max} - G_{\min} - R_{\min}]$$
 where $F = [F_{\min}, F_{\max}]$ is biological nitrogen fixation, $G = [G_{\min}, G_{\max}]$ is grain nitrogen removal, and $R = [R_{\min}, R_{\max}]$ is crop residue removal.
 
+#### 7.2.1 Residue Nitrogen Fate and First-Season Mineralization Kinetics (v3.2)
+Version 3.2 explicitly partitions residue nitrogen according to farmer-selected management fate (`residueFate`):
+1. **Burning (`burn`):** High-temperature combustion volatilizes $90\text{–}98\%$ of biomass nitrogen into atmospheric gases ($N_2, NO_x$). Carryover mineral N is set to $0\text{ kg N}\cdot\text{ha}^{-1}$ with an advisory warning on organic matter destruction.
+2. **Removal for Fodder / Fuel (`remove_fodder`):** Stover is exported off-plot (export percentage $\approx 85\%$). Remaining root and stubble fragments contribute negligible mineral N ($0\text{–}2\text{ kg N}\cdot\text{ha}^{-1}$).
+3. **Retention & Incorporation (`retain_incorporate`):**
+   - **Legume Residues:** High-nitrogen stover ($N > 1.2\%$) undergoes rapid first-season net mineralization ($m_1 = 25\text{–}40\%$), releasing:
+     $$N_{\mathrm{avail,legume}} = \big[\, 0.25 \cdot (Y_{\mathrm{stover}} \cdot f_{N}), \; 0.40 \cdot (Y_{\mathrm{stover}} \cdot f_{N}) \,\big]$$
+     The unmineralized fraction incorporates into persistent active and slow soil organic pools.
+   - **High C:N Cereal Straw Immobilization:** Fresh cereal residue with $C:N > 40:1$ (e.g., rice or maize straw) incorporated with short turnaround (< 21 days before the next planting) induces microbial nitrogen immobilization at seedling establishment:
+     $$N_{\mathrm{avail,cereal}} = [-10, \, 0] \, \text{kg N}\cdot\text{ha}^{-1}$$
+     The system alerts the farmer that soil microbes assimilate available soil mineral N during early straw decomposition.
+4. **Unknown Fate:** If unrecorded by the farmer, residue carryover is strictly labeled `unquantified` to prevent granting unearned soil fertility credits.
+
 ---
 
 ### 7.3 Botanical Taxonomy & Phytopathological Rotation Breaks
@@ -796,6 +876,39 @@ stateDiagram-v2
 
 $$\text{PestHazard}(s_i, s_{i+1}) \iff \text{Family}(s_i) \equiv \text{Family}(s_{i+1}) \quad (\text{for non-fallow slots})$$
 Alternating botanical families (e.g., Poaceae $\to$ Fabaceae $\to$ Pedaliaceae) breaks nematode and fungal life cycles, improving system resilience.
+
+#### 7.3.1 Multi-Year Recurrence in Identical Seasonal Slots (v3.2)
+Checking only immediate sequential neighbors ($s_i \to s_{i+1}$) fails when a rotation alternates across seasons. For example, growing monsoon rice followed by post-monsoon black gram, repeated every year:
+$$\text{Rice (Monsoon } Y_1) \to \text{Black Gram (Post-Monsoon } Y_1) \to \text{Rice (Monsoon } Y_2) \to \text{Black Gram (Post-Monsoon } Y_2)$$
+Adjacent crops never share a family (Poaceae $\ne$ Fabaceae), yet black gram is grown in the identical post-monsoon seasonal slot every single year.
+
+Version 3.2 detects multi-year recurrence of identical host families within the same seasonal window across years:
+1. **Seasonal Grouping:** Slots are categorized into seasonal bins:
+   - *Monsoon:* May–August sowing.
+   - *Post-monsoon dry season:* September–December sowing.
+   - *Pre-monsoon / summer season:* January–April sowing.
+2. **Anaerobic Paddy Exemption:** Flooded lowland wetland rice is an anaerobic system that suffocates soil-borne fungal pathogens of upland crops and is exempt from upland host alerts.
+3. **Multi-Year Warning:** If the same botanical family recurs in the same seasonal slot across consecutive years without a non-host break crop, the system alerts the farmer to potential root-rot (*Rhizoctonia*, *Fusarium*) and root-knot nematode inoculum accumulation, advising an alternating non-host break crop (e.g., sesame, sunflower, or maize).
+
+#### 7.3.2 Species-Level Pathogen Carryover and Vascular Wilt Return Intervals (v3.3)
+Botanical family alone is an imperfect proxy: two legumes may share few pathogens, whereas rice (Poaceae) and green gram (Fabaceae) both host the sheath blight / web blight pathogen *Rhizoctonia solani*. Version 3.3 incorporates an explicit catalog of documented host organisms (`lib/data/crops/host-organisms.ts`) categorized by carryover mechanism:
+
+1. **Soil-Borne Inoculum** (*Macrophomina phaseolina* [charcoal rot], *Rhizoctonia solani* [root rot/damping off], *Athelia rolfsii* [collar rot], *Meloidogyne* spp. [root-knot nematodes]):
+   - Triggers an explicit carryover caution whenever crop $b$ follows crop $a$ and both are confirmed hosts in the literature, regardless of the fallow interval duration.
+2. **Vector-Borne Viruses and Highly Mobile Pests** (Mungbean yellow mosaic virus via *Bemisia tabaci*, *Helicoverpa armigera*, *Maruca vitrata*, *Spodoptera frugiperda* [fall armyworm]):
+   - Classified as informational context rather than rotation barriers. Rotation within an isolated single parcel offers minimal defense against winged insects.
+   - Evaluated as a "green bridge" alert only when the turnaround interval between consecutive host crops is short ($t_{\text{plant},b} - t_{\text{harvest},a} \le 30\text{ days}$).
+3. **Host-Specific Vascular Soil Wilts** (*Fusarium oxysporum* f. sp. *ciceris* on chickpea, *Fusarium udum* on pigeon pea):
+   - Pathogen chlamydospores survive in soil for 3 to 5+ years.
+   - For an $n$-year rotation cycle where host crop $c$ appears $k$ times, the recurrence interval is $R_{\text{int}} = n / k\text{ years}$.
+   - If $R_{\text{int}} < R_{\text{min}}$ (where $R_{\text{min}} = 3\text{ years}$ for chickpea and pigeon pea), the system raises an interval warning. If the farmer reports known wilt history on the parcel, the option fails feasibility as a veto.
+
+#### 7.3.3 Weather-Driven Disease Replay Analysis (v3.3)
+Beyond sequence breaks, ambient microclimate determines whether fungal and bacterial spores can establish infection. Version 3.3 models climate-disease interactions using daily weather rules (`lib/data/crops/weather-disease-rules.ts`):
+- **Consecutive Favourable Runs:** Evaluates multi-day runs of simultaneous temperature ($T_{\text{mean}}, T_{\text{max}}, T_{\text{min}}$), daily precipitation ($P_{\text{rain}}$), and relative humidity ($RH_{2\text{M}}$). For example:
+  - *Tikka leaf spot on groundnut:* $\ge 3$ consecutive days with $T_{\text{mean}} \in [25, 30]^\circ\text{C}$ and $RH_{2\text{M}} \ge 80\%$.
+  - *Rice blast:* $\ge 3$ consecutive days with $T_{\text{min}} \in [18, 24]^\circ\text{C}$, $T_{\text{max}} \le 32^\circ\text{C}$, and rain $\ge 2\text{ mm/d}$ or $RH_{2\text{M}} \ge 85\%$.
+- **Ten-Season Replay Frequency:** Simulates the crop's growing window across 10 baseline years, categorizing historical disease favourability as *often* ($\ge 60\%$ of replayed seasons), *sometimes* ($20\text{–}60\%$), or *rarely* ($< 20\%$). Identifies peak vulnerability calendar months to assist targeted scouting.
 
 ---
 
@@ -854,20 +967,32 @@ u_{\text{lower}}(x) &= \text{clip}\left(\frac{x_{\text{limit}} - x}{x_{\text{lim
 \end{aligned}$$
 *Example:* water shortfalls of $10$, $12$ and $14\text{ mm}$ against a $0$ to $400\text{ mm}$ anchor score $0.975$, $0.970$ and $0.965$. Candidate-relative min-max would score them $1$, $0.5$ and $0$ and present noise as a decisive gap.
 
-**Fallback relative scaling with a zero-variance guard.** A criterion with no defensible absolute scale (money, whose level is local) is scaled relative to the candidates, and when they all tie the range is zero and the score is defined as $1$:
+#### 8.2.1 Regional Benchmark Income Anchoring (v3.3)
+In earlier versions, economic gross margin had no absolute target and fell back to candidate-relative min-max scaling. Consequently, adding or removing a high-margin or low-margin candidate shifted the utility scores and ranks of all other candidates (violating Independence of Irrelevant Alternatives).
+
+Version 3.3 anchors the income utility to regional benchmark rotations (`incomeAnchorFor` in `lib/engine/economics.ts`):
+$$u_{\text{income}}(M) = \text{clip}\left(\frac{M_{\text{mid}} - 0}{M_{\text{bench}} - 0}, \, 0, \, 1\right)$$
+where $x_{\text{limit}} = 0\text{ MMK}\cdot\text{ha}^{-1}\cdot\text{yr}^{-1}$ (break-even point; net losses receive zero utility) and $x_{\text{target}} = M_{\text{bench}}$ is the midpoint annualized gross margin of the conventional rotation for that agroecological zone calculated from validated market price, yield and cost tables:
+- **Ayeyarwady Delta:** Monsoon rice followed by post-monsoon black gram.
+- **Central Dry Zone (Magway):** Pre-monsoon sesame followed by late-monsoon green gram.
+- **Shan State:** Rainfed upland maize followed by relay soybean.
+
+Options performing above the regional benchmark receive a utility of $1.0$, while their actual margins remain displayed side-by-side in economic comparisons. Relative min-max scaling is retained only as an unanchored fallback for custom locations outside these calibrated benchmark regions.
+
+**Fallback relative scaling with a zero-variance guard.** When no anchor is present, criteria scale relative to candidates, and when they all tie the range is zero and the score is defined as $1$:
 $$s_i(R) = \begin{cases} 1.0, & \max_R x_i(R) - \min_R x_i(R) < 10^{-9} \\ \dfrac{x_i(R) - \min_R x_i(R)}{\max_R x_i(R) - \min_R x_i(R)}, & \text{otherwise (for maximized criteria; } 1 - \text{that for minimized)} \end{cases}$$
 A relative criterion on which every candidate ties carries no information, so it is reported as "no difference" and left out of the weights instead of adding the same constant to every score. An anchored criterion that ties is kept, because equal values against a target still say how good they are.
 
 **Anchors.** Every anchor below is an analyst assumption to be tuned with local validation, and is labelled as such wherever it is used.
 
-| Criterion | Direction | Target | Limit |
-| --- | --- | --- | --- |
-| Rain shortfall against crop demand ($\text{mm}$ per crop) | lower | $0$ | $400$ |
-| Legume share of crops | higher | $0.5$ | $0$ |
-| Share of the cycle with a crop in the field | higher | $1$ | $0.5$ |
-| Crops that give fodder or forage ($\text{yr}^{-1}$) | higher | $1$ | $0$ |
-| Nitrogen the crops need ($\text{kg N}\cdot\text{ha}^{-1}\cdot\text{yr}^{-1}$) | lower | $0$ | $150$ |
-| Margin ($\text{MMK}\cdot\text{ha}^{-1}\cdot\text{yr}^{-1}$) | higher | none: relative scaling | none |
+| Criterion | Direction | Target | Limit | Scope |
+| --- | --- | --- | --- | --- |
+| Rain shortfall against crop demand ($\text{mm}$ per crop) | lower | $0$ | $400$ | Fixed agronomic threshold |
+| Legume share of crops | higher | $0.5$ | $0$ | Rotational diversity target |
+| Share of the cycle with a crop in the field | higher | $1$ | $0.5$ | Ground cover benchmark |
+| Crops that give fodder or forage ($\text{yr}^{-1}$) | higher | $1$ | $0$ | Livestock integration |
+| Nitrogen the crops need ($\text{kg N}\cdot\text{ha}^{-1}\cdot\text{yr}^{-1}$) | lower | $0$ | $150$ | Synthetic input minimization |
+| Margin ($\text{MMK}\cdot\text{ha}^{-1}\cdot\text{yr}^{-1}$) | higher | $M_{\text{bench}}$ (Regional typical rotation) | $0$ (Break-even) | Regional market benchmark (v3.3) |
 
 ---
 
@@ -910,22 +1035,75 @@ A missing value is never imputed as zero or as an average. Version 3.0 dropped c
 
 ---
 
-## 9. Farm Economics from Farmer-Entered Ranges
+## 9. Farm Economics: Real-World Commodity Market Benchmarks and Farmer Ranges
 
-The application holds no market data. Margins are interval arithmetic on yield, price and cost ranges that the farmer, or a cited local source, enters; weather does not change yield or price, and no optimisation is performed. A rotation's margin is therefore only as good as those ranges. Closed intervals are used to avoid implying point precision:
+Economic margins are computed using closed interval arithmetic on yield, price and variable cost ranges. Farmer-entered numbers always supersede any default. To prevent uncalibrated dummy data when farmers have not yet recorded their exact figures, Field Shift integrates calibrated real-world market benchmarks for Myanmar (2024–2026), sourced from official agricultural records and commodity exchange bulletins:
+- **Myanmar Department of Agriculture (DOA)**, Ministry of Agriculture, Livestock and Irrigation.
+- **Bayintnaung Wholesale Commodity Exchange (Yangon)** and **War Tan Wholesale Depot** (pulses, beans and export grains).
+- **Myanmar Pulses, Beans & Sesame Seeds Merchants Association (MPBMSMA)** indicative export price circulars.
+- **Regional Wholesale Exchanges:** Magway and Mandalay (oilseeds and pulses), Monywa (chickpea), Taunggyi (maize and soybean).
+
+### 9.1 Traditional Trade Units and Conversion Factors
+Wholesale trading in Myanmar operates on historical volumetric and weight standards. The system standardizes these into SI units ($\text{kg}$ and $\text{ha}$):
+- **Viss (ပိဿာ, Peittha):** $1\text{ viss} = 1.63293\text{ kg} \approx 1.633\text{ kg}$.
+- **Paddy basket (စပါးတင်း):** $1\text{ basket} = 46\text{ lbs} \approx 20.86\text{ kg}$. One standard hundred-basket lot ($100\text{ baskets}$) equals $2,086\text{ kg}$.
+- **Pulse basket (ပဲတင်း):** $1\text{ basket} = 72\text{ lbs} \approx 31.75\text{ kg}$ (to $32.65\text{ kg}$).
+- **Sesame / Maize basket (နှမ်း / ပြောင်းတင်း):** $1\text{ basket} = 54\text{ lbs} \approx 24.49\text{ kg} \approx 24.5\text{ kg}$.
+- **Metric Ton (MT):** $1\text{ MT} = 1,000\text{ kg}$.
+
+### 9.2 Calibrated Regional Benchmark Values (2024–2026)
+
+| Crop ID | Burmese Name | Price Range ($P_{\min}, P_{\max}$) [$\text{MMK}\cdot\text{kg}^{-1}$] | Yield Range ($Y_{\min}, Y_{\max}$) [$\text{kg}\cdot\text{ha}^{-1}$] | Variable Cost ($C_{\min}, C_{\max}$) [$\text{MMK}\cdot\text{ha}^{-1}$] | Trade Unit Reference & Market Source |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `rice` | မိုးစပါး / နွေစပါး | $[950, \, 1300]$ | $[3200, \, 4800]$ | $[850000, \, 1350000]$ | Rough paddy: 2.0M–2.7M MMK / 100 baskets (~2,086 kg). DOA & Bayintnaung. |
+| `black-gram` | မတ်ပဲ | $[3200, \, 3850]$ | $[1000, \, 1600]$ | $[550000, \, 850000]$ | Export FAQ/SQ: 3.5M–3.85M MMK / MT (~105k–122k MMK / basket). MPBMSMA. |
+| `green-gram` | ပဲတီစိမ်း | $[3200, \, 4500]$ | $[950, \, 1500]$ | $[520000, \, 800000]$ | Bago/Khayan Shwe Wah: 5,500–7,500 MMK / viss. MPBMSMA & DOA. |
+| `sesame` | နှမ်း | $[4500, \, 6800]$ | $[500, \, 900]$ | $[450000, \, 700000]$ | Samone black: 9,500–11,500 MMK / viss; Brown/white: 7,500–9,000 MMK / viss. Magway/Mandalay. |
+| `groundnut` | မြေပဲ | $[2400, \, 3600]$ | $[1400, \, 2200]$ | $[700000, \, 1100000]$ | In-shell pods: 3,800–5,500 MMK / viss; shelled kernels: 4,500–6,000 MMK / kg. Central Dry Zone. |
+| `chickpea` | ကုလားပဲ | $[3400, \, 4200]$ | $[1100, \, 1700]$ | $[550000, \, 850000]$ | Wholesale: 5,500–6,800 MMK / viss. Mandalay & Monywa Exchange. |
+| `pigeon-pea` | ပဲစင်းငုံ | $[3400, \, 4100]$ | $[900, \, 1500]$ | $[500000, \, 750000]$ | Red pigeon pea export: 3.8M–4.2M MMK / MT (~110k–130k MMK / basket). Bayintnaung. |
+| `maize` | ပြောင်းဖူး | $[1050, \, 1400]$ | $[4000, \, 6500]$ | $[900000, \, 1500000]$ | Feed depot: 1,100–1,450 MMK / kg (17.5k–23k MMK / basket). Taunggyi & CP purchase. |
+| `soybean` | ပဲပုပ် | $[3000, \, 3900]$ | $[1200, \, 1900]$ | $[600000, \, 900000]$ | Wholesale: 4,900–6,400 MMK / viss. Shan State & Mandalay Market. |
+| `lablab` | ပဲကြီး | $[2600, \, 3400]$ | $[800, \, 1400]$ | $[400000, \, 650000]$ | Local assembly: 4,200–5,500 MMK / viss. Local survey. |
+| `sunn-hemp` | ပိုက်ဆံလျှော် | $[2500, \, 3200]$ | $[400, \, 750]$ | $[200000, \, 350000]$ | Seed production: 2,500–3,200 MMK / kg. Green manure biomass: 0 MMK direct sales. DOA Land Use. |
+| `wheat` | ဂျုံ | $[1100, \, 1500]$ | $[1500, \, 2400]$ | $[650000, \, 1000000]$ | Grain wholesale: 1,100–1,500 MMK / kg. Sagaing & Shan winter survey. |
+| `sorghum` | ပြောင်းဆန် | $[900, \, 1300]$ | $[1200, \, 2200]$ | $[450000, \, 700000]$ | Grain depot: 900–1,300 MMK / kg. Central Dry Zone fodder & coarse grain. |
+| `cowpea` | ပဲလွမ်း | $[2500, \, 3400]$ | $[900, \, 1500]$ | $[450000, \, 700000]$ | Wholesale depot: 4,000–5,500 MMK / viss. Mandalay & Bago pulse assessment. |
+| `crimson-clover` | ကလိုဗာ | $[2000, \, 2800]$ | $[300, \, 600]$ | $[200000, \, 350000]$ | Specialty forage & cover seed valuation: 2,000–2,800 MMK / kg. Reference benchmark. |
+
+### 9.3 Interval Arithmetic Formulation
+Weather does not change yield or price, and no optimization is performed. Closed intervals are used to avoid implying point precision:
 $$\begin{aligned}
 \text{GrossRevenue}_s &= [Y_{\min,s} \cdot P_{\min,s}, \, Y_{\max,s} \cdot P_{\max,s}] \\
 \text{TotalCost}_s &= [C_{\min,s}, \, C_{\max,s}] \\
 \text{GrossMargin}_s &= [Y_{\min,s} \cdot P_{\min,s} - C_{\max,s}, \, Y_{\max,s} \cdot P_{\max,s} - C_{\min,s}]
 \end{aligned}$$
 
-### 9.1 Gregorian Solar Annualization Factor ($365.2425\text{ days}\cdot\text{yr}^{-1}$)
+### 9.4 Gregorian Solar Annualization Factor ($365.2425\text{ days}\cdot\text{yr}^{-1}$)
 To compare rotations of varying cycle lengths (e.g., a one-year double crop vs. a three-year multi-stage rotation) without whole-year integer rounding discontinuities:
 $$\text{AnnualMargin}(R) = \text{GrossMargin}_{\text{cycle}} \times \frac{365.2425}{\Delta t_{\text{cycle,days}}}$$
 where $\Delta t_{\text{cycle,days}}$ is the number of days from the first planting of the cycle to the next planting of its first crop: the full repeating interval. **Fallow and idle days between crops are included.** Dividing instead by the days between first planting and last harvest, or by the days a crop is in the field, would treat idle land as free and overstate the annual return of any cycle that contains fallow time. For a rotation entered by the farmer without explicit dates, the cycle length is the recorded number of cycle years $\times\ 365$ days.
 
-### 9.2 Break-Even Commodity Price
+### 9.5 Break-Even Commodity Price
 $$P_{\text{breakeven}} = \frac{C_{\text{cost}}}{Y_{\text{saleable}}}$$
+
+### 9.6 Water-Sensitive Yield Response ($K_y$) & Anti-Imputation Doctrine (v3.2)
+While baseline comparisons use farmer-entered or benchmark empirical ranges, evaluating climate-scenario stress requires assessing yield sensitivity to seasonal evapotranspirative deficit.
+
+Field Shift incorporates the empirical FAO-33 / FAO-66 crop yield response function:
+$$\frac{Y_{\mathrm{adj}}}{Y_{\mathrm{base}}} = \phi = \mathrm{clamp}\left(1 - K_y \cdot \left(1 - \frac{\sum ET_a}{\sum ET_m}\right), \, 0.0, \, 1.0\right)$$
+where $ET_a$ is actual evapotranspiration, $ET_m = ET_c$ is potential demand under non-limiting water conditions, and $K_y$ is the empirical yield response factor.
+
+**Strict Anti-Imputation Rules:**
+1. **Sourced $K_y$ Required:** Standardized $K_y$ values are applied strictly where peer-reviewed FAO-33/66 calibration exists:
+   - `rice`: $K_y = 1.00$ (FAO 33 Table 24)
+   - `maize`: $K_y = 1.25$ (FAO 33 & FAO 66)
+   - `soybean`: $K_y = 0.85$ (FAO 33 Table 24)
+   - `groundnut`: $K_y = 0.70$ (FAO 33 Table 24)
+   - `sunflower`: $K_y = 0.95$ (FAO 33 Table 24)
+   - `chickpea` / `pigeon-pea`: $K_y = 0.85$ (FAO 33 Table 24)
+2. **Uncalibrated Crop Protection:** For species lacking peer-reviewed $K_y$ (e.g., black gram, green gram), the engine **refuses to invent an ungrounded factor**. The yield response is explicitly marked `unquantified` with the explanation: *"Crop lacks a standardized, species-calibrated FAO Ky water response factor. Water deficit is tracked as a physical risk rather than an invented yield penalty."*
+3. **No Double-Counting:** If the farmer's entered baseline yield already reflects ambient rainfed water stress, secondary water-deficit discounting is suppressed.
 
 ---
 
@@ -962,6 +1140,13 @@ classDiagram
   - `PS`: Atmospheric surface pressure ($\text{kPa}$). Destination: Psychrometric constant ($\gamma$) derivation.
   - `PRECTOTCORR`: Bias-corrected total precipitation ($\text{mm}\cdot\text{day}^{-1}$). Destination: Secondary fallback rainfall series.
   - `GWETROOT`, `GWETTOP`: Modeled root-zone and surface soil wetness (fraction $[0, 1]$). Destination: Regional hydrological context.
+
+#### 10.1.1 Empirical Accuracy Assessment & Source Reliability Cautions (v3.3)
+Ground-truth validation of NASA POWER daily variables against NOAA GHCN-Daily stations across Myanmar (2015–2024; Section 12.1) established critical empirical constraints:
+- **Central Dry Zone Precipitation Bias:** At Mandalay, POWER monthly rainfall exhibits a **$-51\%$ relative bias** compared to station gauge records ($r = 0.48$). Monsoon rainfall is underestimated by $53\%$, and dry-season precipitation by $63\%$.
+- **Agronomic Impact:** In rainfed Dry Zone cropping systems (e.g., Magway and Mandalay), uncalibrated POWER rainfall systematically overstates water deficits and drought hazards.
+- **Operational Policy:** When a farm parcel is located within the Central Dry Zone ($19.5^\circ\text{–}22.5^\circ\text{N}$, $94.5^\circ\text{–}96.5^\circ\text{E}$), the interface renders an explicit source caution banner (`lib/validation/source-checks.ts`) informing the farmer that reanalysis rainfall totals may be roughly half of local ground truth, advising conservative interpretation of rainfed water stress.
+- **Coastal Maritime Temperature Discrepancies:** Stations on maritime boundaries (Sittwe, Kawthaung) exhibit severe temperature biases (nighttime $T_{\text{min}}$ up to $+5.0^\circ\text{C}$ too warm; daytime $T_{\text{max}}$ up to $-3.1^\circ\text{C}$ too cool) due to coarse $50\text{ km}$ cell blending with sea surface temperatures. Coastal parcels are flagged with low temperature confidence.
 
 ---
 
@@ -1115,33 +1300,55 @@ The design aims to keep synthetic data, smoothed interpolations and uncredited t
 
 ## 12. Model Limitations and Validation
 
-A mathematically consistent simulation is not a validated agronomic prediction. The automated tests check that formulas are transcribed correctly, that water is conserved to $10^{-9}\text{ mm}$, and that missing inputs stay missing. They do not show that the outputs match what happens in a field. **None of the models below has been compared with observed field data.**
+A mathematically consistent simulation is not a validated agronomic prediction. The automated tests check that formulas are transcribed correctly, that water is conserved to $10^{-9}\text{ mm}$, and that missing inputs stay missing. They do not show that the outputs match what happens in a field.
+
+### 12.1 Empirical Ground-Truth Weather Audit (NOAA GHCN-Daily vs. NASA POWER)
+To quantify the error envelope of reanalysis weather inputs, Version 3.3 incorporates an automated ground-truth validation suite (`npm run validate:weather`; code in `lib/validation/`, run artifacts in `data/validation/power-vs-ghcn.json`). Daily NASA POWER variables (`T2M_MAX`, `T2M_MIN`, `PRECTOTCORR`) were audited across the 10-year baseline ($2015\text{–}2024$) against all 5 NOAA Global Historical Climatology Network Daily (GHCN-Daily) stations in Myanmar (NCEI quality-flagged values excluded):
+
+| Station | Environment | Max Temp ($T_{\text{max}}$) | Min Temp ($T_{\text{min}}$) | Monthly Rain | Limit Days ($T_{\text{max}} > 35^\circ\text{C}$) | Night Chilling ($T_{\text{min}} < 15^\circ\text{C}$) |
+|:--|:--|:--|:--|:--|:--|:--|
+| **Yangon International** | Delta fringe | Bias $-0.82^\circ\text{C}$, RMSE $2.47^\circ\text{C}$ (Usable) | Bias $+1.36^\circ\text{C}$, RMSE $2.03^\circ\text{C}$ (Usable) | Insufficient daily wet records | Good ($84\%$ caught, $13\%$ false alarm) | Poor ($13\%$ caught) |
+| **Mandalay** | Central Dry Zone | Bias $-0.32^\circ\text{C}$, RMSE $2.03^\circ\text{C}$ (Usable) | Bias $-1.11^\circ\text{C}$, RMSE $2.22^\circ\text{C}$ (Usable) | **Poor (Bias $-51.1\%$, $r=0.48$)** | Good ($70\%$ caught, $23\%$ false alarm) | Usable ($63\%$ caught) |
+| **Sittwe** | Rakhine coast | Bias $-2.58^\circ\text{C}$, RMSE $3.71^\circ\text{C}$ (Poor) | **Bias $+5.00^\circ\text{C}$**, RMSE $5.36^\circ\text{C}$ (Poor) | Insufficient daily wet records | Poor ($0\%$ caught) | Poor ($0\%$ caught) |
+| **Myitkyina** | Northern interior | Bias $-1.87^\circ\text{C}$, RMSE $2.84^\circ\text{C}$ (Usable) | Bias $-0.44^\circ\text{C}$, RMSE $1.76^\circ\text{C}$ (Good) | Insufficient daily wet records | Poor ($25\%$ caught) | Good ($88\%$ caught) |
+| **Kawthaung** | Southern peninsula | Bias $-3.08^\circ\text{C}$, RMSE $3.49^\circ\text{C}$ (Poor) | Bias $+2.89^\circ\text{C}$, RMSE $3.33^\circ\text{C}$ (Poor) | Insufficient daily wet records | Poor ($0\%$ caught) | Insufficient cold events |
+
+#### Key Takeaways for Agroclimatic Replay:
+1. **Severe Dry Zone Rainfall Underestimation:** At Mandalay, POWER rainfall is roughly half of station observations ($-53\%$ in monsoon, $-63\%$ in hot season). Modeled rainfed crop water balance in the Dry Zone will substantially overstate water deficit and drought frequency. The app exposes this caveat directly on field screens.
+2. **Coastal Temperature Buffer Distortion:** On maritime coasts, $50\text{ km}$ MERRA-2 cells blend land and ocean pixels, dampening diurnal extremes (nights are up to $5^\circ\text{C}$ too warm, days up to $3^\circ\text{C}$ too cool). Heat shock and chill stress detection are ineffective in coastal belts.
+3. **Heat Shock Threshold Sensitivity:** At $35^\circ\text{C}$ (flowering threshold for rice and maize), POWER catches $70\text{–}84\%$ of occurrences inland. At higher thresholds ($38^\circ\text{C}$ for pulses and sesame), accuracy degrades sharply (Mandalay misses $54\%$ of true events; Yangon produces $52\%$ false alarms).
+
+---
+
+### 12.2 Model Simplifications and Required Validation Evidence
 
 | Model or indicator | Section | Main simplifications | Evidence needed to validate |
 | --- | --- | --- | --- |
 | Reference ET | 3.2, 3.3 | Penman-Monteith from a $50\text{ km}$ reanalysis grid; mean relative humidity stands in for actual vapour pressure; Hargreaves where inputs are missing | Station or flux-tower ET; OpenET comparison |
 | Rainfall (POWER, IMERG) | 10.1, 10.2 | Gridded estimates of $50\text{ km}$ and $11\text{ km}$; no bias correction; products mixed across days | Rain-gauge records near the field |
-| Soil water balance | 4.2, 4.2.1 | No runoff, capillary rise or groundwater; fixed depletion fraction $p$; available water from tiered estimates; moisture at planting not yet collected | Soil-moisture probe time series |
-| Paddy water balance | 4.3 | Surface pond only; no saturated-soil reservoir; seepage-percolation rate is an input | Measured pond depth and irrigation records |
+| Soil water balance | 4.2, 4.2.1, 4.2.2 | 3-zone compartmentalized column ($Z_1$ seedbed, $Z_2$ sub-seedbed, $Z_3$ buffer); dynamic $p(ET_c)$; perched water above plough pan; moisture at planting not yet collected | Soil-moisture probe time series |
+| Paddy water balance | 4.3, 4.2.3 | Surface pond only; post-paddy drainage window models topsoil drydown to seedbed capacity; seepage-percolation rate is an input | Measured pond depth, drainage date and irrigation records |
 | Phenology | 5.1, 5.2 | Calendar fractions of the planned window; no cultivar thermal thresholds in the crop library yet | Observed stage dates for named cultivars |
-| Heat, cold and dry-spell exposure | 5.3 to 5.5 | Air-temperature and daily-rain thresholds from the crop library, some analyst-chosen | Yield or stress observations in the replayed years |
-| Nitrogen budget | 7.1, 7.2 | Partial budget with enclosure bounds; no mineralisation, leaching or volatilisation | Soil nitrogen tests and residue trials |
-| Erosion hazard | 7.4 | A screen on overlap of slope, low cover and rainy periods; not a soil-loss model | Erosion measurements or a validated model |
+| Heat, cold and dry-spell exposure | 5.3 to 5.5 | Air-temperature, excess mid-stage rain (10 mm/d), and dry-spell thresholds from the crop library, some analyst-chosen | Yield or stress observations in the replayed years |
+| Nitrogen budget | 7.1, 7.2 | Partial budget with enclosure bounds; residue fate kinetics (burning volatilization, removal, incorporation mineralization / C:N immobilization) | Soil nitrogen tests and residue trials |
+| Erosion hazard | 7.5 | A screen on overlap of slope, low cover and rainy periods; not a soil-loss model | Erosion measurements or a validated model |
 | Soil-health mechanisms | 7 | Qualitative links between practices and effects | Soil carbon, structure and infiltration data |
-| Pest and disease rotation breaks | 7.3 | Crop-family taxonomy only | Local pest guidance and field records |
-| Ranking scores and anchors | 8 | The targets and limits of Section 8.2 are analyst assumptions; a score is a match to stated priorities, not a forecast | Local expert review; sensitivity analysis |
+| Pest and disease rotation breaks | 7.3 | Species-level host-pathogen matrix (`HOST_ORGANISMS`); multi-year recurrence in same seasonal window; vascular wilt return intervals ($n/k \ge 3\text{ yr}$); daily weather infection risk | Local pest guidance and field records |
+| Ranking scores and anchors | 8 | The targets and limits of Section 8.2 are analyst assumptions; regional typical rotation anchor for margin ($M_{\text{bench}}$); a score is a match to stated priorities, not a forecast | Local expert review; sensitivity analysis |
 | Minimax and percentile regret | 8.3 | Ten seasons only; no allowance for climate trend | A longer record or a calibrated weather generator |
 | Satellite vegetation indices | 6 | NDVI is greenness, not bare soil or crop type; coarse pixels on small fields; cloud gaps in the monsoon | Ground cover photographs; field visits |
-| Economics | 9 | Interval arithmetic on entered ranges; no market feed; weather does not change yield or price | Local price and yield records |
+| Economics | 9 | Interval arithmetic on entered or benchmark ranges; calibrated regional market benchmarks (DOA, Bayintnaung, MPBMSMA 2024–2026); FAO-33 / FAO-66 $K_y$ water response strictly for calibrated crops | Local price, cost and yield records |
 
 **What the tool can and cannot support.** It can show which options a field's recorded conditions make easier or harder, in what years, and why, with the evidence and its gaps in view. It does not predict yield, income or soil change, and it is not a substitute for local advisers.
 
-**Validation plan (proposed, not started).**
-1. **Rainfall:** compare POWER and IMERG seasonal totals with gauge records at sites that have them, and report the difference with each analysis.
-2. **Water stress:** for fields with soil-moisture probes, compare modelled stress days with observed depletion.
-3. **Vegetation:** compare the satellite timeline with dated field photographs on a small set of fields.
-4. **Decisions:** record real rotation comparisons for real fields, with the actual outputs (the demonstration protocol in the whitepaper), and review them with local advisers.
-5. **Use:** test with farmers and extension officers whether the plain-language explanations lead to correct reading of the uncertainty.
+**Validation status & empirical benchmarks (v3.3).**
+- **Completed Benchmark:** NASA POWER daily weather variables were audited against 10 years of NOAA GHCN-Daily station records across 5 Myanmar stations (`docs/validation/WEATHER_VALIDATION.md`).
+- **Validation plan (proposed next steps):**
+  1. **Rainfall:** compare POWER and IMERG seasonal totals with gauge records at sites that have them, and report the difference with each analysis.
+  2. **Water stress:** for fields with soil-moisture probes, compare modelled stress days with observed depletion.
+  3. **Vegetation:** compare the satellite timeline with dated field photographs on a small set of fields.
+  4. **Decisions:** record real rotation comparisons for real fields, with the actual outputs (the demonstration protocol in the whitepaper), and review them with local advisers.
+  5. **Use:** test with farmers and extension officers whether the plain-language explanations lead to correct reading of the uncertainty.
 
 ---
 
@@ -1160,3 +1367,6 @@ A mathematically consistent simulation is not a validated agronomic prediction. 
 11. **Fisher, J. B., et al. (2020).** *ECOSTRESS: NASA's Next Generation High Spatial Resolution Thermal Infrared Remote Sensing of the Biosphere.* Water Resources Research, 56(4), e2019WR026058.
 12. **Farr, T. G., et al. (2007).** *The Shuttle Radar Topography Mission.* Reviews of Geophysics, 45(2), RG2004.
 13. **Saxton, K. E., & Rawls, W. J. (2006).** *Soil water characteristic estimates by texture and organic matter for hydrologic solutions.* Soil Science Society of America Journal, 70(5), 1569–1578.
+14. **Menne, M. J., Durre, I., Vose, R. S., Gleason, B. E., & Houston, T. G. (2012).** *An overview of the Global Historical Climatology Network-Daily database.* Journal of Atmospheric and Oceanic Technology, 29(7), 897–910.
+15. **Doorenbos, J., & Kassam, A. H. (1979).** *Yield response to water.* FAO Irrigation and Drainage Paper 33, Food and Agriculture Organization of the United Nations, Rome.
+16. **Steduto, P., Hsiao, T. C., Fereres, E., & Raes, D. (2012).** *Crop yield response to water.* FAO Irrigation and Drainage Paper 66, Food and Agriculture Organization of the United Nations, Rome.

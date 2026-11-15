@@ -17,21 +17,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Crop rotation explorer
+## Crop rotation explorer & Farmer-Centered System
 
-The [Rotation Explorer](http://localhost:3000/plan) uses the TypeScript engine in `lib/rotation/engine.ts` through the Next.js `/api/rotation` route. Run the app with `npm run dev`; no separate API server is needed. Crop profiles and regression examples are in `rotation-engine/`.
+The [Rotation Planner](http://localhost:3000/fields/[fieldId]/rotation) and [Rotation Explorer](http://localhost:3000/plan) use the verified TypeScript engine in `lib/rotation/engine.ts` and `lib/engine/`. Run the app with `npm run dev`; no separate API server is needed.
 
-The farmer form asks for a location, previous crop, irrigation access, main priority, and an adjustable suggested planting period. Soil pH, drainage, equipment notes, and available crops are in Advanced settings. Farmers do not enter monthly climate measurements. For a real location with coordinates, the server uses the SI environmental-data service when configured, or NASA POWER complete-month historical averages through the app's existing weather loader. These are labeled as historical averages, not a forecast. If neither source supplies usable data, climate checks remain incomplete. Synthetic climate is loaded only when someone explicitly selects a demonstration farm. See [the environmental-data contract](docs/si-environment-contract.md).
+The crop rotation system includes:
+- **Dual-View Experience:** A mobile-first 5-step **Guided Farmer View** (Field $\rightarrow$ Constraints $\rightarrow$ Priorities $\rightarrow$ Compare $\rightarrow$ My Plan) and an **Advanced Timeline View** with multi-month calendar visual ribbons.
+- **Relay Broadcast (*Ye-pyan*) Support:** Legitimate pre-harvest sowing (up to -12d gap) for eligible lowland rice $\rightarrow$ pulse pairings, with 1-click snap repairs.
+- **Honest Moisture Clock:** Transparent post-paddy seedbed workable window reporting "Check topsoil moisture and drainage before sowing" when unconfirmed (never a fake calendar countdown).
+- **Physical Hydrology & Mass Conservation:** Non-overlapping 3-zone hydrology ledger ($Z_1, Z_2, Z_3$) adhering strictly to mass conservation ($\le 10^{-9}\text{ mm/d}$ residual).
+- **Water-Sensitive Economics:** Sourced FAO 33/66 $K_y$ factors; uncalibrated pulses marked `UNQUANTIFIED`; break-even yield returns null and viable: false when $P \le c_{\text{var}}$; cash-at-risk exposed.
+- **Data Truthfulness & Provenance:** Full documentation in [`docs/rotation-data-provenance.md`](docs/rotation-data-provenance.md). Coarse satellite data (SMAP 9 km, NASA POWER ~50 km) is strictly labeled as regional context and never claimed as measured in the farmer's field.
 
-The result is ecological screening with explicit cautions and missing information, not a planting prescription. See `rotation-engine/README.md` and `rotation-engine/SCIENCE_NOTES.md` for the engine's scientific contract and limitations.
-
-Saved fields now use this same engine in the Compare and Report screens. The saved rotation supplies the most recently harvested crop, while irrigation, priorities, crop exclusions, and a farmer-entered soil pH come from the field profile. NASA POWER daily records are converted to complete-month historical averages; unavailable weather stays unknown. This engine currently screens one next crop from rice, green gram, black gram, sesame, and maize. A previous crop outside that scope is shown as unsupported, and priorities the engine cannot score are left unranked. The Conditions screen remains a view of source data and does not run a second rotation evaluator.
-
-Farmer-facing labels and crop names are grouped in `app/plan/messages.ts`; the plain-language explanation mapping is in `lib/rotation/presentation.ts`. These are the translation points for a future Burmese locale.
-
-Production builds include the crop profiles and demonstration fixtures from `rotation-engine/`. The recommendation API runs entirely in Node.js.
-
-Run the API and engine regression tests with `npm run test:rotation`.
+See [`docs/rotation-upgrade-handoff.md`](docs/rotation-upgrade-handoff.md) and [`docs/rotation-upgrade-audit.md`](docs/rotation-upgrade-audit.md) for full architecture and test reports. Run the test suites with `npm test` and `npm run test:rotation`.
 
 
 The home page is in `app/(app)/page.tsx`; the rotation explorer is in `app/plan/`.
