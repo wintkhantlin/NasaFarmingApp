@@ -376,6 +376,6 @@ export function buildFarmerReport({
     baselineYears: { start: startYear, end: endYear, count: countYears },
     processedAt: comparison.processedAt.slice(0, 10),
     satelliteCheckingPending: satellitePending,
-    engineVersion: "Field Shift 2.0 (Verified NASA POWER & SoilGrids)",
+    engineVersion: "Green Ally 2.0 (Verified NASA POWER & SoilGrids)",
   };
 }

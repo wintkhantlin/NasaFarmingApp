@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "nasafarmingapp",
+      "name": "green-aaly",
       "dependencies": {
         "@emotion/cache": "^11.14.0",
         "@emotion/react": "^11.14.0",

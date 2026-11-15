@@ -1,9 +1,9 @@
 /**
- * Burmese (Myanmar) localization for Field Shift.
+ * Burmese (Myanmar) localization for Green Ally.
  */
 export const copyMy = {
   app: {
-    name: "Field Shift",
+    name: "Green Ally",
     tagline: "ယခုစိုက်နေသော သီးနှံများကို အခြားစိုက်ပျိုးအစီအစဉ်များနှင့် နှိုင်းယှဉ်ပါ။",
   },
 
@@ -1064,7 +1064,7 @@ export const copyMy = {
     legacyRotationComparison: "စိစစ်လေ့လာခဲ့သော သီးလှည့်စိုက်ပျိုးမှုများ",
     evidenceSummary: "စစ်ဆေးတွက်ချက်ပုံ အထောက်အထား",
     legacyEvidenceSummary: "အထောက်အထား အကျဉ်းချုပ်",
-    footerNotice: "Rotation Planner မှတစ်ဆင့် NASA ဂြိုဟ်တုအချက်အလက်များဖြင့် ထုတ်ယူထားပါသည်။ ဒေသတွင်း မြေဆီလွှာစစ်ဆေးချက်များနှင့် အမြဲတစေ ပြန်လည်စစ်ဆေးပါ။",
+    footerNotice: "Green Ally မှတစ်ဆင့် NASA ဂြိုဟ်တုအချက်အလက်များဖြင့် ထုတ်ယူထားပါသည်။ ဒေသတွင်း မြေဆီလွှာစစ်ဆေးချက်များနှင့် အမြဲတစေ ပြန်လည်စစ်ဆေးပါ။",
 
     // P0/P1 Farmer-First spec copy
     priorityPrefix: "သင့်ဦးစားပေး-",

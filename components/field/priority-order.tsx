@@ -194,8 +194,6 @@ export interface PriorityTilesProps {
   /** Chosen priorities, most important first (the order they were tapped). */
   value: PriorityId[];
   onChange: (next: PriorityId[]) => void;
-  /** Extra controls under a chosen tile, such as the finer soil and income choices. */
-  renderDetail?: (id: PriorityId) => ReactNode;
   className?: string;
 }
 
@@ -204,7 +202,7 @@ export interface PriorityTilesProps {
  * Tap to include: the badge shows its place (1, 2, 3 in tap order, first counts most). Tap again to remove.
  * It reads and writes the same plain ordered list as PriorityOrder, so the saved shape does not change.
  */
-export function PriorityTiles({ value, onChange, renderDetail, className }: PriorityTilesProps) {
+export function PriorityTiles({ value, onChange, className }: PriorityTilesProps) {
   const profile = useAppCopy().profile;
   const t = profile.order;
   const names = profile.priority;
@@ -237,7 +235,7 @@ export function PriorityTiles({ value, onChange, renderDetail, className }: Prio
           const rank = chosen.indexOf(id) + 1;
           const on = rank > 0;
           return (
-            <li key={id} className="flex min-w-0 flex-col gap-2">
+            <li key={id} className="min-w-0">
               <button
                 type="button"
                 aria-pressed={on}
@@ -264,7 +262,6 @@ export function PriorityTiles({ value, onChange, renderDetail, className }: Prio
                   </span>
                 )}
               </button>
-              {on ? renderDetail?.(id) : null}
             </li>
           );
         })}

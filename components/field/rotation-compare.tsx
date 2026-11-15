@@ -484,10 +484,6 @@ export function RotationCompare({ fieldId }: { fieldId: string }) {
       <section aria-labelledby="adviser-detail" className="flex flex-col gap-3 border-t border-line pt-5">
         <h2 id="adviser-detail" className="m-0 text-headline text-ink">For advisers</h2>
 
-        <Link href={`/plan/crop-screen?fieldId=${encodeURIComponent(field.id)}`} className="inline-flex min-h-tap items-center self-start text-body-sm font-medium text-field underline hover:text-ink">
-          Check next crops against this field&apos;s weather and soil
-        </Link>
-
         <Disclosure title="How we checked these choices">
           <p className="m-0 max-w-measure text-body-sm text-ink-muted">
             We replayed {display.replay?.completeYears ?? 0} complete past years from 2016 to 2025 to compare how each choice handled the same weather.

@@ -12,8 +12,23 @@ const myanmar = Noto_Sans_Myanmar({
 });
 
 export const metadata: Metadata = {
+  applicationName: copy.app.name,
   title: { default: copy.app.name, template: `%s | ${copy.app.name}` },
   description: copy.app.tagline,
+  keywords: ["crop planning", "crop rotation", "farm decisions", "NASA Earth data"],
+  category: "agriculture",
+  openGraph: {
+    type: "website",
+    siteName: copy.app.name,
+    title: copy.app.name,
+    description: copy.app.tagline,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: copy.app.name,
+    description: copy.app.tagline,
+  },
 };
 
 // Light mode only (DESIGN.md, The Light-Only Rule). viewportFit "cover" lets the

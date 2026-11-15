@@ -193,7 +193,7 @@ export const TOPICS: LearnTopic[] = [
     theme: "crops",
     question: { en: "Why can planting similar crops back to back cause disease?", my: "တူညီသော သီးနှံမျိုးစုများ ဆက်တိုက်စိုက်ပါက ရောဂါ အဘယ်ကြောင့် ဖြစ်နိုင်သနည်း?" },
     intro: {
-      en: "Crops in the same botanical family can share soil-borne pests and pathogens. Rotating between different plant families disrupts pest life cycles. Field Shift evaluates biological host sequences alongside weather conditions favorable to disease development.",
+      en: "Crops in the same botanical family can share soil-borne pests and pathogens. Rotating between different plant families disrupts pest life cycles. Green Ally evaluates biological host sequences alongside weather conditions favorable to disease development.",
       my: "တစ်မျိုးသားတူ သီးနှံများသည် မြေမှ ရောဂါ/ပိုးမွှားများကို မျှဝေနိုင်သည်။ ဆက်တိုက်စိုက်ပါက ပြဿနာကို နောက်ရာသီသို့ ယူသွားနိုင်သည်။ အက်ပ်သည် သီးနှံမျိုးစုစည်းမျဉ်းများကို အသုံးပြုပြီး ရာသီဥတုဖြင့် ရောဂါကို ခွဲခြားမသတ်မှတ်နိုင်ပါ။",
     },
     terms: [],

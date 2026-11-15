@@ -42,7 +42,7 @@ export function Welcome() {
     // No tab bar on this screen, so the Continue bar sits at the very bottom.
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col gap-6 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] [--tabbar-h:0px]">
       <div className="flex flex-col items-center gap-2 text-center">
-        <BrandMark />
+        <BrandMark size={80} />
         <h1 className="text-balance text-title text-ink">{text.app.name}</h1>
         <p className="m-0 max-w-measure text-pretty text-body text-ink">{text.path.job}</p>
       </div>

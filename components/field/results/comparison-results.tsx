@@ -561,7 +561,7 @@ function Unknowns({ model }: { model: ResultsModel }) {
         </Disclosure>
       ) : null}
       <p className="m-0 max-w-measure text-body-sm text-ink-muted">
-        Field Shift evaluates crop plans by replaying historical NASA climate observations and regional soil conditions against local agronomic thresholds. It does not forecast next season or promise fixed yields; review these insights alongside your own field experience and local agronomic advice.
+        Green Ally evaluates crop plans by replaying historical NASA climate observations and regional soil conditions against local agronomic thresholds. It does not forecast next season or promise fixed yields; review these insights alongside your own field experience and local agronomic advice.
       </p>
     </Section>
   );

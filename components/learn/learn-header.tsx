@@ -4,8 +4,8 @@ import { useLocaleStore } from "@/lib/store/locale-store";
 
 const TITLE = { en: "Data", my: "ဒေတာ" } as const;
 const SUBTITLE = {
-  en: "How satellite observations, soil models, and farm knowledge work together in Field Shift.",
-  my: "Field Shift တွင် ဂြိုဟ်တုဒေတာ၊ မြေဆီလွှာမော်ဒယ်များနှင့် သင့်စိုက်ခင်းအချက်အလက်များ မည်သို့တွဲဖက်အလုပ်လုပ်ပုံ။",
+  en: "How satellite observations, soil models, and farm knowledge work together in Green Ally.",
+  my: "Green Ally တွင် ဂြိုဟ်တုဒေတာ၊ မြေဆီလွှာမော်ဒယ်များနှင့် သင့်စိုက်ခင်းအချက်အလက်များ မည်သို့တွဲဖက်အလုပ်လုပ်ပုံ။",
 } as const;
 
 /** Title for the Learn tab, in the language the farmer chose. */

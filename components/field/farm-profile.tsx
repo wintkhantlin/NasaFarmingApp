@@ -871,35 +871,58 @@ function ProfileForm({ field, rotations }: { field: Field; rotations: Rotation[]
             setOrder([...next, ...PRIORITY_IDS.filter((x) => !next.includes(x))]);
             setIncluded(new Set(next));
           }}
-          renderDetail={(id) =>
-            id === "soil" || id === "income" ? (
-              <Disclosure title={f.fineTune} defaultOpen={id === "soil" ? fineOpen.soil : fineOpen.income} className="w-full">
-                <fieldset className="m-0 flex w-full flex-col gap-0 border-0 p-0">
-                  <legend className="sr-only">{t.priority[id]}: {t.subHelp}</legend>
-                  <p className="m-0 text-body-sm text-ink-muted">{t.subHelp}</p>
-                  {(id === "soil" ? (Object.keys(t.soilSub) as SoilSub[]) : (Object.keys(t.incomeSub) as IncomeSub[])).map((sub) => (
+        />
+        {included.has("soil") || included.has("income") ? (
+          <Disclosure title={f.fineTune} defaultOpen={fineOpen.soil || fineOpen.income} className="w-full">
+            <p className="m-0 text-body-sm text-ink-muted">{t.subHelp}</p>
+            <div className="grid gap-5 md:grid-cols-2">
+              {included.has("soil") ? (
+                <fieldset className="m-0 flex min-w-0 flex-col gap-0 border-0 p-0">
+                  <legend className="mb-1 text-label font-semibold text-ink">{t.priority.soil}</legend>
+                  {(Object.keys(t.soilSub) as SoilSub[]).map((sub) => (
                     <div key={sub} className="flex flex-wrap items-center gap-x-2">
                       <TapLabel
                         control={
                           <Checkbox
-                            checked={id === "soil" ? soilSub.has(sub as SoilSub) : incomeSub.has(sub as IncomeSub)}
+                            checked={soilSub.has(sub)}
                             onChange={() => {
                               markYours("priorities");
-                              if (id === "soil") toggle(soilSub, sub as SoilSub, setSoilSub);
-                              else toggle(incomeSub, sub as IncomeSub, setIncomeSub);
+                              toggle(soilSub, sub, setSoilSub);
                             }}
                           />
                         }
-                        label={id === "soil" ? t.soilSub[sub as SoilSub] : t.incomeSub[sub as IncomeSub]}
+                        label={t.soilSub[sub]}
                       />
                       {SUB_CRITERION[sub] === undefined ? <span className="text-body-sm text-ink-muted">{t.subNoMeasure}</span> : null}
                     </div>
                   ))}
                 </fieldset>
-              </Disclosure>
-            ) : null
-          }
-        />
+              ) : null}
+              {included.has("income") ? (
+                <fieldset className="m-0 flex min-w-0 flex-col gap-0 border-0 p-0">
+                  <legend className="mb-1 text-label font-semibold text-ink">{t.priority.income}</legend>
+                  {(Object.keys(t.incomeSub) as IncomeSub[]).map((sub) => (
+                    <div key={sub} className="flex flex-wrap items-center gap-x-2">
+                      <TapLabel
+                        control={
+                          <Checkbox
+                            checked={incomeSub.has(sub)}
+                            onChange={() => {
+                              markYours("priorities");
+                              toggle(incomeSub, sub, setIncomeSub);
+                            }}
+                          />
+                        }
+                        label={t.incomeSub[sub]}
+                      />
+                      {SUB_CRITERION[sub] === undefined ? <span className="text-body-sm text-ink-muted">{t.subNoMeasure}</span> : null}
+                    </div>
+                  ))}
+                </fieldset>
+              ) : null}
+            </div>
+          </Disclosure>
+        ) : null}
         <Disclosure title={<span className="inline-flex items-center gap-2"><Icon name="info" size={18} />{pick("How this is used", "ဒါကို ဘယ်လိုသုံးသလဲ")}</span>}>
           <PriorityExplainer className="bg-transparent p-0" />
         </Disclosure>

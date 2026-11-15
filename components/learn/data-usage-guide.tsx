@@ -295,13 +295,13 @@ export function DataUsageGuide() {
           </span>
           <h2 className="text-title text-ink">
             {isBurmese
-              ? "Field Shift တွင် ဒေတာများကို မည်သို့အသုံးပြုသနည်း၊ မည်သည့်ဒေတာများ ပါဝင်သနည်း"
-              : "What Data is Used and How It Powers Field Shift"}
+              ? "Green Ally တွင် ဒေတာများကို မည်သို့အသုံးပြုသနည်း၊ မည်သည့်ဒေတာများ ပါဝင်သနည်း"
+              : "What Data is Used and How It Powers Green Ally"}
           </h2>
           <p className="m-0 max-w-measure text-body text-ink-muted">
             {isBurmese
-              ? "Field Shift သည် NASA ဂြိုဟ်တုဒေတာ၊ နိုင်ငံတကာ မြေဆီလွှာမော်ဒယ်များ၊ မြန်မာ့စိုက်ပျိုးရေး စံနှုန်းများနှင့် တောင်သူ့စိုက်ခင်းအချက်အလက်များကို ပေါင်းစပ်၍ သီးလှည့်စိုက်ပျိုးမှုဆိုင်ရာ ဆုံးဖြတ်ချက်များကို ပံ့ပိုးပေးပါသည်။"
-              : "Field Shift combines satellite earth observations from NASA, global soil models, Myanmar agronomic benchmarks, and your own private farm knowledge to evaluate and compare multi-year crop rotations."}
+              ? "Green Ally သည် NASA ဂြိုဟ်တုဒေတာ၊ နိုင်ငံတကာ မြေဆီလွှာမော်ဒယ်များ၊ မြန်မာ့စိုက်ပျိုးရေး စံနှုန်းများနှင့် တောင်သူ့စိုက်ခင်းအချက်အလက်များကို ပေါင်းစပ်၍ သီးလှည့်စိုက်ပျိုးမှုဆိုင်ရာ ဆုံးဖြတ်ချက်များကို ပံ့ပိုးပေးပါသည်။"
+              : "Green Ally combines satellite earth observations from NASA, global soil models, Myanmar agronomic benchmarks, and your own private farm knowledge to evaluate and compare multi-year crop rotations."}
           </p>
         </div>
 
@@ -372,7 +372,7 @@ export function DataUsageGuide() {
 
                   <div className="flex flex-col gap-1 border-t border-line/60 pt-2 text-body-sm">
                     <span className="text-body-sm font-semibold text-field">
-                      {isBurmese ? "Field Shift တွင် အသုံးပြုပုံ:" : "How Field Shift uses it:"}
+                      {isBurmese ? "Green Ally တွင် အသုံးပြုပုံ:" : "How Green Ally uses it:"}
                     </span>
                     <p className="m-0 text-ink">{isBurmese ? ds.howUsed.my : ds.howUsed.en}</p>
                   </div>

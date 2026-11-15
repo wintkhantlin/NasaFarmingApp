@@ -67,7 +67,7 @@ export function SettingsView() {
     setMessage(null);
     try {
       const backup = await exportBackup();
-      downloadJson(`field-shift-backup-${new Date().toISOString().slice(0, 10)}.json`, backup);
+      downloadJson(`green-aaly-backup-${new Date().toISOString().slice(0, 10)}.json`, backup);
       recordBackupTime();
       setMessage(t.home.backupDownloaded);
     } catch {
@@ -86,7 +86,7 @@ export function SettingsView() {
       recordBackupTime();
       setMessage(t.home.backupRestored(result.fields, result.rotations));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not restore that backup. Choose a Field Shift JSON backup and try again.");
+      setMessage(error instanceof Error ? error.message : "Could not restore that backup. Choose a Green Ally JSON backup and try again.");
     } finally {
       setBusy(null);
       if (restoreInput.current) restoreInput.current.value = "";
@@ -99,8 +99,8 @@ export function SettingsView() {
         <h1 className="text-balance text-title text-ink sm:text-display">{isMy ? "ဆက်တင်များ" : "Settings"}</h1>
         <p className="max-w-measure text-pretty text-body text-ink-muted">
           {isMy
-            ? "Field Shift ဖော်ပြမှုပုံစံကို ရွေးချယ်ပြီး ဤဖုန်းတွင် သိမ်းထားသော အချက်အလက်များကို သီးသန့်သိမ်းယူပါ။"
-            : "Choose how Field Shift is shown and keep a private copy of work saved on this phone."}
+            ? "Green Ally ဖော်ပြမှုပုံစံကို ရွေးချယ်ပြီး ဤဖုန်းတွင် သိမ်းထားသော အချက်အလက်များကို သီးသန့်သိမ်းယူပါ။"
+            : "Choose how Green Ally is shown and keep a private copy of work saved on this phone."}
         </p>
       </header>
 

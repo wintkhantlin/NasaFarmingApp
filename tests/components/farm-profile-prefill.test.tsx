@@ -105,6 +105,7 @@ describe("FarmProfile prefill", () => {
     setStore(blank);
     render(<FarmProfile fieldId={blank.id} />);
     expect(screen.getByText("How this is used").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getAllByText("Fine-tune")).toHaveLength(1);
     expect(screen.getByText("Fine-tune").closest("details")).not.toHaveAttribute("open");
     expect(screen.queryByText("Your order")).toBeNull();
   });

@@ -26,7 +26,7 @@ export const MPC_CONFIG = {
   landsatCollection: "landsat-c2-l2",
   modisViCollection: "modis-13Q1-061",
   modisLstCollection: "modis-11A2-061",
-  userAgent: "FieldShift/1.0 (NASA Farming App; Agronomic Decision Support)",
+  userAgent: "Green-aAly/1.0 (Agronomic Decision Support)",
 } as const;
 
 export interface MpcItem {
@@ -554,7 +554,7 @@ export async function processLandsatScene(
 
 /**
  * Ingests Landsat Collection 2 Level-2 surface reflectance from Microsoft Planetary Computer.
- * Returns observation summaries matching Field Shift's standard vegetation timeline.
+ * Returns observation summaries matching Green Ally's standard vegetation timeline.
  */
 export async function ingestPlanetaryComputerLandsat(
   field: { id: string; geometry: FieldGeometry; centroid: LngLat },

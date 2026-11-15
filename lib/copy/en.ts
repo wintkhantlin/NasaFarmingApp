@@ -5,7 +5,7 @@
  */
 export const copy = {
   app: {
-    name: "Field Shift",
+    name: "Green Ally",
     tagline: "Compare what you grow now with other crop plans for your land.",
   },
 
@@ -1099,7 +1099,7 @@ export const copy = {
     legacyRotationComparison: "Rotations evaluated",
     evidenceSummary: "How we checked",
     legacyEvidenceSummary: "Evidence summary",
-    footerNotice: "Generated with NASA Earth-observation datasets via Rotation Planner. Always verify with local soil tests and regional agronomic advisories.",
+    footerNotice: "Generated with NASA Earth-observation datasets via Green Ally. Always verify with local soil tests and regional agronomic advisories.",
 
     // P0/P1 Farmer-First spec copy
     priorityPrefix: "Your priority:",
