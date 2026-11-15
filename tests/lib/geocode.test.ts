@@ -22,10 +22,11 @@ const response = {
 
 describe("geocoding", () => {
   test("builds a v6 forward request", () => {
-    const url = geocodeUrl("  Magway ", "pk.test");
-    expect(url).toContain("/search/geocode/v6/forward");
-    expect(url).toContain("q=Magway");
-    expect(url).toContain("access_token=pk.test");
+    const url = new URL(geocodeUrl("  Magway ", "pk.test"));
+    expect(url.pathname).toBe("/search/geocode/v6/forward");
+    expect(url.searchParams.get("q")).toBe("Magway");
+    expect(url.searchParams.get("access_token")).toBe("pk.test");
+    expect(url.searchParams.get("country")).toBe("MM");
   });
 
   test("parses places, keeping the bbox when there is one", () => {
