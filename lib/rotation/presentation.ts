@@ -3,10 +3,19 @@ import { en } from "@/app/plan/messages";
 export type Scenario = {
   proposed_crops: string[];
   status: "infeasible" | "requires_review" | "screened_plausible";
+  temperature_screen: "outside_range" | "uncertain" | "within_range" | "not_applicable";
   hard_constraints: string[];
   cautions: string[];
   missing_information: string[];
   explanations: string[];
+  sequence_reasoning: {
+    previous_crop: string | null;
+    next_crop: string;
+    benefits: string[];
+    risks: string[];
+    unknowns: string[];
+    evidence: { source: string; topic: string }[];
+  }[];
   priority_coverage?: number;
   priority_alignment?: number | null;
   stages: { crop_id: string; start: string; estimated_harvest?: string | null }[];
@@ -21,6 +30,9 @@ export type EngineResult = {
   global_warnings: string[];
   input_environment_source: string | null;
   input_environment_basis: string | null;
+  input_observation_period: { start_date: string; end_date: string } | null;
+  input_environment_units: { temp_c: string; rain_mm: string } | null;
+  input_spatial_resolution_km: number | null;
   ranking: { method: string; status_note: string };
 };
 
@@ -28,6 +40,13 @@ export function statusText(status: Scenario["status"]) {
   if (status === "infeasible") return en.outside;
   if (status === "screened_plausible") return en.screened;
   return en.review;
+}
+
+export function temperatureScreenText(screen: Scenario["temperature_screen"]) {
+  if (screen === "outside_range") return "Outside the crop’s broad temperature range in the supplied climate";
+  if (screen === "uncertain") return "Temperature fit uncertain because of missing data or a possible longer growing period";
+  if (screen === "within_range") return "No broad temperature-range breach found in the supplied climate";
+  return "Temperature screen not applicable";
 }
 
 export function plainReason(reason: string): string {
@@ -46,16 +65,6 @@ export function plainReason(reason: string): string {
   if (/Fallow has no additional planted crop/.test(reason)) return "An unplanted field can still lose water or soil when left bare.";
   if (/Fallow vegetation and residue cover/.test(reason)) return "Tell us whether the unplanted field will keep plant cover.";
   return "More local information is needed before treating this option as suitable.";
-}
-
-export function plainExplanation(explanation: string): string {
-  if (/Different plant families/.test(explanation)) return "A different crop family may diversify the rotation. Pest effects still need a local check.";
-  if (/Plant-family diversity is not demonstrated/.test(explanation)) return "This option does not show a change in crop family.";
-  if (/Legume included/.test(explanation)) return "A bean crop can fix nitrogen, but this does not show a soil nutrient gain for your field.";
-  if (/No planted legume/.test(explanation)) return "This option does not add a bean crop.";
-  if (/Planted crops provide/.test(explanation)) return "A planted crop can keep living cover on the soil during growth. The actual benefit is unmeasured.";
-  if (/Fallow cover depends/.test(explanation)) return "If the field is unplanted, soil cover depends on how you manage plants and residues.";
-  return "This is a broad screening result. See Scientific details for the engine’s full explanation.";
 }
 
 export function farmerReasons(scenario: Scenario): string[] {

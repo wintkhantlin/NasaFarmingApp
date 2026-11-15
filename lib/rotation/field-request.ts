@@ -11,10 +11,10 @@ export function engineCropId(id: string): string | null {
   return ids.has(mapped) ? mapped : null;
 }
 
-export function lastKnownCrop(rotation: Rotation): { id: string; label: string } | null {
+export function lastKnownCrop(rotation: Rotation): { id: string; label: string; residue?: "retained" | "removed" | "burned" | "grazed" } | null {
   const last = [...rotation.slots].filter((slot) => slot.kind !== "fallow" && slot.cropId)
     .sort((a, b) => b.harvestDate.localeCompare(a.harvestDate))[0];
-  return last?.cropId ? { id: last.cropId, label: last.cropId.replaceAll("-", " ") } : null;
+  return last?.cropId ? { id: last.cropId, label: last.cropId.replaceAll("-", " "), residue: last.residue } : null;
 }
 
 export function fieldPriority(field: Field): Priority | null {
@@ -47,7 +47,7 @@ export function buildFieldRequest(field: Field, rotation: Rotation, conditions: 
     irrigation: irrigation === "full" ? "yes" : irrigation === "none" ? "no" : "sometimes",
     priority: priority ?? "balanced",
     planning,
-    advanced: { soilPh: typeof soilPh === "number" ? soilPh : null, drainage, availableCrops },
+    advanced: { soilPh: typeof soilPh === "number" ? soilPh : null, drainage, availableCrops, previousResidue: last.residue ?? "unknown" },
   };
   const environment = conditions?.weather
     ? powerEnvironment(conditions.weather, planning.startDate, planning.endDate, conditions.fetchedAt)

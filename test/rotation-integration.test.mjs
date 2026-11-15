@@ -61,12 +61,13 @@ test('Next route runs the TypeScript engine and preserves provenance and explana
 });
 
 for (const name of ['dryzone', 'ayeyarwady', 'two_crop']) {
-  test(`TypeScript output matches the checked example for ${name}`, async () => {
+  test(`TypeScript screens the labeled ${name} example without claiming a score`, async () => {
     const input = await fixture(`${name}_demo.json`);
-    const expected = await fixture(`${name}_output.json`);
     const { status, body } = await recommend(input);
     assert.equal(status, 200);
-    assert.deepEqual(body, expected);
+    assert.equal(body.scenario_count_total, body.scenarios.length);
+    assert.ok(body.scenarios.every((scenario) => scenario.priority_alignment === null && scenario.priority_coverage === 0));
+    assert.match(body.ranking.method, /No scientific score/);
   });
 }
 
@@ -89,6 +90,47 @@ test('two crop planning returns actual crop sequences', async () => {
   assert.equal(status, 200);
   assert.equal(body.scenario_count_total, 13);
   assert.ok(body.scenarios.some((scenario) => scenario.proposed_crops.length === 2));
+  assert.ok(body.scenarios.filter((scenario) => scenario.proposed_crops.length === 2).every((scenario) => scenario.sequence_reasoning.length === 2 && scenario.sequence_reasoning[1].previous_crop === scenario.proposed_crops[0]));
+});
+
+test('sequence reasoning identifies a family change and conditional legume fixation without a nitrogen credit', async () => {
+  const result = (await recommend(await fixture('ayeyarwady_demo.json'))).body;
+  const green = result.scenarios.find((scenario) => scenario.proposed_crops.join() === 'green_gram');
+  const step = green.sequence_reasoning[0];
+  assert.deepEqual([step.previous_crop, step.next_crop], ['rice', 'green_gram']);
+  assert.ok(step.benefits.some((item) => /different plant family/.test(item)));
+  assert.ok(step.benefits.some((item) => /may fix atmospheric nitrogen/.test(item)));
+  assert.ok(step.unknowns.some((item) => /net nitrogen left/.test(item)));
+  assert.ok(step.unknowns.some((item) => /Stored soil water/.test(item)));
+  assert.ok(step.evidence.some((item) => item.source.includes('fao.org')));
+  assert.equal(green.priority_alignment, null);
+  assert.doesNotMatch(JSON.stringify(step), /\b\d+\s*(kg|mm)\b/);
+});
+
+test('only documented green-gram and black-gram host overlap names a specific disease', async () => {
+  const input = await fixture('ayeyarwady_demo.json');
+  input.history = ['green_gram'];
+  const result = (await recommend(input)).body;
+  const black = result.scenarios.find((scenario) => scenario.proposed_crops.join() === 'black_gram').sequence_reasoning[0];
+  const rice = result.scenarios.find((scenario) => scenario.proposed_crops.join() === 'rice').sequence_reasoning[0];
+  assert.ok(black.risks.some((item) => /yellow mosaic viruses/.test(item) && /does not establish infection/.test(item)));
+  assert.ok(black.evidence.some((item) => item.source.includes('10.3389/fmicb.2024.1451986')));
+  assert.ok(rice.unknowns.some((item) => /No specific shared pest-host relationship/.test(item)));
+  assert.doesNotMatch(JSON.stringify(rice), /yellow mosaic|rootworm/i);
+});
+
+test('recorded residue changes only conditional cover reasoning, not feasibility or ranking', async () => {
+  const input = await fixture('ayeyarwady_demo.json');
+  input.farm.previous_residue = 'retained';
+  const retained = (await recommend(input)).body;
+  input.farm.previous_residue = 'removed';
+  const removed = (await recommend(input)).body;
+  const pick = (body) => body.scenarios.find((scenario) => scenario.proposed_crops.join() === 'sesame');
+  assert.ok(pick(retained).sequence_reasoning[0].benefits.some((item) => /may help cover soil/.test(item)));
+  assert.ok(pick(removed).sequence_reasoning[0].risks.some((item) => /cannot be assumed to protect/.test(item)));
+  assert.equal(pick(retained).status, pick(removed).status);
+  assert.deepEqual(retained.scenarios.map((item) => item.proposed_crops), removed.scenarios.map((item) => item.proposed_crops));
+  assert.ok(pick(retained).sequence_reasoning[0].unknowns.some((item) => /Actual surface cover/.test(item)));
 });
 
 test('missing climate stays unknown and a known extreme temperature excludes a crop', async () => {
@@ -120,7 +162,98 @@ test('water and income stay unsupported without comparable sourced metrics', asy
   assert.match(invalid.body.error, /metrics_source/);
 });
 
-test('sourced example income metrics can affect order without being mistaken for market data', async () => {
+test('rainfall changes are visible as evidence but cannot create an unsupported water ranking', async () => {
+  const dry = await fixture('ayeyarwady_demo.json');
+  dry.farmer.priorities = { water_conservation: 1 };
+  dry.environment.monthly.forEach((month) => { month.rain_mm = 0; });
+  const wet = structuredClone(dry);
+  wet.environment.monthly.forEach((month) => { month.rain_mm = 500; });
+  const dryResult = (await recommend(dry)).body;
+  const wetResult = (await recommend(wet)).body;
+  const comparison = (body) => body.scenarios.map((scenario) => [scenario.proposed_crops, scenario.status, scenario.priority_alignment, scenario.priority_coverage]);
+  assert.deepEqual(comparison(dryResult), comparison(wetResult));
+  assert.ok(dryResult.scenarios.some((scenario) => scenario.observations_used.some((row) => row.rain_mm === 0)));
+  assert.ok(wetResult.scenarios.some((scenario) => scenario.observations_used.some((row) => row.rain_mm === 500)));
+  assert.ok(dryResult.scenarios.every((scenario) => scenario.signals.water_conservation === null));
+});
+
+test('biological descriptors do not turn into unsupported soil-health scores', async () => {
+  const legume = await fixture('ayeyarwady_demo.json');
+  legume.farmer.priorities = { legume_inclusion: 1 };
+  const cover = structuredClone(legume);
+  cover.farmer.priorities = { living_cover: 1 };
+  const legumeResult = (await recommend(legume)).body;
+  const coverResult = (await recommend(cover)).body;
+  const crop = (body, id) => body.scenarios.find((scenario) => scenario.proposed_crops.join() === id);
+  assert.equal(crop(legumeResult, 'sesame').priority_alignment, null);
+  assert.equal(crop(coverResult, 'sesame').priority_alignment, null);
+  assert.equal(crop(legumeResult, 'green_gram').signals.legume_inclusion, 1);
+  assert.equal(crop(coverResult, 'green_gram').signals.living_cover, null);
+  assert.deepEqual(legumeResult.scenarios.map((s) => s.proposed_crops), coverResult.scenarios.map((s) => s.proposed_crops));
+});
+
+test('unknown cultivar duration screens later possible heat without a definite exclusion', async () => {
+  const input = {
+    planning: { start_date: '2027-01-01', end_date: '2027-06-01', include_fallow: false },
+    history: ['rice'],
+    farm: { available_crops: ['maize'], soil_ph: 6, drainage: 'well', irrigation: 'available' },
+    environment: { source: 'Synthetic reasoning test', basis: 'synthetic', monthly: [
+      { month: '2027-01', temp_c: 25, rain_mm: 40 },
+      { month: '2027-02', temp_c: 25, rain_mm: 40 },
+      { month: '2027-03', temp_c: 25, rain_mm: 40 },
+      { month: '2027-04', temp_c: 25, rain_mm: 40 },
+      { month: '2027-05', temp_c: 50, rain_mm: 40 },
+    ] },
+  };
+  const { status, body } = await recommend(input);
+  assert.equal(status, 200);
+  const maize = body.scenarios[0];
+  assert.equal(maize.status, 'requires_review');
+  assert.equal(maize.temperature_screen, 'uncertain');
+  assert.ok(maize.missing_information.some((item) => /no cultivar-specific duration/i.test(item)));
+  assert.ok(maize.observations_used.some((row) => row.month === '2027-05'));
+  assert.ok(maize.missing_information.some((item) => /2027-05.*possible longer cycle/i.test(item)));
+  assert.equal(maize.hard_constraints.length, 0);
+  input.environment.monthly[0].temp_c = 50;
+  const definite = (await recommend(input)).body.scenarios[0];
+  assert.equal(definite.status, 'infeasible');
+  assert.equal(definite.temperature_screen, 'outside_range');
+  assert.ok(definite.hard_constraints.some((item) => /2027-01/.test(item)));
+  input.environment.monthly[0].temp_c = 25;
+  input.planning.end_date = '2027-04-01';
+  const shortened = (await recommend(input)).body.scenarios[0];
+  assert.ok(shortened.missing_information.some((item) => /temperature.*2027-05/.test(item)) === false);
+  assert.ok(shortened.observations_used.some((row) => row.month === '2027-05'));
+  input.environment.monthly = Array.from({ length: 12 }, (_, index) => ({ month: `2027-${String(index + 1).padStart(2, '0')}`, temp_c: 25, rain_mm: 40 }));
+  const within = (await recommend(input)).body.scenarios[0];
+  assert.equal(within.temperature_screen, 'within_range');
+});
+
+test('missing temperature and rainfall produce separate warnings and preserve known evidence', async () => {
+  const input = await fixture('ayeyarwady_demo.json');
+  input.environment.monthly[0].temp_c = null;
+  input.environment.monthly[0].rain_mm = null;
+  const result = (await recommend(input)).body;
+  const green = result.scenarios.find((scenario) => scenario.proposed_crops.join() === 'green_gram');
+  assert.ok(green.missing_information.some((item) => /temperature.*2026-11/.test(item)));
+  assert.ok(green.missing_information.some((item) => /rainfall.*2026-11/.test(item)));
+  assert.ok(green.observations_used.some((row) => row.month === '2026-11' && row.temp_c === null && row.rain_mm === null));
+});
+
+test('unsupported priorities and absent preferences never create a hidden ranking', async () => {
+  const input = await fixture('ayeyarwady_demo.json');
+  input.farmer.priorities = { water_conservation: 10, income: 5 };
+  const result = (await recommend(input)).body;
+  assert.deepEqual(result.scenarios.map((item) => item.proposed_crops), [...result.scenarios].sort((a, b) => Number(a.status === 'infeasible') - Number(b.status === 'infeasible') || a.proposed_crops.join().localeCompare(b.proposed_crops.join())).map((item) => item.proposed_crops));
+  assert.ok(result.scenarios.every((item) => item.priority_alignment === null && item.priority_coverage === 0));
+  assert.ok(result.scenarios.every((item) => item.unsupported_priorities.includes('water_conservation') && item.unsupported_priorities.includes('income')));
+  input.farmer.priorities = {};
+  const unspecified = (await recommend(input)).body;
+  assert.deepEqual(unspecified.ranking.selected_priorities, []);
+  assert.ok(unspecified.scenarios.every((item) => item.unsupported_priorities.length === 0));
+});
+
+test('unverified per-crop income figures cannot create a winner', async () => {
   const input = await fixture('ayeyarwady_demo.json');
   input.farmer.priorities = { income: 10 };
   input.farmer.metrics_source = 'Synthetic comparison example, NOT market data';
@@ -131,8 +264,9 @@ test('sourced example income metrics can affect order without being mistaken for
   };
   const result = await recommend(input);
   assert.equal(result.status, 200);
-  assert.deepEqual(result.body.scenarios[0].proposed_crops, ['sesame']);
-  assert.equal(result.body.scenarios[0].priority_coverage, 1);
+  assert.ok(result.body.scenarios.every((scenario) => scenario.priority_alignment === null));
+  assert.ok(result.body.scenarios.every((scenario) => scenario.signals.income === null));
+  assert.ok(result.body.scenarios.every((scenario) => scenario.unsupported_priorities?.includes('income')));
 });
 
 test('changing a location label alone does not change the ranking', async () => {
@@ -249,14 +383,14 @@ test('the SI adapter sends location and dates and accepts sourced monthly data',
   let sent;
   global.fetch = async (_url, options) => {
     sent = JSON.parse(options.body);
-    return new Response(JSON.stringify({ source: 'SI test fixture · no observations yet', basis: 'historical_normals', monthly: [] }), { status: 200 });
+    return new Response(JSON.stringify({ source: 'NASA POWER SI sample', basis: 'historical_normals', observation_period: { start_date: '2025-01-01', end_date: '2025-12-31' }, units: { temp_c: 'C', rain_mm: 'mm' }, spatial_resolution_km: null, monthly: [] }), { status: 200 });
   };
   try {
     const request = structuredClone(farmerInput);
     request.location = { kind: 'farm', label: 'My field', lat: 20.2, lon: 95.1 };
     const { status, body } = await exploreCrops(request);
     assert.equal(status, 200);
-    assert.equal(body.environment.state, 'connected');
+    assert.equal(body.environment.state, 'unavailable');
     assert.equal(body.recommendation.input_environment_basis, 'historical_normals');
     assert.deepEqual(sent.location, { label: 'My field', lat: 20.2, lon: 95.1 });
     assert.deepEqual(sent.planning, { start_date: '2026-11-20', end_date: '2027-04-15' });
@@ -264,6 +398,36 @@ test('the SI adapter sends location and dates and accepts sourced monthly data',
     global.fetch = previousFetch;
     if (previousUrl === undefined) delete process.env.FIELDSHIFT_ENVIRONMENT_URL;
     else process.env.FIELDSHIFT_ENVIRONMENT_URL = previousUrl;
+  }
+});
+
+test('SI environmental data rejects missing provenance, wrong units, duplicate months and disguised synthetic data', async () => {
+  const request = structuredClone(farmerInput);
+  request.location = { kind: 'farm', label: 'My field', lat: 20.2, lon: 95.1 };
+  const previous = process.env.FIELDSHIFT_ENVIRONMENT_URL;
+  process.env.FIELDSHIFT_ENVIRONMENT_URL = 'https://si.example.test/monthly';
+  const base = { source: 'SI weather service', basis: 'forecast', observation_period: { start_date: '2026-11-01', end_date: '2027-04-30' }, units: { temp_c: 'C', rain_mm: 'mm' }, spatial_resolution_km: null, monthly: [{ month: '2026-11', temp_c: 25, rain_mm: null }] };
+  try {
+    const fetcher = async () => new Response(JSON.stringify(base), { status: 200 });
+    const valid = await resolveEnvironment(request, fetcher);
+    assert.equal(valid.snapshot.basis, 'forecast');
+    assert.equal(valid.snapshot.monthly[0].rain_mm, null);
+    for (const [change, message] of [
+      [(item) => { delete item.observation_period; }, /observation period/],
+      [(item) => { item.units.rain_mm = 'inches'; }, /temperature in C and rainfall in mm/],
+      [(item) => { delete item.spatial_resolution_km; }, /spatial resolution/],
+      [(item) => { item.monthly.push({ ...item.monthly[0] }); }, /invalid monthly value/],
+      [(item) => { item.source = 'Synthetic demo climate'; }, /conflicts/],
+      [(item) => { item.observation_period.start_date = '2026-10-01'; item.observation_period.end_date = '2026-10-31'; }, /outside its observation or forecast period/],
+      [(item) => { item.monthly[0].soil_moisture_anomaly = 0.2; }, /anomaly units/],
+    ]) {
+      const invalid = structuredClone(base);
+      change(invalid);
+      await assert.rejects(resolveEnvironment(request, async () => new Response(JSON.stringify(invalid), { status: 200 })), message);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.FIELDSHIFT_ENVIRONMENT_URL;
+    else process.env.FIELDSHIFT_ENVIRONMENT_URL = previous;
   }
 });
 

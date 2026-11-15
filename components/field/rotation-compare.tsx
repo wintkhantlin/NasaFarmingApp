@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { en } from "@/app/plan/messages";
+import { SequenceEvidence, SequenceReasoning } from "@/components/field/sequence-reasoning";
 import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFieldAnalysis } from "@/lib/analysis/use-analysis";
 import { buildFieldRequest, lastKnownCrop } from "@/lib/rotation/field-request";
 import { suggestPlanningWindow } from "@/lib/rotation/planning";
-import { farmerReasons, plainExplanation, statusText, type EngineResult, type Scenario } from "@/lib/rotation/presentation";
+import { farmerReasons, statusText, temperatureScreenText, type EngineResult, type Scenario } from "@/lib/rotation/presentation";
 import { useFieldRotations, useFieldsStore } from "@/lib/store/fields-store";
 import cropData from "@/rotation-engine/data/crops.json";
 
@@ -22,13 +23,15 @@ function Candidate({ scenario }: { scenario: Scenario }) {
     <h3 className="m-0 text-headline text-ink">{scenario.proposed_crops.map((id) => names[id] ?? id).join(" → ")}</h3>
     <p className="mt-1 text-label text-ink">{statusText(scenario.status)}</p>
     {reasons.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-body-sm text-ink-muted">{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
-    <ul className="mt-3 list-disc space-y-1 pl-5 text-body-sm text-ink-muted">{scenario.explanations.map((item, index) => <li key={index}>{plainExplanation(item)}</li>)}</ul>
+    <div className="mt-3"><SequenceReasoning steps={scenario.sequence_reasoning} names={names} /></div>
     <details className="mt-4 border-t border-line pt-2 text-body-sm">
       <summary className="min-h-tap cursor-pointer font-semibold text-field">{en.scientific}</summary>
-      <p className="font-mono text-source text-ink-muted">Status: {scenario.status} · Priority coverage: {scenario.priority_coverage ?? 0} · Alignment: {scenario.priority_alignment ?? "not scored"}. These are not yield or confidence estimates.</p>
+      <p className="font-mono text-source text-ink-muted">Status: {scenario.status} · Priority comparison: not evaluated · Unevaluated criteria: {scenario.unsupported_priorities?.join(", ") || "none selected"}. No scientific score or best-crop rank is claimed.</p>
+      <p className="text-body-sm text-ink-muted">Temperature screen: {temperatureScreenText(scenario.temperature_screen)}.</p>
       {scenario.stages.map((stage, index) => <p key={index}>{names[stage.crop_id] ?? stage.crop_id}: {stage.start}{stage.estimated_harvest ? ` to ${stage.estimated_harvest}` : " · harvest unknown"}</p>)}
       {([[en.limits, scenario.hard_constraints], [en.cautions, scenario.cautions], [en.missing, scenario.missing_information]] as const).map(([label, items]) => items.length > 0 && <div key={label}><strong>{label}</strong><ul className="list-disc pl-5">{items.map((item, index) => <li key={index}>{item}</li>)}</ul></div>)}
       {scenario.observations_used.length > 0 && <div><strong>Monthly values used</strong><ul className="font-mono text-source">{scenario.observations_used.map((row, index) => <li key={index}>{row.month}: {row.temp_c ?? "unknown"} °C, {row.rain_mm ?? "unknown"} mm rain</li>)}</ul></div>}
+      <SequenceEvidence steps={scenario.sequence_reasoning} />
       {scenario.evidence.map((item, index) => <p key={index}><a href={item.source} target="_blank" rel="noreferrer" className="text-field underline">{names[item.crop_id] ?? item.crop_id} crop evidence</a></p>)}
     </details>
   </li>;
@@ -91,7 +94,7 @@ export function RotationCompare({ fieldId, report = false, initialPlanning }: { 
       {noPriorityEvidence && <p className="mt-3 rounded-md border border-line bg-surface-raised p-3 text-body-sm">{en.noPriorityEvidence}</p>}
       <ol className="mt-4 grid list-none gap-3 p-0 sm:grid-cols-2">{result.scenarios.map((scenario, index) => <Candidate key={`${scenario.proposed_crops.join("-")}-${index}`} scenario={scenario} />)}</ol>
       <p className="mt-5 text-body-sm text-ink-muted">{en.scope}</p>
-      <details className="mt-5 border-t border-line pt-3 text-body-sm"><summary className="min-h-tap cursor-pointer font-semibold text-field">Scientific details and data source</summary><p>{result.input_environment_source ?? "No environmental source"}</p><p>Basis: {result.input_environment_basis ?? "unknown"}</p><p>{result.ranking.status_note}</p><ul className="list-disc pl-5">{result.global_warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>
+      <details className="mt-5 border-t border-line pt-3 text-body-sm"><summary className="min-h-tap cursor-pointer font-semibold text-field">Scientific details and data source</summary><p>{result.input_environment_source ?? "No environmental source"}</p><p>Basis: {result.input_environment_basis ?? "unknown"}</p><p>Observation or forecast period: {result.input_observation_period ? `${result.input_observation_period.start_date} to ${result.input_observation_period.end_date}` : "unknown"}</p><p>Units: {result.input_environment_units ? `${result.input_environment_units.temp_c}, ${result.input_environment_units.rain_mm}` : "unverified"} · Spatial resolution: {result.input_spatial_resolution_km == null ? "unknown" : `${result.input_spatial_resolution_km} km`}</p><p>{result.ranking.status_note}</p><ul className="list-disc pl-5">{result.global_warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>
     </section>}
   </main>;
 }

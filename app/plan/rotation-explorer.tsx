@@ -6,7 +6,8 @@ import cropData from "@/rotation-engine/data/crops.json";
 import dryZone from "@/rotation-engine/examples/dryzone_demo.json";
 import delta from "@/rotation-engine/examples/ayeyarwady_demo.json";
 import { en } from "./messages";
-import { farmerReasons, plainExplanation, statusText, type EngineResult, type Scenario } from "@/lib/rotation/presentation";
+import { SequenceEvidence, SequenceReasoning } from "@/components/field/sequence-reasoning";
+import { farmerReasons, statusText, temperatureScreenText, type EngineResult, type Scenario } from "@/lib/rotation/presentation";
 import type { FarmerRequest, Irrigation, Priority } from "@/lib/rotation/farmer-request";
 
 type Place = { id: string; kind: "demo" | "farm"; label: string; lat?: number; lon?: number };
@@ -32,19 +33,19 @@ function OptionCard({ scenario }: { scenario: Scenario }) {
       </ul>
       <div className="mt-4">
         <h4 className="font-semibold">{en.why}</h4>
-        <ul className="mt-1 list-disc space-y-1 pl-5 text-body-sm text-ink-muted">
-          {scenario.explanations.map((explanation, index) => <li key={index}>{plainExplanation(explanation)}</li>)}
-        </ul>
+        <div className="mt-2"><SequenceReasoning steps={scenario.sequence_reasoning} names={cropNames} /></div>
       </div>
       <details className="mt-4 rounded-md border border-line bg-surface-raised p-3 text-body-sm">
         <summary className="min-h-tap cursor-pointer py-2 font-semibold text-field">{en.scientific}</summary>
         <div className="space-y-4 pb-2 text-ink-muted">
-          <p className="font-mono text-source">Status: {scenario.status} · Priority signal coverage: {scenario.priority_coverage ?? 0} · Heuristic alignment index: {scenario.priority_alignment ?? "not scored"}. These are not confidence or yield estimates.</p>
+          <p className="font-mono text-source">Status: {scenario.status} · Priority comparison: not evaluated · Unevaluated criteria: {scenario.unsupported_priorities?.join(", ") || "none selected"}. No scientific score or best-crop rank is claimed.</p>
+          <p>Temperature screen: {temperatureScreenText(scenario.temperature_screen)}.</p>
           {scenario.stages.map((stage, index) => <p key={index}><strong className="text-ink">{cropNames[stage.crop_id] || stage.crop_id}</strong> · {stage.start}{stage.estimated_harvest ? ` to ${stage.estimated_harvest}` : " · harvest date unknown"}</p>)}
           {([
             [en.limits, scenario.hard_constraints], [en.cautions, scenario.cautions], [en.missing, scenario.missing_information],
           ] as const).map(([heading, items]) => items.length > 0 && <div key={heading}><strong className="text-ink">{heading}</strong><ul className="mt-1 list-disc space-y-1 pl-5">{items.map((item, index) => <li key={index}>{item}</li>)}</ul></div>)}
           <div><strong className="text-ink">Engine explanation</strong><ul className="mt-1 list-disc space-y-1 pl-5">{scenario.explanations.map((item, index) => <li key={index}>{item}</li>)}</ul></div>
+          <SequenceEvidence steps={scenario.sequence_reasoning} />
           {scenario.observations_used.length > 0 && <div><strong className="text-ink">Monthly values used</strong><ul className="mt-1 space-y-1 font-mono text-source">{scenario.observations_used.map((row, index) => <li key={index}>{row.month} · {row.temp_c ?? "unknown"}°C · {row.rain_mm ?? "unknown"} mm rain</li>)}</ul></div>}
           {scenario.evidence.map((item, index) => <p key={index}><a href={item.source} target="_blank" rel="noreferrer" className="text-field underline underline-offset-4">{cropNames[item.crop_id] || item.crop_id} {en.evidence}</a></p>)}
         </div>
@@ -203,7 +204,7 @@ export default function RotationExplorer({ suggestedWindow }: { suggestedWindow:
             {noPriorityEvidence && <p className="mt-4 rounded-md border border-line bg-surface-raised p-4 text-body-sm text-ink-muted">{en.noPriorityEvidence}</p>}
             <p className="mt-5 text-body-sm text-ink-muted">{en.scope}</p>
             <div className="mt-5">{result.recommendation.scenarios.map((scenario, index) => <OptionCard key={`${scenario.proposed_crops.join("-")}-${index}`} scenario={scenario} />)}</div>
-            <details className="border-t border-line py-4 text-body-sm"><summary className="min-h-tap cursor-pointer font-semibold text-field">{en.scientific} · {en.source}</summary><div className="space-y-2 pt-2 text-ink-muted"><p>{result.recommendation.input_environment_source || en.notProvided}</p><p>Basis: {result.recommendation.input_environment_basis || en.notProvided}</p><p>{result.recommendation.ranking.method}</p><ul className="list-disc space-y-1 pl-5">{result.recommendation.global_warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div></details>
+            <details className="border-t border-line py-4 text-body-sm"><summary className="min-h-tap cursor-pointer font-semibold text-field">{en.scientific} · {en.source}</summary><div className="space-y-2 pt-2 text-ink-muted"><p>{result.recommendation.input_environment_source || en.notProvided}</p><p>Basis: {result.recommendation.input_environment_basis || en.notProvided}</p><p>Observation or forecast period: {result.recommendation.input_observation_period ? `${result.recommendation.input_observation_period.start_date} to ${result.recommendation.input_observation_period.end_date}` : "unknown"}</p><p>Units: {result.recommendation.input_environment_units ? `${result.recommendation.input_environment_units.temp_c}, ${result.recommendation.input_environment_units.rain_mm}` : "unverified"} · Spatial resolution: {result.recommendation.input_spatial_resolution_km == null ? "unknown" : `${result.recommendation.input_spatial_resolution_km} km`}</p><p>{result.recommendation.ranking.method}</p><ul className="list-disc space-y-1 pl-5">{result.recommendation.global_warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div></details>
           </div>}
         </aside>
       </div>
