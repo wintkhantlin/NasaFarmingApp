@@ -1,5 +1,6 @@
 import cropData from "@/rotation-engine/data/crops.json";
 import { explainSequence, type SequenceTransition } from "./sequence-reasoning";
+import type { EnvironmentSnapshot } from "./farmer-request";
 
 // Rotation screening engine. Historical example outputs are not current regression fixtures;
 // test/rotation-integration.test.mjs checks this TypeScript implementation.
@@ -23,8 +24,8 @@ type Request = {
   planning: { start_date: string; end_date: string; max_future_crops?: 1 | 2; turnaround_days?: number; crop_duration_days?: Record<string, number>; include_fallow?: boolean; max_results?: number };
   history?: string[];
   location?: Record<string, unknown>;
-  farm?: { available_crops?: string[]; soil_ph?: number | null; drainage?: string; irrigation?: string; fallow_management?: string; previous_residue?: "retained" | "removed" | "burned" | "grazed" | "unknown" };
-  environment?: { source?: string; basis?: string; observation_period?: { start_date: string; end_date: string }; units?: { temp_c: string; rain_mm: string }; spatial_resolution_km?: number | null; known_biases?: string[]; monthly?: Monthly[] };
+  farm?: { available_crops?: string[]; soil_ph?: number | null; soil_ph_estimate?: NonNullable<EnvironmentSnapshot["context"]>["soil_ph_estimate"] | null; drainage?: string; irrigation?: string; fallow_management?: string; previous_residue?: "retained" | "removed" | "burned" | "grazed" | "unknown" };
+  environment?: Partial<EnvironmentSnapshot> & { monthly?: Monthly[] };
   farmer?: { priorities?: Partial<Record<Objective, number>>; crop_metrics?: Record<string, { additional_crop_water_use_mm?: number; net_margin_per_ha?: number }>; metrics_source?: string };
 };
 type Signals = Record<Objective, number | null>;
@@ -99,6 +100,8 @@ function validateRequest(value: unknown): Request {
   for (const id of available) if (!crops.has(id)) throw new Error(`Unknown crop ID in available_crops: ${id}`);
   const ph = req.farm?.soil_ph;
   if (ph !== undefined && ph !== null && (typeof ph !== "number" || !Number.isFinite(ph) || ph < 0 || ph > 14)) throw new Error("soil_ph must be in range 0-14");
+  const estimate = req.farm?.soil_ph_estimate;
+  if (estimate && (!Number.isFinite(estimate.value) || estimate.value < 0 || estimate.value > 14 || !/SoilGrids/i.test(estimate.source) || !estimate.resolution || !estimate.depth)) throw new Error("Soil pH estimate needs valid SoilGrids provenance");
   if (req.farm?.drainage !== undefined && !["well", "moderate", "poor", "unknown"].includes(req.farm.drainage)) throw new Error("farm.drainage must be well/moderate/poor/unknown");
   if (req.farm?.previous_residue !== undefined && !["retained", "removed", "burned", "grazed", "unknown"].includes(req.farm.previous_residue)) throw new Error("farm.previous_residue must describe recorded residue management or be unknown");
   for (const [id, days] of Object.entries(planning.crop_duration_days ?? {})) {
@@ -111,7 +114,7 @@ function validateRequest(value: unknown): Request {
   if (!Array.isArray(entries)) throw new Error("environment.monthly must be a list");
   if (entries.some((row) => !record(row) || typeof row.month !== "string")) throw new Error("Every environmental row needs a valid month");
   if (new Set(entries.map((row) => row.month)).size !== entries.length) throw new Error("Duplicate environmental months");
-  if (entries.length && (!req.environment?.source?.trim() || !["synthetic", "historical_normals", "observed", "forecast"].includes(req.environment.basis ?? ""))) throw new Error("Environmental values require a source and basis");
+  if (entries.length && (!req.environment?.source?.trim() || !["synthetic", "historical_normals", "historical_analogue", "observed", "forecast"].includes(req.environment.basis ?? ""))) throw new Error("Environmental values require a source and basis");
   if (req.environment?.basis === "synthetic" && !/\b(synthetic|demo|mock|fixture)\b/i.test(req.environment.source ?? "")) throw new Error("Synthetic environmental data must be clearly labeled");
   if (req.environment?.basis !== "synthetic" && /\b(synthetic|demo|mock|fixture)\b/i.test(req.environment?.source ?? "")) throw new Error("Environmental source conflicts with non-synthetic basis");
   if (req.environment?.units && (req.environment.units.temp_c !== "C" || req.environment.units.rain_mm !== "mm")) throw new Error("Environmental units must be C and mm");
@@ -180,7 +183,13 @@ function evaluateOne(sequence: string[], req: Request): Scenario {
       current = addDays(stageStart, plannedDays);
       stages.push({ crop_id: id, start: iso(stageStart), estimated_harvest: selectedDays === undefined ? null : iso(current), duration_days_used_for_screening: plannedDays, duration_is_user_supplied: selectedDays !== undefined });
       const ph = farm.soil_ph;
-      if (ph === undefined || ph === null) unknowns.push(`${crop.name}: soil pH is unknown.`);
+      if (ph === undefined || ph === null) {
+        const estimate = farm.soil_ph_estimate;
+        if (estimate) {
+          unknowns.push(`${crop.name}: measured soil pH is unknown; SoilGrids map estimate is ${estimate.value} pH (${estimate.resolution}, ${estimate.depth}). A field test is needed before excluding this crop by acidity.`);
+          if (!within(estimate.value, crop.soil_ph.absolute)) cautions.push(`${crop.name}: SoilGrids map pH estimate lies outside the broad species range, but map uncertainty prevents a hard exclusion.`);
+        } else unknowns.push(`${crop.name}: soil pH is unknown.`);
+      }
       else if (!within(ph, crop.soil_ph.absolute)) hard.push(`${crop.name}: measured soil pH ${ph} outside ECOCROP absolute envelope ${phRangeText(crop.soil_ph.absolute)}.`);
       else if (!within(ph, crop.soil_ph.optimal)) cautions.push(`${crop.name}: pH ${ph} outside broad ECOCROP optimal range ${phRangeText(crop.soil_ph.optimal)}.`);
       if (farm.drainage === undefined || farm.drainage === "unknown") unknowns.push(`${crop.name}: field drainage is unknown.`);
@@ -215,7 +224,7 @@ function evaluateOne(sequence: string[], req: Request): Scenario {
     }
     if (farm.irrigation === undefined || farm.irrigation === "none" || farm.irrigation === "unknown") unknowns.push("Crop water adequacy cannot be determined from rainfall alone without effective rainfall, initial root-zone water, ETc and irrigation information.");
     else unknowns.push("Irrigation access is reported, but capacity and crop water demand are not validated; water adequacy remains unknown.");
-    if (["observed", "historical_normals", "synthetic"].includes(environment.basis ?? "")) cautions.push("Climate values are not a validated future-season forecast; seasonal suitability is provisional.");
+    if (["observed", "historical_normals", "historical_analogue", "synthetic"].includes(environment.basis ?? "")) cautions.push("Climate values are not a validated future-season forecast; seasonal suitability is provisional.");
     if (environment.spatial_resolution_km !== undefined && environment.spatial_resolution_km !== null) cautions.push(`Environmental grid resolution ${environment.spatial_resolution_km} km is not field-scale ground truth.`);
     for (const bias of environment.known_biases ?? []) if (typeof bias === "string" && bias) cautions.push(bias);
   }
@@ -278,10 +287,13 @@ export function recommend(value: unknown) {
     "Neither rain totals nor coarse satellite soil moisture alone establish crop water adequacy.",
   ];
   if (environment.basis === "synthetic") warnings.unshift("ALL CLIMATE INPUTS ARE SYNTHETIC DEMO DATA; outputs must not be used for real farm decisions.");
+  if (environment.basis === "historical_analogue") warnings.push("Climate values are mapped from one complete historical year. They are neither a multi-year climate normal nor a future forecast.");
   if (environment.monthly?.length && !environment.observation_period) warnings.push("Observation or forecast period was not supplied; climate timing cannot be verified.");
   if (environment.monthly?.length && !environment.units) warnings.push("Climate units were not declared; confirm temperature is °C and rainfall is mm.");
   if (environment.monthly?.length && environment.spatial_resolution_km == null) warnings.push("Environmental spatial resolution is unknown; values may not represent this field.");
   if (!environment.monthly?.length) warnings.push("No monthly environment data supplied. Climatic suitability cannot be evaluated.");
+  if (environment.variable_sources?.missing?.length) warnings.push(...environment.variable_sources.missing);
+  if (environment.context?.smap) warnings.push("SMAP regional historical root-zone moisture is contextual only; it does not verify field water availability or crop-water carryover.");
   if (!req.history?.length) warnings.push("No previous crop history given; crop-order diversity comparisons will be incomplete.");
   if (req.planning.max_future_crops === 2) warnings.push("Two-crop proposals require explicit candidate durations; crop-to-crop turnaround defaults to 0 days unless provided.");
   return {
@@ -290,6 +302,8 @@ export function recommend(value: unknown) {
     input_observation_period: environment.observation_period ?? null,
     input_environment_units: environment.units ?? null,
     input_spatial_resolution_km: environment.spatial_resolution_km ?? null,
+    input_variable_sources: environment.variable_sources ?? null,
+    input_environment_context: environment.context ?? null,
     ranking, scenarios: scenarios.slice(0, maxResults), scenario_count_total: scenarios.length,
     global_warnings: warnings,
     sources: [

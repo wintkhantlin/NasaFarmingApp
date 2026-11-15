@@ -1,4 +1,5 @@
 import { en } from "@/lib/rotation/plan-messages";
+import type { EnvironmentSnapshot } from "./farmer-request";
 
 export type Scenario = {
   proposed_crops: string[];
@@ -33,6 +34,8 @@ export type EngineResult = {
   input_observation_period: { start_date: string; end_date: string } | null;
   input_environment_units: { temp_c: string; rain_mm: string } | null;
   input_spatial_resolution_km: number | null;
+  input_variable_sources: EnvironmentSnapshot["variable_sources"] | null;
+  input_environment_context: EnvironmentSnapshot["context"] | null;
   ranking: { method: string; status_note: string };
 };
 
@@ -50,6 +53,8 @@ export function temperatureScreenText(screen: Scenario["temperature_screen"]) {
 }
 
 export function plainReason(reason: string): string {
+  if (/measured soil pH is unknown/.test(reason)) return "A soil map suggests the acidity, but a field test is needed to check this crop.";
+  if (/SoilGrids map pH estimate lies outside/.test(reason)) return "The soil map suggests this crop may need a closer acidity check. It does not rule the crop out.";
   if (/soil pH is unknown/.test(reason)) return "Soil acidity is unknown. A field soil test would help check this crop.";
   if (/soil pH|measured soil pH|pH \d/.test(reason)) return "The soil test may be outside this crop’s broad range. Check with a local adviser.";
   if (/shorter than documented minimum|exceeds available calendar window|duration .* deadline|remaining .* days/.test(reason)) return "This crop may not have enough time to mature before your chosen end date.";

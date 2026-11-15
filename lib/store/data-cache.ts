@@ -37,6 +37,8 @@ export interface ConditionsData {
     days: ImergDay[];
     error: string | null;
   };
+  /** Plain-language retrieval gaps; these never stand in for observations. */
+  sourceWarnings?: string[];
   sources: Array<{
     dataset: string;
     resolution?: string;

@@ -19,7 +19,7 @@ describe("saved field to rotation engine", () => {
     const built = buildFieldRequest(f, history(), null, planning);
     expect(lastKnownCrop(history())?.id).toBe("green-gram");
     expect(engineCropId("green-gram")).toBe("green_gram");
-    expect(built.request.history).toEqual(["green_gram"]);
+    expect(built.request.history).toEqual(["sesame", "green_gram"]);
     expect(built.request.farm.irrigation).toBe("none");
     expect(built.request.farm.soil_ph).toBe(6.4);
     expect(built.request.farm.drainage).toBe("poor");
