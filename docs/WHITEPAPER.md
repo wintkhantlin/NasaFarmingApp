@@ -1,31 +1,88 @@
-# Field Shift: Technical Appendix
-## Scientific Methods and System Design for a Farmer-Centric Crop Rotation Comparison Tool
+# Field Shift: Comparing Crop Rotations with NASA Earth Observations
 
-**Document Type:** Technical appendix to the Field Shift whitepaper (`whitepaper.md`)  
-**Domain:** Computational Agroclimatology, Satellite Remote Sensing, Soil Hydrology, Operations Research  
-**Edition:** Scientific Methods and System Design — Research Prototype v3.3.1  
-**Version:** 3.3.1  
-**Evidence level:** Methods and design documentation. The models are unit-tested for internal consistency, verified across 880 automated tests across 104 test files, and evaluated against NOAA GHCN-Daily Myanmar ground station benchmarks (18,260 station-day records), historical disaster observations (Cyclone Komen 2015), and systematic 5-way decision engine ablation experiments (Section 12).  
+**Unified Scientific Whitepaper and Technical Specification**  
+**Research prototype:** v3.3.1 · **Compiled:** 15 November 2026  
+**Scope:** Farmer-centered crop rotation comparison; computational agroclimatology, soil hydrology, remote sensing, agronomy, economics and decision support
+
+> **Research and use statement.** Field Shift is an experimental decision-support prototype, not an official NASA product and not endorsed by NASA. Scientific methods, implementation statements, figures and empirical results below are consolidated from the two user-supplied documents (`whitepaper(5).md` and `whitepaper-technical-appendix(3).md`); the application's repository and external datasets were not independently inspected for this consolidation. Results are not a substitute for field observations, farmer knowledge or local agronomic advice.
+
+## How to Read This Paper
+
+The paper combines its executive account and full technical methods in a single file. Sections 1–2 describe ingestion and spatial transformations; Sections 3–9 define the scientific and economic engines; Section 10 identifies datasets and data availability; Section 11 specifies provenance; Section 12 separates claimed validation from scientific limitations and records version history; Section 13 contains references. An **implemented** component may still be unavailable to farmers without required tokens or data. A **tested** calculation is not automatically **field-validated**.
+
+## Executive Summary & Problem Formulation
+
+### The Agricultural Decision Dilemma
+A farmer deciding what crop sequence to plant across a multi-year cycle must simultaneously balance biophysical suitability, soil moisture conservation, pest cycles, nutrient dynamics, and economic viability. Traditional smallholder and mid-scale farm planning relies primarily on personal recollection, local oral tradition, and coarse regional calendars. While valuable, these heuristics are inherently constrained to observed weather patterns and cannot anticipate systemic climate shifts or evaluate novel crop candidates under extreme weather exposures.
+
+Conversely, contemporary Earth observations (EO) from spaceborne satellites, land surface models, and atmospheric reanalyses provide multi-decadal, globally contiguous records of precipitation, temperature, surface radiation, soil moisture, and vegetative vigor. However, these data streams remain inaccessible to agricultural decision-makers due to fundamental operational barriers:
+1. **The Spatial Mismatch:** Planetary observations arrive as coarse-gridded rasters ($50\text{ km}$ atmospheric cells, $11\text{ km}$ satellite rainfall grids, $9\text{ km}$ microwave soil moisture). When unsophisticated software interpolates these directly to farm boundaries, it creates a dangerous illusion of parcel-scale precision.
+2. **The Cognitive Gap:** Space agencies publish raw physical units (Kelvin, $\text{W}\cdot\text{m}^{-2}$, $\text{DN}$ reflectance) and product codes (`MOD13Q1`, `SPL4SMGP`) that require advanced geospatial workflows before offering agronomic insight.
+3. **The Non-Imputation Problem:** Commercial farm management tools frequently default missing variables to zero or regional averages, awarding false passes to risky rotations.
+
+### The Field Shift Approach
+Field Shift is an agronomic comparison engine designed to bridge this divide without compromising epistemic honesty. The application allows a farmer or extension officer to define a parcel boundary, record their current crop sequence, and benchmark it against alternative rotation candidates across identical historical weather sequences.
+
+#### Governing Principles
+- **Resolution Transparency:** Coarse gridded products are strictly labeled as regional background context ("around your field") and are never artificially resampled to simulate field-gate measurements.
+- **The Non-Imputation Rule:** Missing data never defaults to zero or an average. Incomplete observations propagate strictly as `unknown` states, preventing unearned passes.
+- **Historical Scenario Replay:** Rather than relying on uncalibrated seasonal forecasts, proposed sequences are replayed through daily weather from a 10-season historical baseline ($2016\text{–}2025$, 3,653 days), tracking exact exposures to heat shock, flowering precipitation, cold sterility, and drought spells.
+- **Farmer Data Primacy:** Physical measurements (e.g., laboratory soil tests, confirmed sowing dates, known irrigation depth) strictly supersede remote sensing or pedometric model estimates.
+- **Plain-Language Primacy:** Decisions lead with concise agronomic sentences; technical units, formulas, and data provenance badges remain accessible in disclosures.
+- **Scale Governance:** Indicators are strictly tagged across 4 physical footprint tiers:
+  1. `FIELD_RESOLVED` ($10\text{--}30\text{ m}$): Landsat, Sentinel-1 SAR, Sentinel-2, SRTM slope.
+  2. `CATCHMENT_SCALE` ($5\text{--}11\text{ km}$): NASA GPM IMERG precipitation, Sentinel-1 coherence.
+  3. `REGIONAL_LANDSCAPE` ($9\text{--}50\text{ km}$): NASA SMAP L4 soil moisture, NASA POWER atmospheric reanalysis.
+  4. `BASIN_AQUIFER` ($>100\text{ km}$): GRACE-FO regional groundwater depletion context.
 
 ---
 
-## Executive Summary
+---
 
-Agricultural decision-making operates under severe uncertainty driven by non-linear couplings among atmospheric dynamics, soil moisture retention, crop phenology, and market fluctuations. Smallholder and mid-scale farmers frequently lack actionable, parcel-scale intelligence, while standard Earth observation pipelines deliver high-dimensional radiances and coarse reanalysis products that cannot be applied directly to a farm plot.
+## System Design at a Glance
 
-**Field Shift** addresses this disconnect with a browser-based research prototype that keeps field records on the farmer's device and combines satellite and reanalysis observations, global soil maps and standard agronomic physics into field-specific comparisons of crop rotation options. It is designed around **epistemic honesty**:
+### At-a-Glance System Architecture
 
-1. **Resolution Transparency:** Coarse gridded products (e.g., $50\text{ km}$ atmospheric reanalysis, $10\text{ km}$ satellite precipitation, $9\text{ km}$ passive microwave soil moisture) are explicitly categorized as regional background context ("around your field") and never artificially interpolated to simulate illusory farm-gate precision.
-2. **The Non-Imputation Rule:** Missing environmental observations or farmer constraints are never imputed as zero, optimistic averages, or synthetic values. Incomplete records propagate strictly as `unknown` states, preventing false passes.
-3. **Historical Scenario Replay:** Rather than relying on uncalibrated, black-box seasonal probabilistic forecasts, the system replays proposed crop sequences across the daily weather of a ten-season baseline ($2016\text{–}2025$), quantifying exposure to heat, dry spells and rainfall shortfall in each of those seasons. Ten seasons are a small sample and carry any climate trend within the period (Section 12). The replay describes what happened in those years, not what will happen.
-4. **Farmer Primacy and Honest Data Handling:** Physical field measurements (e.g., laboratory soil tests) take precedence over gridded maps. Field records are stored in the farmer's browser. Location queries are the exception: a field's centroid, or its outline for satellite jobs, is sent to this application's server and on to the public data services it queries (Section 1.1).
-5. **4-Tier Spatial Scale Governance:** Remote sensing indicators are strictly tagged across 4 physical footprint tiers (`FIELD_RESOLVED`, `CATCHMENT_SCALE`, `REGIONAL_LANDSCAPE`, `BASIN_AQUIFER`), preventing coarse gridded proxies from being mistaken for field-gate observations.
+```mermaid
+flowchart TD
+    subgraph Earth_Observations["1. Ingested Planetary Datasets"]
+        P1["NASA POWER\n(MERRA-2 & GEOS-FP)\n50 km · Daily · 2-3d lag"]
+        P2["NASA GPM IMERG\n(Final V07 & Late Run)\n11 km · Daily · 14h/3.5mo lag"]
+        P3["USGS Landsat C2 L2\n(OLI/ETM+ via MPC)\n30 m · 8-16d · 2-3d lag"]
+        P4["Sentinel-1 SAR C-Band\n(Level-1 GRD Backscatter)\n10 m · 6-12d · All-Weather"]
+        P5["NASA SMAP L4\n(SPL4SMGP.008)\n9 km · Daily · 2.5-3d lag"]
+        P6["MODIS Terra/Aqua\n(MOD13Q1.061)\n250 m · 16d · 2-4d lag"]
+        P7["NASA ECOSTRESS\n(LSTE & JET via ISS)\n70 m · 1-5d · 1-2d lag"]
+        P8["NASA SRTM DEM\n(SRTMGL1_NC.003)\n30 m · Static Baseline"]
+        P9["ISRIC SoilGrids v2.0\n(ML Soil Properties)\n250 m · Static Baseline"]
+        P10["ESA WorldCover\n(10 m Cropland Mask)\n10 m · Static Baseline"]
+    end
 
-This appendix documents the mathematics, physical assumptions and dataset specifications behind the system design. It describes how the calculations are specified. The next section states which parts exist in the application, and Section 12 states what has and has not been validated.
+    subgraph Core_Engines["2. Core Algorithmic & Evaluation Engines"]
+        E1["Bioclimatology & ET0 Engine\n(FAO-56 Penman-Monteith &\nHargreaves Empirical Fallback)"]
+        E2["Hydrology & Soil Water Balance\n(Conserved 3-Zone Column &\nDynamic Depletion p(ETc))"]
+        E3["Historical Season Replay\n(10-Season Loop 2016-2025 &\nAcute Reproductive Hazards)"]
+        E4["Phytopathology & Agronomy\n(Species Host Matrix, Wilt\nIntervals & Residue Kinetics)"]
+        E5["Radiometry & Geomorphometry\n(QA Bitmasking, Low-Cover Gap\nDetection & Horn's 3x3 Slope)"]
+        E6["Candidate Generator\n(Regional Crop Templates &\nCircular Window Tiling)"]
+        E7["MCDA & Regret Engine\n(Anchor Utility, Non-Imputation\n& Minimax Regret with P90)"]
+        E8["Plain-Language Judgement Engine\n(Evidence Levels: Strong, Fair, Weak\n& 4-Pillar Risk Explorer)"]
+    end
+
+    subgraph Outputs["3. Farmer Decision Support"]
+        O1["Plain-Language Field Hub & Comparisons"]
+        O2["Immutable Evidence & Provenance Trace"]
+        O3["Epistemic Honesty: Unknown is Not Zero"]
+        O4["Local Extension Advisory Reports"]
+    end
+
+    Earth_Observations --> Core_Engines
+    Core_Engines --> Outputs
+```
 
 ---
 
-## Implementation Status
+## Implementation and Validation Status
 
 Each capability carries one of three statuses, and a separate statement of validation.
 
@@ -58,56 +115,53 @@ Each capability carries one of three statuses, and a separate statement of valid
 
 ---
 
-## Version 3.3.1 Change Log (November 2026 — Current)
-
-Version 3.3.1 incorporates the Phase 2 empirical ground truth validation program across 18,260 NOAA GHCN-Daily station-day records (`research/VALIDATION_RESULTS.md`), the 5-way decision engine ablation experiment (`tests/lib/ablation-experiment.test.ts`), Sentinel-1 SAR C-band Level-1 GRD flood backscatter drop detection, ESA WorldCover 10m cropland masking, 4-tier spatial scale governance, and the plain-language evidence judgement engine, expanding test coverage to **880 passing tests across 104 test suites**.
-
-| Workstream | Section | Prior Defect / Gap | Severity | v3.3.1 Resolution |
-| --- | --- | --- | --- | --- |
-| Empirical Ground Truth Suite | 12.0, 12.1 | Ground station audit limited to summary stats; needed exhaustive evaluation of 44 operational claims | Critical | Formalized Phase 2 empirical benchmark (`research/VALIDATION_RESULTS.md`) across 18,260 station-days (2014–2023). Documented 18 Validated, 11 Supported, 8 Proxy Only, 4 Unverified, and 3 Rejected claims |
-| 5-Way Decision Ablation | 12.3 | Lack of quantified evidence verifying whether satellite climate data impacts crop rotation choice over pure market gross margin | Critical | Implemented 5-way systematic ablation experiment (`tests/lib/ablation-experiment.test.ts`). Demonstrated that NASA satellite climate anomalies flip crop choices 100% of the time under extreme drought and flood shocks |
-| All-Weather Radar Flood Detection | 10.12, 12.2 | Optical satellite flood screening blinded by 87.5% cloud blackout during monsoon storms | Critical | Integrated Sentinel-1 SAR C-band Level-1 GRD backscatter drop detection ($\Delta\gamma^0 \le -3.0\text{ dB}$) bypassing cloud cover and validated against Cyclone Komen 2015 radar footprints |
-| 4-Tier Spatial Scale Governance | 12.4 | Coarse satellite footprints risked being conflated with farm-gate resolution | High | Codified 4-tier scale policy (`FIELD_RESOLVED`, `CATCHMENT_SCALE`, `REGIONAL_LANDSCAPE`, `BASIN_AQUIFER`) enforcing explicit UI disclosure tags |
-| Plain-Language Judgement Engine | 8.4 | Farmer recommendations lacked transparent evidence classification and plain-language justification | High | Built judgement engine (`lib/engine/judgement.ts`) translating raw multi-criteria scores into discrete evidence tiers (`strong`, `fair`, `weak`) and contextual caveats |
-| Cropland Masking Gate | 10.13 | Spectral signatures susceptible to urban/water false positives at township centroids | Medium | Integrated ESA WorldCover 10m cropland masking (Class 40) ensuring queries target verified agricultural land |
-| Test Suite Expansion | 12.0 | Baseline test count at 854 tests | Low | Expanded automated unit and integration suite to 880 tests across 104 test suites with zero failures |
-
 ---
 
-## Version 3.3 Change Log
+## Computational Method Index
 
-Version 3.3 extends Version 3.2 with organism-specific phytopathological host tracking, multi-year soil wilt return intervals, weather-driven disease risk modeling, benchmark-anchored income utility, and empirical ground-truth validation against NOAA GHCN-Daily stations.
+The following 17 methods summarize the calculation pipeline. Their full mathematical derivations and assumptions appear in the cited sections below, rather than being repeated twice.
 
-| Workstream | Section | Prior Defect / Gap | Severity | v3.3 Resolution |
-| --- | --- | --- | --- | --- |
-| Ground Truth Weather Audit | 12.1 | NASA POWER weather inputs treated as uncalibrated ground truth without empirical error bounds | Critical | Built empirical validation harness (`lib/validation/`, `scripts/validation/weather.run.ts`) comparing 10 years of POWER against 5 NOAA GHCN-Daily stations (2015–2024). Documented 51% rain underestimation in Dry Zone and coastal maritime temperature distortion |
-| Organism-Specific Disease Breaks | 7.3 | Family-level taxonomy failed to distinguish distinct pathogen carryovers (e.g. *Rhizoctonia solani* shared across Poaceae and Fabaceae) | High | Integrated explicit pathogen catalog (`lib/data/crops/host-organisms.ts`) tracking carryover modes (soil-borne, vector-borne, host-specific wilt) and specific host pairings |
-| Multi-Year Wilt Return Intervals | 7.3.2 | No check on recurrence intervals for persistent soil vascular wilts (*Fusarium oxysporum* f. sp. *ciceris*, *F. udum*) | High | Implemented return interval evaluation ($n / k \ge 3\text{ years}$): flags recurrence within minimum break window and raises hard veto upon confirmed field wilt history |
-| Weather-Driven Disease Risk | 7.3.3 | Disease alerts decoupled from microclimate and historical weather spells | Medium | Replayed 10-season daily weather for consecutive favourable pathogen spells (`lib/data/crops/weather-disease-rules.ts`, `lib/engine/pest-outlook.ts`), calculating seasonal frequency and peak vulnerability months |
-| Regional Benchmark Income Anchor | 8.2 | Margin utility used relative scaling ($\min$-$\max$) among compared options, causing scores to fluctuate when options were added or removed | High | Bound margin utility to a fixed regional anchor ($u = \text{clip}(M_{\text{mid}} / M_{\text{bench}}, 0, 1)$) derived from calibrated regional market rotations (Ayeyarwady, Magway, Shan). Guarantees independence of irrelevant alternatives (IIA) |
-| Source Reliability Cautions | 10.1.1 | Farmers in Dry Zone received unannotated rainfall totals despite known $-51\%$ satellite reanalysis bias | High | Added contextual source reliability banners (`lib/validation/source-checks.ts`) warning of potential drought-stress overstatement when replaying Central Dry Zone rainfed crops |
+| # | Computational method | Detailed method | Implementation reference |
+|---|---|---|---|
+| 1 | Solar radiation and extraterrestrial irradiance | §3.1 | `lib/engine/et0.ts` |
+| 2 | FAO-56 Penman–Monteith reference evapotranspiration | §3.2 | `lib/engine/et0.ts` |
+| 3 | Hargreaves–Samani fallback ET₀ | §3.3 | `lib/engine/et0.ts` |
+| 4 | Crop water use and phenological coefficients | §3.4, §5.2 | `lib/engine/water.ts`, `season.ts` |
+| 5 | Three-zone conserved soil water balance | §4.2–4.2.2 | `lib/engine/water.ts` |
+| 6 | Post-paddy drainage and sowing window | §4.2.3 | `lib/engine/water.ts` |
+| 7 | Historical season replay and acute hazards | §5.3–5.5, §8.3 | Climate / rotation engines |
+| 8 | Hemispheric frost and chilling climatology | §5.4 | Climate risk rules |
+| 9 | Growing degree-days (GDD) | §5.1, §5.2.1 | Thermal-time calculations |
+| 10 | Vegetation radiometry and satellite QA | §6.1–6.3 | Remote-sensing adapters |
+| 11 | Sentinel-1 SAR flood evidence | §10.12, §12.2 | `lib/server/remote-sensing.ts` |
+| 12 | Horn slope and erosion screening | §6.4, §7.4 | `lib/nasa/derive/slope.ts` |
+| 13 | Host–pathogen and rotation breaks | §7.3 | `lib/data/crops/host-organisms.ts` |
+| 14 | Nitrogen, residue fate and fixation | §7.1–7.2.1 | Agronomy / nitrogen engine |
+| 15 | Soil data arbitration and pedotransfer | §4.1, §4.5–4.6 | Soil profile model |
+| 16 | MCDA, benchmarking, minimax regret | §8.1–8.5 | Rotation ranking engine |
+| 17 | Farmer judgement and four risk pillars | §8.6 | `lib/engine/judgement.ts`, `lib/conditions/` |
 
-## Version 3.2 Change Log
+### End-to-End Evaluation Pipeline
 
-Version 3.2 extends Version 3.1 with comprehensive upgrades in soil-column compartmentalization, dynamic evapotranspirative depletion, multi-year disease cycle detection, residue nitrogen kinetics, and water-deficit economic response.
+Field Shift executes a deterministic, multi-stage calculation pipeline where physical constraints, soil hydrology, and historical climate exposure filter candidate crop rotations prior to multi-criteria ranking:
 
-| Workstream | Section | v3.1 / Baseline Defect | Severity | v3.2 Resolution |
-| --- | --- | --- | --- | --- |
-| Three-Zone Hydrology | 4.2.2 | Two-zone column averaged moisture during seedling contraction, masking seedbed desiccation | Critical | Dedicated 3-zone non-overlapping column ($Z_1$ seedbed, $Z_2$ sub-seedbed, $Z_3$ buffer) with perched water table over plough pan, conserved to $\le 10^{-9}\text{ mm}$ |
-| Post-Paddy Drainage Window | 4.2.3 | Post-paddy turnaround assumed instant field capacity without evaluating sowing moisture window | High | Mechanistic post-paddy drainage window model tracking seedbed relative saturation and perched water; returns `field-check-needed` if soil unconfirmed |
-| Dynamic Depletion $p$ | 4.1 | Static depletion fraction $p=0.5$ across all crops | High | Implemented dynamic $p(ET_c) = \text{clamp}(p_{\text{base}} + 0.04(5 - ET_c), 0.1, 0.8)$ per FAO-56 Eq. 84 with species $p_{\text{base}}$ |
-| Acute Climate Hazards | 5.3 | Evaluated temperature envelope over whole-season mean; missed acute flowering rain | High | Stage-aware acute reproductive hazards: heat shock ($>35^\circ\text{C}$), cold sterility, and excess rainfall thresholds at flowering (e.g. 10 mm/d) |
-| Residue Nitrogen Kinetics | 7.2.1 | Nitrogen balance lacked selectable residue fates and first-season mineralization kinetics | Medium | Added `residueFate` (`retain_incorporate`, `retain_mulch`, `remove_fodder`, `burn`), C:N immobilisation penalty (<21d turnaround), and 25–40% first-season legume N release |
-| Multi-Year Disease Breaks | 7.3.1 | Pest sequence only checked adjacent slots $(t-1 \to t)$; missed multi-year recurrence in same seasonal window | Medium | Added multi-year recurrence detector tracking same-family cultivation in identical seasonal slots (e.g., post-monsoon legumes across consecutive years) |
-| Water-Limited Economics | 9.6 | Margins decoupled from hydrological deficit; risk of false precision if Ky uncalibrated | High | Integrated FAO-33 / FAO-66 $K_y$ yield response factor $\phi = \text{clamp}(1 - K_y(1 - ET_a/ET_m), 0, 1)$ strictly for documented species; returns `unquantified` if uncalibrated |
+```mermaid
+flowchart TD
+    In["Field Geometry & Soil Input\n(Polygon, Lab Soil, Farm Limits)"] --> Mask["1. Cropland Verification\n(ESA WorldCover 10m Class 40 Gate)"]
+    Mask --> Reg["2. Regional Context Resolution\n(Ayeyarwady, Magway, Shan)"]
+    Reg --> Cand["3. Candidate Generation & Dynamic Tiling\n(Regional Crop Templates & Sowing Windows)"]
+    In --> Weather["4. Multi-Decadal Climate Fetch\n(NASA POWER, GPM IMERG, Planetary Computer)"]
+    Cand & Weather --> Sim["5. Historical Season Replay Engine (2016-2025)\n(Per-Day Weather Window Projection)"]
+    Sim --> Suit["6. Multi-Tiered Suitability Evaluation\n(Thermal, Sowing Window, Soil pH, Texture, Drainage)"]
+    Sim --> Hydro["7. Conserved 3-Zone Soil Water Balance\n(Seedbed, Sub-Seedbed, Buffer & Dynamic Depletion)"]
+    Sim --> Haz["8. Acute Climate Hazard Extraction\n(Heat Shock, Cold Sterility, Excess Rain, Dry Spells)"]
+    Cand --> Phyto["9. Phytopathological & Agronomic Screen\n(Host Overlap, 3-Yr Wilt Break, Residue N Kinetics)"]
+    Hydro & Haz & Phyto --> Score["10. Multi-Criteria Decision Analysis (MCDA)\n(Anchor Utility, Dynamic Renormalization & Minimax Regret)"]
+    Score --> Judge["11. Plain-Language Evidence Judgement\n(Strong, Fair, Weak Confidence & 4-Pillar Risk Explorer)"]
+    Judge --> Out["12. Traceable Farmer Advisory Report"]
+```
 
-**Conformance notes for the reference implementation.**
-
-1. **Organic matter is in percent.** The Saxton-Rawls equations are fitted with organic matter in percent by weight. Organic matter is therefore $OM_{\%} = 0.1724 \cdot SOC_{\text{g/kg}}$ (that is, $1.724 \cdot SOC_{\text{g/kg}} / 10$). The mass-fraction form $0.001724 \cdot SOC_{\text{g/kg}}$ reduces the organic-matter terms a hundredfold and understates the $AWC$ of a typical loam (sand $40\%$, clay $20\%$, $OM$ $2.5\%$) by about $8\%$ ($131$ against $143\text{ mm}\cdot\text{m}^{-1}$).
-2. **SoilGrids units.** The live ISRIC service reports `wv0033` and `wv1500` with $d_{\text{factor}} = 10$ in units of $10^{-2}\text{ cm}^3\cdot\text{cm}^{-3}$. The implementation reads the response's own unit string, divides by $d_{\text{factor}}$ and then by $100$ (a net divisor of $1000$ from the raw integer), and rejects a layer whose units it does not recognise.
-3. **Anchors are analyst assumptions.** The targets and limits of Section 8.2 are labelled as such in the implementation and are to be tuned with local validation.
-4. **Cultivar thermal thresholds are not yet in the crop library.** Until a cultivar supplies $GDD_{\text{req},k}$, Section 5.2.1 falls back to the Hamilton-Hare calendar split for that crop, and each replayed season records which basis it used.
-5. **Non-imputation of Ky.** For crops without peer-reviewed species $K_y$ (e.g., black gram, green gram), water response is reported as *unquantified physical risk* rather than inventing a speculative coefficient.
+---
 
 ---
 
@@ -1055,6 +1109,27 @@ A missing value is never imputed as zero or as an average. Version 3.0 dropped c
 
 ---
 
+### 8.6 Plain-Language Evidence Judgement and Four-Pillar Risk Explorer
+Rather than presenting raw statistical probabilities or abstract confidence intervals, the system derives discrete evidence levels (`strong`, `fair`, `weak`) and plain-language agronomic reasons (`lib/engine/judgement.ts`):
+
+#### Evidence Grading Standards
+- **Strong Evidence:** All crops in rotation confirmed for parcel location and soil envelope, zero decisive parameters missing, and valid historical weather records span $\ge 80\%$ of baseline seasons.
+- **Weak Evidence:** Any crop outside biophysical envelope, parcel unplaced, $< 50\%$ of past seasons evaluable, or $\ge 3$ decisive criteria unconfirmed.
+- **Fair Evidence:** Intermediate states between strong and weak thresholds.
+
+#### 4-Pillar Risk Engine Architecture (`lib/conditions/`)
+Evaluates risk across 4 discrete physical dimensions:
+1. `water_stress`: Seasonal rain deficit and root-zone depletion against crop demand.
+2. `flood`: Sentinel-1 SAR backscatter drop and historical flood recurrence.
+3. `erosion`: SRTM $30\text{ m}$ Horn slope gradient and unplanted gap low-cover exposure.
+4. `heat_cold`: Anthesis heat shock ($>35^\circ\text{C}$), lowland cold sterility ($<15^\circ\text{C}$), and Shan plateau frost.
+
+**Source Implementation:** `lib/engine/judgement.ts`, `lib/conditions/condition-evidence.ts`, `lib/conditions/explorer-model.ts`
+
+---
+
+---
+
 ## 9. Farm Economics: Real-World Commodity Market Benchmarks and Farmer Ranges
 
 Economic margins are computed using closed interval arithmetic on yield, price and variable cost ranges. Farmer-entered numbers always supersede any default. To prevent uncalibrated dummy data when farmers have not yet recorded their exact figures, Field Shift integrates calibrated real-world market benchmarks for Myanmar (2024–2026), sourced from official agricultural records and commodity exchange bulletins:
@@ -1153,14 +1228,17 @@ classDiagram
 | **NASA GPM IMERG Late Run**<br>`GPM_3IMERGDL` | NASA GSFC / GES DISC | $0.1^\circ \times 0.1^\circ$<br>($\approx 11 \times 11\text{ km}$) | Daily accumulation | **~14 hours** post-observation | Operational moving window (last 3.5 months) | Bidirectional morphing via Earthdata Cloud; operational near-real-time monitoring | Used for current-season tracking; falls back to NASA POWER if unauthenticated |
 | **NASA GPM IMERG Early Run**<br>`GPM_3IMERGIS` | NASA GSFC / GES DISC | $0.1^\circ \times 0.1^\circ$<br>($\approx 11 \times 11\text{ km}$) | Half-hourly / Daily | **~4 hours** post-observation | Operational moving window | Forward-only morphing; flash flood screening | Rapid alert screening only; not used for multi-season baseline replay |
 | **USGS Landsat C2 L2**<br>`landsat-c2-l2` (OLI/ETM+) | USGS / NASA LP DAAC | $30\text{ m} \times 30\text{ m}$ | 16-day repeat per satellite (8-day combined 8/9) | **2 to 3 days** post-overpass | 1982-08-22 to present | Microsoft Planetary Computer STAC discovery + SAS token HTTP byte-range window retrieval on COGs | Cloud/shadow screened via `qa_pixel`; requires $f_{\text{valid}} \ge 0.25$; falls back to AppEEARS MODIS |
+| **Sentinel-1 SAR C-Band**<br>`sentinel-1-grd` | ESA / Copernicus / MPC | $10\text{ m} \times 10\text{ m}$ | 6 to 12 days repeat cycle | **1 to 2 days** post-acquisition | 2014-10-03 to present | Planetary Computer STAC discovery; VV/VH backscatter amplitude retrieval on COGs | All-weather active microwave; surface water detected by $\Delta\gamma^0 \le -3.0\text{ dB}$; bypasses 88% monsoon cloud blackout |
 | **MODIS Terra/Aqua VI**<br>`MOD13Q1.061` / `MYD13Q1` | NASA LP DAAC | $250\text{ m} \times 250\text{ m}$ | 16-day composite (Maximum Value Composite) | **2 to 4 days** post 16-day period | 2000-02-18 to present | Planetary Computer STAC discovery + Azure COG range reads; AppEEARS area job fallback | Used for 25-year regional phenology context; filtered via 16-bit `VI_Quality` bitmask |
 | **NASA SMAP Level-4**<br>`SPL4SMGP.008` | NASA NSIDC / LP DAAC | $9\text{ km} \times 9\text{ km}$ EASE-Grid 2.0 | Daily composite (from 3-hourly snapshots) | **~2.5 to 3.0 days** (constrained by GEOS-FP) | 2015-03-31 to present | NASA AppEEARS Point API; asynchronous job polling; Earthdata login required | Regional root-zone wetness percentile only; never presented as field-gate moisture; reports `unknown` if missing |
 | **NASA ECOSTRESS L2/L3**<br>`LSTE.002` / `JET.002` | NASA JPL / LP DAAC | $\approx 70\text{ m} \times 70\text{ m}$ (precessing swath) | Non-sun-synchronous (1 to 5 day variable revisit) | **1 to 2 days** post-acquisition | 2018-07-09 to present | NASA AppEEARS Area Subsetting API; filtered by cloud/water and conservative LST-QA | Thermal canopy depression and evapotranspiration context; never substituted for 2m air temperature |
 | **NASA SRTM DEM**<br>`SRTMGL1_NC.003` | NASA JPL / LP DAAC | $1\text{ arc-sec} \approx 30\text{ m}$ | Static Topographic Baseline | **Static reference** (flown Feb 2000) | 2000-02-11 to 2000-02-22 | NASA AppEEARS Area Subsetting API | Feeds Horn's $3 \times 3$ slope gradient and atmospheric pressure elevation adjustments; static |
 | **Harmonized Landsat-Sentinel**<br>`HLSL30.020` / `HLSS30.020` | NASA LP DAAC | $30\text{ m} \times 30\text{ m}$ | 2 to 3 days combined constellation revisit | **2 to 3 days** post-overpass | 2013-04-11 (L30) / 2015-11-28 (S30) to present | NASA AppEEARS Extraction API; Fmask QA screening | Sub-field gap vegetation screening; Earthdata-gated; degrades to Landsat C2 |
 | **ISRIC SoilGrids v2.0**<br>`soilgrids.org` | ISRIC World Soil Information | $250\text{ m} \times 250\text{ m}$ | Static Modern Pedometric Baseline | **Static baseline** (v2.0 model released 2020) | Modern soil profile synthesis (1950–present) | Public REST API (`https://rest.isric.org/soilgrids/v2.0`); depth-weighted $0\text{--}30\text{ cm}$ integration | Tier 2 soil water retention fallback; superseded immediately by farmer lab test or field kit |
-| **NOAA GHCN-Daily**<br>`GHCND` | NOAA NCEI | Station-specific coordinates | Daily meteorological observations | **1 to 2 days** (trailing station uploads) | Multi-decadal (100+ years globally) | Offline benchmark validation harness (`lib/validation/`, 2015–2024 records) | Used for ground-truth empirical auditing of satellite reanalysis inputs; not queried at runtime |
+| **ESA WorldCover 10m**<br>`esa-worldcover` | ESA / Copernicus | $10\text{ m} \times 10\text{ m}$ | Annual Global Land Cover | **Annual release** (2020 / 2021 baselines) | 2020–2021 | Planetary Computer STAC discovery | Cropland polygon verification (Class 40: Cropland); eliminates false urban/wetland centroid queries |
+| **NOAA GHCN-Daily**<br>`GHCND` | NOAA NCEI | Station-specific coordinates | Daily meteorological observations | **1 to 2 days** (trailing station uploads) | Multi-decadal (100+ years globally) | Offline benchmark validation harness (`lib/validation/`, 2014–2023 records: 18,260 station-days) | Used for ground-truth empirical auditing of satellite reanalysis inputs; not queried at runtime |
 | **Myanmar Market Benchmarks**<br>DOA / Bayintnaung / MPBMSMA | DOA / Bayintnaung Wholesale / MPBMSMA | Regional production clusters | Seasonal / Annual market price surveys | **Updated Annually** (2024–2026 calibrated dataset) | 2020 to 2026 economic seasons | Static agronomic dictionary (`lib/data/crops/real-world-economics.ts`) | Feeds interval gross margin and regional income utility anchors ($M_{\text{bench}}$); overridden by farmer entry |
+
 
 ### 10.1 NASA POWER Agroclimatology (MERRA-2 & CERES)
 - **Governing Body:** NASA Langley Research Center (LaRC).
@@ -1180,7 +1258,7 @@ classDiagram
   - `GWETROOT`, `GWETTOP`: Modeled root-zone and surface soil wetness (fraction $[0, 1]$). Destination: Regional hydrological context.
 
 #### 10.1.1 Empirical Accuracy Assessment & Source Reliability Cautions (v3.3)
-Ground-truth validation of NASA POWER daily variables against NOAA GHCN-Daily stations across Myanmar (2015–2024; Section 12.1) established critical empirical constraints:
+Ground-truth validation of NASA POWER daily variables against NOAA GHCN-Daily stations across Myanmar (2014–2023; Section 12.1) established critical empirical constraints:
 - **Central Dry Zone Precipitation Bias:** At Mandalay, POWER monthly rainfall exhibits a **$-51\%$ relative bias** compared to station gauge records ($r = 0.48$). Monsoon rainfall is underestimated by $53\%$, and dry-season precipitation by $63\%$.
 - **Agronomic Impact:** In rainfed Dry Zone cropping systems (e.g., Magway and Mandalay), uncalibrated POWER rainfall systematically overstates water deficits and drought hazards.
 - **Operational Policy:** When a farm parcel is located within the Central Dry Zone ($19.5^\circ\text{–}22.5^\circ\text{N}$, $94.5^\circ\text{–}96.5^\circ\text{E}$), the interface renders an explicit source caution banner (`lib/validation/source-checks.ts`) informing the farmer that reanalysis rainfall totals may be roughly half of local ground truth, advising conservative interpretation of rainfed water stress.
@@ -1430,6 +1508,18 @@ A mathematically consistent simulation is not a validated agronomic prediction. 
 
 To bridge this divide, Field Shift maintains an empirical ground-truth validation suite (`research/VALIDATION_RESULTS.md`) evaluated against 18,260 station-day records from NOAA GHCN-Daily, historical disaster observations, and systematic 5-way decision engine ablation experiments.
 
+### Interpreting the Reported Evidence
+
+The numerical results in this section are **reported by the project's supplied documents**. This consolidated whitepaper has not independently rerun the repository's tests, downloaded the original station-day records, or reprocessed the Cyclone Komen imagery. A passing unit test verifies the tested code behavior, not agronomic effectiveness in farmers' fields.
+
+**Important distinction between datasets:** the station comparison below directly evaluates NASA POWER against NOAA GHCN-Daily observations. The supplied claim table also labels IMERG rainfall accuracy as validated, but the provided documents do not show a separate, traceable IMERG-versus-gauge comparison. Moreover, the ingestion status notes that authenticated IMERG archive extraction has not been demonstrated. Those IMERG-specific claims therefore require independent verification before presentation as empirical findings.
+
+**Decision experiments:** the ablation scenarios show how the implemented ranking logic responds to configured drought and flood conditions. They do not establish a real-world probability that the system changes farmers' choices, increases yields, prevents crop losses, or outperforms local advisory practice.
+
+**Conflicting source tables:** the main whitepaper and technical appendix provide different numerical Sittwe station rows. For consistency, the detailed five-station table in Section 12.1 follows the supplied v3.3.1 technical appendix; the discrepancy remains unresolved until checked against `research/VALIDATION_RESULTS.md` and the underlying observations. The source files also differ on an older 2015–2024 versus a later 2014–2023 benchmark period; this consolidated document uses the later 2014–2023 description.
+
+---
+
 ### 12.0 Overview of Phase 2 Empirical Validation Program
 
 Across 44 distinct scientific and operational claims evaluated against empirical ground truth and satellite observations:
@@ -1462,7 +1552,7 @@ Daily NASA POWER variables (`T2M_MAX`, `T2M_MIN`, `PRECTOTCORR`) were audited ac
 | **Southern Peninsula (Kawthaung)**<br>$10.02^\circ\text{N}, 98.55^\circ\text{E}$, $15\text{ m}$ | $T_{\max}$ ($^\circ\text{C}$)<br>$T_{\min}$ ($^\circ\text{C}$) | $32.6^\circ\text{C}$<br>$23.4^\circ\text{C}$ | $29.5^\circ\text{C}$<br>$26.3^\circ\text{C}$ | $0.592$<br>$0.541$ | $3.49^\circ\text{C}$<br>$3.33^\circ\text{C}$ | $-3.08^\circ\text{C}$<br>$+2.89^\circ\text{C}$ | **POOR (Marine Buffer)**<br>**POOR (Marine Buffer)** |
 
 #### Key Agroclimatic Findings:
-1. **Severe Dry Zone Rainfall Underestimation:** In Mandalay, NASA POWER reanalysis under-reports monsoon precipitation by **$-50.9\%$** ($r = 0.48$). Local convective thunderstorms shadowed by the Arakan Yoma are smoothed out by MERRA-2's $50\text{ km}$ grid. NASA GPM IMERG V07 ($r = 0.841$, bias $-7.0\%$) must be used for hydrological modeling.
+1. **Severe Dry Zone Rainfall Underestimation:** In Mandalay, NASA POWER reanalysis under-reports monsoon precipitation by **$-50.9\%$** ($r = 0.48$). Local convective thunderstorms shadowed by the Arakan Yoma are smoothed out by MERRA-2's $50\text{ km}$ grid. GPM IMERG V07 is a candidate rainfall source when coverage is complete, but the project's separate IMERG-versus-gauge accuracy has not been established by this NASA POWER station comparison.
 2. **Rejection of Daily Reanalysis for Valve Control:** Daily rainfall correlation in Mandalay is only $r = 0.154$. Satellite daily reanalysis precipitation **cannot be used for day-to-day irrigation scheduling**. It is valid only for 10-day dekadal and seasonal totals.
 3. **Evapotranspiration Discrepancy ($ET_0$):**
    - *Dry Zone Advective Season (March–April):* Hargreaves-Samani underestimates $ET_0$ by **$-24.6\%$** ($4.80\text{ mm/d}$ vs $6.37\text{ mm/d}$ Penman-Monteith) due to ignoring severe vapor pressure deficits ($\text{RH} < 25\%$) and high wind speeds ($u_2 > 3.2\text{ m/s}$).
@@ -1476,7 +1566,7 @@ Evaluated during the July–August 2015 disaster across the Ayeyarwady Delta aga
 - **Optical Sensors (Landsat 8 / Sentinel-2):** Out of 8 overpasses during peak flooding, 7 scenes suffered $>80\%$ cloud cover (**87.5% complete cloud blackout**). The single clear scene (August 10) was captured after upstream floodwaters had receded.
 - **Active Microwave (Sentinel-1 SAR C-Band):** Achieved **100% all-weather penetration** across all 4 satellite passes. Detected $482{,}000\text{ ha}$ of inundated cropland using anomalous backscatter collapse ($\Delta\gamma^0 \le -3.0\text{ dB}$).
 - **Performance Metrics:** Spatial $\text{IoU} = 0.784$, $\text{Recall} = 0.862$, $\text{Precision} = 0.815$ against UNOSAT ground-truth polygons.
-- **Conclusion:** Sentinel-1 active radar backscatter drop is the only physically valid remote sensing tool for emergency monsoon flood detection in tropical Asia.
+- **Interpretation:** These reported case-study results support Sentinel-1 radar as an important complement to optical imagery during cloudy monsoon periods. Threshold transferability and failure modes require further local checks.
 
 ---
 
@@ -1498,7 +1588,7 @@ To verify whether NASA Earth observations actively influence farmer crop rotatio
 | **High Flood Risk (Delta Lowland)** | Deepwater Flood-Tolerant Rice | High-Yield Boro Rice | **YES** | Historical inundation probability forces flood-tolerant cultivar selection |
 | **Mild Anomaly Year** | Rice – Black Gram | Rice – Black Gram | **NO** | High market price of black gram coincides with moderate water availability |
 
-**Ablation Proof:** Under normal climate, commodity economics aligns with viable crops. However, **under extreme climate anomalies (drought, flood), NASA satellite data flips the decision 100% of the time**, preventing catastrophic crop loss.
+**Ablation interpretation:** In the two scripted extreme-anomaly cases shown (drought and flood), the climate-sensitive ranking selected a different option from the economics-only ranking. This is a test of decision sensitivity, not evidence that crop losses were prevented or that the change rate generalizes beyond these scenarios.
 
 ---
 
@@ -1514,11 +1604,15 @@ To prevent false precision and inappropriate parcel downscaling, all environment
 
 ---
 
-### 12.5 Comprehensive 44-Claim Validation Breakdown Matrix
+**Operational interpretation:** The tiers govern appropriate claims, not just pixel dimensions. A 10–30 m pixel is not automatically accurate at field scale, and a 250 m MODIS composite remains broader land-cover context. GRACE-FO appears here as a basin-scale *policy example*, not as an implemented dataset adapter in the ingestion inventory.
+
+---
+
+### 12.5 Selected Claims from the 44-Claim Validation Audit
 
 | Domain | Claim Evaluated | Status | Ground Truth Evidence |
 | :--- | :--- | :--- | :--- |
-| **Precipitation** | IMERG V07 reflects monsoon seasonal rainfall within 10% | **VALIDATED** | Pathein GHCN $r = 0.841$, $\text{Bias} = -7.0\%$ |
+| **Precipitation** | IMERG V07 reflects monsoon seasonal rainfall within 10% | **Project-reported VALIDATED; evidence unresolved** | The cited Pathein figures are presented in the POWER-versus-GHCN table, not a separate IMERG comparison |
 | **Precipitation** | POWER reanalysis daily rainfall can schedule farm irrigation | **REJECTED** | Mandalay daily $r = 0.154$, misses $50.9\%$ rain |
 | **Temperature** | POWER daily Tmax/Tmin tracks inland air temperature within 2°C | **VALIDATED** | Pathein $r=0.884$, $\text{RMSE}=1.82^\circ\text{C}$; Mandalay $r=0.912$, $\text{RMSE}=1.65^\circ\text{C}$ |
 | **Temperature** | Ground frost threatens Ayeyarwady Delta crops | **REJECTED** | 10-yr min temp is $11.5^\circ\text{C}$; zero frost events. Lowland risk is chilling sterility ($<15^\circ\text{C}$) |
@@ -1536,6 +1630,8 @@ To prevent false precision and inappropriate parcel downscaling, all environment
 | **Decisions** | NASA climate anomalies materially change farmer crop choices | **VALIDATED** | Ablation Exp E: Drought flips double-cropping to drought-escape fallow |
 
 ---
+
+*This table presents selected entries, not all 44 claim-level records; the source documents point to `research/VALIDATION_RESULTS.md` for the complete audit.*
 
 ### 12.6 Explicitly Rejected Physical Assumptions
 Field Shift explicitly repudiates three common algorithmic modeling assumptions:
@@ -1563,7 +1659,7 @@ Field Shift explicitly repudiates three common algorithmic modeling assumptions:
 | Phenology | 5.1, 5.2 | Calendar fractions of the planned window; no cultivar thermal thresholds in the crop library yet | Observed stage dates for named cultivars |
 | Heat, cold and dry-spell exposure | 5.3 to 5.5 | Air-temperature, excess mid-stage rain (10 mm/d), and dry-spell thresholds from the crop library, some analyst-chosen | Yield or stress observations in the replayed years |
 | Nitrogen budget | 7.1, 7.2 | Partial budget with enclosure bounds; residue fate kinetics (burning volatilization, removal, incorporation mineralization / C:N immobilization) | Soil nitrogen tests and residue trials |
-| Erosion hazard | 7.5 | A screen on overlap of slope, low cover and rainy periods; not a soil-loss model | Erosion measurements or a validated model |
+| Erosion hazard | 7.4 | A screen on overlap of slope, low cover and rainy periods; not a soil-loss model | Erosion measurements or a validated model |
 | Soil-health mechanisms | 7 | Qualitative links between practices and effects | Soil carbon, structure and infiltration data |
 | Pest and disease rotation breaks | 7.3 | Species-level host-pathogen matrix (`HOST_ORGANISMS`); multi-year recurrence in same seasonal window; vascular wilt return intervals ($n/k \ge 3\text{ yr}$); daily weather infection risk | Local pest guidance and field records |
 | Ranking scores and anchors | 8 | The targets and limits of Section 8.2 are analyst assumptions; regional typical rotation anchor for margin ($M_{\text{bench}}$); a score is a match to stated priorities, not a forecast | Local expert review; sensitivity analysis |
@@ -1579,8 +1675,65 @@ Field Shift explicitly repudiates three common algorithmic modeling assumptions:
   1. **Rainfall:** compare POWER and IMERG seasonal totals with gauge records at sites that have them, and report the difference with each analysis.
   2. **Water stress:** for fields with soil-moisture probes, compare modelled stress days with observed depletion.
   3. **Vegetation:** compare the satellite timeline with dated field photographs on a small set of fields.
-  4. **Decisions:** record real rotation comparisons for real fields, with the actual outputs (the demonstration protocol in the whitepaper), and review them with local advisers.
+  4. **Decisions:** record real rotation comparisons for real fields, with the actual outputs (following a repeatable demonstration protocol), and review them with local advisers.
   5. **Use:** test with farmers and extension officers whether the plain-language explanations lead to correct reading of the uncertainty.
+
+---
+
+### 12.9 Version History and Conformance Notes
+
+### 12.9.1 Version 3.3.1 (November 2026)
+
+Version 3.3.1 incorporates the Phase 2 empirical ground truth validation program across 18,260 NOAA GHCN-Daily station-day records (`research/VALIDATION_RESULTS.md`), the 5-way decision engine ablation experiment (`tests/lib/ablation-experiment.test.ts`), Sentinel-1 SAR C-band Level-1 GRD flood backscatter drop detection, ESA WorldCover 10m cropland masking, 4-tier spatial scale governance, and the plain-language evidence judgement engine, expanding test coverage to **880 passing tests across 104 test suites**.
+
+| Workstream | Section | Prior Defect / Gap | Severity | v3.3.1 Resolution |
+| --- | --- | --- | --- | --- |
+| Empirical Ground Truth Suite | 12.0, 12.1 | Ground station audit limited to summary stats; needed exhaustive evaluation of 44 operational claims | Critical | Formalized Phase 2 empirical benchmark (`research/VALIDATION_RESULTS.md`) across 18,260 station-days (2014–2023). Documented 18 Validated, 11 Supported, 8 Proxy Only, 4 Unverified, and 3 Rejected claims |
+| 5-Way Decision Ablation | 12.3 | Lack of quantified evidence verifying whether satellite climate data impacts crop rotation choice over pure market gross margin | Critical | Implemented 5-way systematic ablation experiment (`tests/lib/ablation-experiment.test.ts`). Demonstrated changed crop rankings in both scripted extreme drought and flood scenarios; field benefit remains untested |
+| All-Weather Radar Flood Detection | 10.12, 12.2 | Optical satellite flood screening blinded by 87.5% cloud blackout during monsoon storms | Critical | Integrated Sentinel-1 SAR C-band Level-1 GRD backscatter drop detection ($\Delta\gamma^0 \le -3.0\text{ dB}$) bypassing cloud cover and validated against Cyclone Komen 2015 radar footprints |
+| 4-Tier Spatial Scale Governance | 12.4 | Coarse satellite footprints risked being conflated with farm-gate resolution | High | Codified 4-tier scale policy (`FIELD_RESOLVED`, `CATCHMENT_SCALE`, `REGIONAL_LANDSCAPE`, `BASIN_AQUIFER`) enforcing explicit UI disclosure tags |
+| Plain-Language Judgement Engine | 8.6 | Farmer recommendations lacked transparent evidence classification and plain-language justification | High | Built judgement engine (`lib/engine/judgement.ts`) translating raw multi-criteria scores into discrete evidence tiers (`strong`, `fair`, `weak`) and contextual caveats |
+| Cropland Masking Gate | 10.13 | Spectral signatures susceptible to urban/water false positives at township centroids | Medium | Integrated ESA WorldCover 10m cropland masking (Class 40) ensuring queries target verified agricultural land |
+| Test Suite Expansion | 12.0 | Baseline test count at 854 tests | Low | Expanded automated unit and integration suite to 880 tests across 104 test suites with zero failures |
+
+---
+
+### 12.9.2 Version 3.3
+
+Version 3.3 extends Version 3.2 with organism-specific phytopathological host tracking, multi-year soil wilt return intervals, weather-driven disease risk modeling, benchmark-anchored income utility, and empirical ground-truth validation against NOAA GHCN-Daily stations.
+
+| Workstream | Section | Prior Defect / Gap | Severity | v3.3 Resolution |
+| --- | --- | --- | --- | --- |
+| Ground Truth Weather Audit | 12.1 | NASA POWER weather inputs treated as uncalibrated ground truth without empirical error bounds | Critical | Built empirical validation harness (`lib/validation/`, `scripts/validation/weather.run.ts`) comparing 10 years of POWER against 5 NOAA GHCN-Daily stations (2015–2024). Documented 51% rain underestimation in Dry Zone and coastal maritime temperature distortion |
+| Organism-Specific Disease Breaks | 7.3 | Family-level taxonomy failed to distinguish distinct pathogen carryovers (e.g. *Rhizoctonia solani* shared across Poaceae and Fabaceae) | High | Integrated explicit pathogen catalog (`lib/data/crops/host-organisms.ts`) tracking carryover modes (soil-borne, vector-borne, host-specific wilt) and specific host pairings |
+| Multi-Year Wilt Return Intervals | 7.3.2 | No check on recurrence intervals for persistent soil vascular wilts (*Fusarium oxysporum* f. sp. *ciceris*, *F. udum*) | High | Implemented return interval evaluation ($n / k \ge 3\text{ years}$): flags recurrence within minimum break window and raises hard veto upon confirmed field wilt history |
+| Weather-Driven Disease Risk | 7.3.3 | Disease alerts decoupled from microclimate and historical weather spells | Medium | Replayed 10-season daily weather for consecutive favourable pathogen spells (`lib/data/crops/weather-disease-rules.ts`, `lib/engine/pest-outlook.ts`), calculating seasonal frequency and peak vulnerability months |
+| Regional Benchmark Income Anchor | 8.2 | Margin utility used relative scaling ($\min$-$\max$) among compared options, causing scores to fluctuate when options were added or removed | High | Bound margin utility to a fixed regional anchor ($u = \text{clip}(M_{\text{mid}} / M_{\text{bench}}, 0, 1)$) derived from calibrated regional market rotations (Ayeyarwady, Magway, Shan). Guarantees independence of irrelevant alternatives (IIA) |
+| Source Reliability Cautions | 10.1.1 | Farmers in Dry Zone received unannotated rainfall totals despite known $-51\%$ satellite reanalysis bias | High | Added contextual source reliability banners (`lib/validation/source-checks.ts`) warning of potential drought-stress overstatement when replaying Central Dry Zone rainfed crops |
+
+### 12.9.3 Version 3.2
+
+Version 3.2 extends Version 3.1 with comprehensive upgrades in soil-column compartmentalization, dynamic evapotranspirative depletion, multi-year disease cycle detection, residue nitrogen kinetics, and water-deficit economic response.
+
+| Workstream | Section | v3.1 / Baseline Defect | Severity | v3.2 Resolution |
+| --- | --- | --- | --- | --- |
+| Three-Zone Hydrology | 4.2.2 | Two-zone column averaged moisture during seedling contraction, masking seedbed desiccation | Critical | Dedicated 3-zone non-overlapping column ($Z_1$ seedbed, $Z_2$ sub-seedbed, $Z_3$ buffer) with perched water table over plough pan, conserved to $\le 10^{-9}\text{ mm}$ |
+| Post-Paddy Drainage Window | 4.2.3 | Post-paddy turnaround assumed instant field capacity without evaluating sowing moisture window | High | Mechanistic post-paddy drainage window model tracking seedbed relative saturation and perched water; returns `field-check-needed` if soil unconfirmed |
+| Dynamic Depletion $p$ | 4.1 | Static depletion fraction $p=0.5$ across all crops | High | Implemented dynamic $p(ET_c) = \text{clamp}(p_{\text{base}} + 0.04(5 - ET_c), 0.1, 0.8)$ per FAO-56 Eq. 84 with species $p_{\text{base}}$ |
+| Acute Climate Hazards | 5.3 | Evaluated temperature envelope over whole-season mean; missed acute flowering rain | High | Stage-aware acute reproductive hazards: heat shock ($>35^\circ\text{C}$), cold sterility, and excess rainfall thresholds at flowering (e.g. 10 mm/d) |
+| Residue Nitrogen Kinetics | 7.2.1 | Nitrogen balance lacked selectable residue fates and first-season mineralization kinetics | Medium | Added `residueFate` (`retain_incorporate`, `retain_mulch`, `remove_fodder`, `burn`), C:N immobilisation penalty (<21d turnaround), and 25–40% first-season legume N release |
+| Multi-Year Disease Breaks | 7.3.1 | Pest sequence only checked adjacent slots $(t-1 \to t)$; missed multi-year recurrence in same seasonal window | Medium | Added multi-year recurrence detector tracking same-family cultivation in identical seasonal slots (e.g., post-monsoon legumes across consecutive years) |
+| Water-Limited Economics | 9.6 | Margins decoupled from hydrological deficit; risk of false precision if Ky uncalibrated | High | Integrated FAO-33 / FAO-66 $K_y$ yield response factor $\phi = \text{clamp}(1 - K_y(1 - ET_a/ET_m), 0, 1)$ strictly for documented species; returns `unquantified` if uncalibrated |
+
+#### Reference Implementation Conformance Notes
+
+1. **Organic matter is in percent.** The Saxton-Rawls equations are fitted with organic matter in percent by weight. Organic matter is therefore $OM_{\%} = 0.1724 \cdot SOC_{\text{g/kg}}$ (that is, $1.724 \cdot SOC_{\text{g/kg}} / 10$). The mass-fraction form $0.001724 \cdot SOC_{\text{g/kg}}$ reduces the organic-matter terms a hundredfold and understates the $AWC$ of a typical loam (sand $40\%$, clay $20\%$, $OM$ $2.5\%$) by about $8\%$ ($131$ against $143\text{ mm}\cdot\text{m}^{-1}$).
+2. **SoilGrids units.** The live ISRIC service reports `wv0033` and `wv1500` with $d_{\text{factor}} = 10$ in units of $10^{-2}\text{ cm}^3\cdot\text{cm}^{-3}$. The implementation reads the response's own unit string, divides by $d_{\text{factor}}$ and then by $100$ (a net divisor of $1000$ from the raw integer), and rejects a layer whose units it does not recognise.
+3. **Anchors are analyst assumptions.** The targets and limits of Section 8.2 are labelled as such in the implementation and are to be tuned with local validation.
+4. **Cultivar thermal thresholds are not yet in the crop library.** Until a cultivar supplies $GDD_{\text{req},k}$, Section 5.2.1 falls back to the Hamilton-Hare calendar split for that crop, and each replayed season records which basis it used.
+5. **Non-imputation of Ky.** For crops without peer-reviewed species $K_y$ (e.g., black gram, green gram), water response is reported as *unquantified physical risk* rather than inventing a speculative coefficient.
+
+---
 
 ---
 
